@@ -48,44 +48,59 @@ func (s *sessionState) handleLine(line string) presentation.Event {
 	trimmed := strings.TrimSpace(line)
 
 	if trimmed == "" {
-		return presentation.SystemMessageEvent{Message: "你没有输入任何内容"}
+		return presentation.SystemMessageEvent{MessageKey: "system.empty_input"}
 	}
 	if trimmed == "look" {
 		return roomObservationEvent(s.game, s.currentRoom)
 	}
 	if trimmed == "help" {
-		return presentation.SystemMessageEvent{Message: "可用命令: look, go <direction>, get <item>, drop <item>, inventory, help\n方向: north/n/北, south/s/南"}
+		return presentation.SystemMessageEvent{MessageKey: "system.help"}
 	}
 	if remainder, ok := strings.CutPrefix(trimmed, "go "); ok {
 		direction := normalizeDirection(strings.TrimSpace(remainder))
 		nextRoom, ok := s.game.Move(s.currentRoom, direction)
 		if !ok {
-			return presentation.SystemMessageEvent{Message: "你不能往那个方向走。"}
+			return presentation.SystemMessageEvent{MessageKey: "system.move.blocked"}
 		}
 		s.currentRoom = nextRoom
 		return roomObservationEvent(s.game, s.currentRoom)
 	}
 	if remainder, ok := strings.CutPrefix(trimmed, "get "); ok {
 		itemName := strings.TrimSpace(remainder)
-		_, ok := s.game.GetItem(s.currentRoom, itemName, s.playerID)
+		itemID, ok := s.game.GetItem(s.currentRoom, itemName, s.playerID)
 		if !ok {
-			return presentation.SystemMessageEvent{Message: "这里没有那个东西。"}
+			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
 		}
-		return presentation.SystemMessageEvent{Message: "你拿起了" + itemName + "。"}
+		return presentation.SystemMessageEvent{
+			MessageKey: "system.item.taken",
+			Fields: map[string]string{
+				"item": string(itemID),
+			},
+		}
 	}
 	if trimmed == "inventory" {
 		return presentation.InventoryEvent{Items: itemIDStrings(s.game.InventoryItemIDs(s.playerID))}
 	}
 	if remainder, ok := strings.CutPrefix(trimmed, "drop "); ok {
 		itemName := strings.TrimSpace(remainder)
-		ok := s.game.DropItemByName(s.currentRoom, itemName, s.playerID)
+		itemID, ok := s.game.DropItemByName(s.currentRoom, itemName, s.playerID)
 		if !ok {
-			return presentation.SystemMessageEvent{Message: "你没有那个东西。"}
+			return presentation.SystemMessageEvent{MessageKey: "system.item.not_carried"}
 		}
-		return presentation.SystemMessageEvent{Message: "你放下了" + itemName + "。"}
+		return presentation.SystemMessageEvent{
+			MessageKey: "system.item.dropped",
+			Fields: map[string]string{
+				"item": string(itemID),
+			},
+		}
 	}
 
-	return presentation.SystemMessageEvent{Message: "你输入了: " + line}
+	return presentation.SystemMessageEvent{
+		MessageKey: "system.unknown_command",
+		Fields: map[string]string{
+			"input": line,
+		},
+	}
 }
 
 func normalizeDirection(direction string) string {
@@ -102,7 +117,7 @@ func normalizeDirection(direction string) string {
 func roomObservationEvent(game *world.World, roomID world.RoomID) presentation.Event {
 	observation, ok := game.Look(roomID)
 	if !ok {
-		return presentation.SystemMessageEvent{Message: "你迷失在不存在的地方。"}
+		return presentation.SystemMessageEvent{MessageKey: "system.room.missing"}
 	}
 	return presentation.RoomObservationEvent{
 		Room:           string(observation.Room),

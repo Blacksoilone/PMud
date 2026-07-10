@@ -21,7 +21,7 @@ func (w *World) DropItem(roomID RoomID, itemID ItemID) {
 	w.itemLocations[itemID] = RoomItemLocation{RoomID: roomID}
 }
 
-func (w *World) DropItemByName(roomID RoomID, name string, playerID PlayerID) bool {
+func (w *World) DropItemByName(roomID RoomID, name string, playerID PlayerID) (ItemID, bool) {
 	for _, itemID := range w.itemsInInventory(playerID) {
 		item, ok := w.items[itemID]
 		if !ok {
@@ -32,10 +32,10 @@ func (w *World) DropItemByName(roomID RoomID, name string, playerID PlayerID) bo
 		}
 
 		w.DropItem(roomID, itemID)
-		return true
+		return itemID, true
 	}
 
-	return false
+	return "", false
 }
 
 func (w *World) ItemName(itemID ItemID) (string, bool) {

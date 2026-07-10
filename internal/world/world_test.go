@@ -72,11 +72,14 @@ func TestWorld_ItemMovesBetweenRoomAndInventory(t *testing.T) {
 	}
 
 	// When
-	ok = game.DropItemByName(startRoom, "旧油灯", playerID)
+	droppedItemID, ok := game.DropItemByName(startRoom, "旧油灯", playerID)
 
 	// Then
 	if !ok {
 		t.Fatal("expected to drop old lantern")
+	}
+	if droppedItemID != itemID {
+		t.Fatalf("expected dropped item %q, got %q", itemID, droppedItemID)
 	}
 	observation, ok = game.Look(startRoom)
 	if !ok {

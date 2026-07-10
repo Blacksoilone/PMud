@@ -52,9 +52,31 @@ func renderInventory(event protocol.Event, catalog content.ClientCatalog) string
 
 func renderSystem(event protocol.Event, catalog content.ClientCatalog) string {
 	if messageKey := event.Fields["message_key"]; messageKey != "" {
-		return text(catalog, messageKey) + "\n"
+		return applyFields(text(catalog, messageKey), event.Fields, catalog) + "\n"
 	}
 	return event.Fields["message"] + "\n"
+}
+
+func applyFields(template string, fields map[string]string, catalog content.ClientCatalog) string {
+	result := template
+	for name, value := range fields {
+		if name == "message_key" {
+			continue
+		}
+		result = strings.ReplaceAll(result, "{"+name+"}", fieldText(name, value, catalog))
+	}
+	return result
+}
+
+func fieldText(name string, value string, catalog content.ClientCatalog) string {
+	if name != "item" {
+		return value
+	}
+	nameKey, ok := catalog.ItemNames[content.ItemID(value)]
+	if !ok {
+		return value
+	}
+	return text(catalog, string(nameKey))
 }
 
 func itemNames(catalog content.ClientCatalog, itemIDs string) []string {

@@ -22,10 +22,28 @@ func TestSessionHelp_returnsCommandSummary(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected system message, got %T", event)
 	}
-	for _, command := range []string{"look", "go <direction>", "get <item>", "drop <item>", "inventory", "help"} {
-		if !strings.Contains(message.Message, command) {
-			t.Fatalf("expected help to mention %q, got %q", command, message.Message)
-		}
+	if message.MessageKey != "system.help" {
+		t.Fatalf("expected help message key, got %q", message.MessageKey)
+	}
+}
+
+func TestSessionUnknownCommand_returnsMessageKeyWithInput(t *testing.T) {
+	// Given
+	state := newTestSessionState()
+
+	// When
+	event := state.handleLine("dance")
+
+	// Then
+	message, ok := event.(presentation.SystemMessageEvent)
+	if !ok {
+		t.Fatalf("expected system message, got %T", event)
+	}
+	if message.MessageKey != "system.unknown_command" {
+		t.Fatalf("expected unknown command message key, got %q", message.MessageKey)
+	}
+	if message.Fields["input"] != "dance" {
+		t.Fatalf("expected input field, got %q", message.Fields["input"])
 	}
 }
 

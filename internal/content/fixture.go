@@ -40,6 +40,15 @@ func TutorialSource() ContentSource {
 			"room.tutorial.yard.description":    "几根木桩立在泥地上，地面满是被踩出的脚印。",
 			"item.tutorial.old_lantern.name":    "旧油灯",
 			"item.tutorial.practice_sword.name": "练习木剑",
+			"system.empty_input":                "你没有输入任何内容",
+			"system.help":                       "可用命令: look, go <direction>, get <item>, drop <item>, inventory, help\n方向: north/n/北, south/s/南",
+			"system.move.blocked":               "你不能往那个方向走。",
+			"system.item.not_here":              "这里没有那个东西。",
+			"system.item.taken":                 "你拿起了{item}。",
+			"system.item.not_carried":           "你没有那个东西。",
+			"system.item.dropped":               "你放下了{item}。",
+			"system.unknown_command":            "未知命令: {input}",
+			"system.room.missing":               "你迷失在不存在的地方。",
 		},
 	}
 }

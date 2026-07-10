@@ -5,13 +5,33 @@ import "testing"
 func TestTextRenderer_RenderSystemMessageEvent_asStructuredLine(t *testing.T) {
 	// Given
 	renderer := TextRenderer{}
-	event := SystemMessageEvent{Message: "你没有输入任何内容"}
+	event := SystemMessageEvent{MessageKey: "system.empty_input"}
 
 	// When
 	got := renderer.Render(event)
 
 	// Then
-	want := "event=system\tmessage=你没有输入任何内容\n"
+	want := "event=system\tmessage_key=system.empty_input\n"
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestTextRenderer_RenderSystemMessageEvent_withFieldsAsStructuredLine(t *testing.T) {
+	// Given
+	renderer := TextRenderer{}
+	event := SystemMessageEvent{
+		MessageKey: "system.item.taken",
+		Fields: map[string]string{
+			"item": "item.tutorial.old_lantern",
+		},
+	}
+
+	// When
+	got := renderer.Render(event)
+
+	// Then
+	want := "event=system\tmessage_key=system.item.taken\titem=item.tutorial.old_lantern\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
@@ -73,13 +93,18 @@ func TestTextRenderer_RenderInventoryEvent_withoutItemsAsStructuredLine(t *testi
 func TestTextRenderer_RenderEscapesFieldSeparators(t *testing.T) {
 	// Given
 	renderer := TextRenderer{}
-	event := SystemMessageEvent{Message: "第一行\n第二行\t反斜杠\\"}
+	event := SystemMessageEvent{
+		MessageKey: "system.escaped",
+		Fields: map[string]string{
+			"input": "第一行\n第二行\t反斜杠\\",
+		},
+	}
 
 	// When
 	got := renderer.Render(event)
 
 	// Then
-	want := "event=system\tmessage=第一行\\n第二行\\t反斜杠\\\\\n"
+	want := "event=system\tmessage_key=system.escaped\tinput=第一行\\n第二行\\t反斜杠\\\\\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}

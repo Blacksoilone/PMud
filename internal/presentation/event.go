@@ -5,7 +5,9 @@ type Event interface {
 }
 
 type SystemMessageEvent struct {
-	Message string
+	MessageKey string
+	Fields     map[string]string
+	Message    string
 }
 
 func (e SystemMessageEvent) EventKind() string {
