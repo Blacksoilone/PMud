@@ -1,6 +1,7 @@
 package session
 
 import (
+	"PMud/internal/command"
 	"PMud/internal/presentation"
 	"bufio"
 	"io"
@@ -12,9 +13,14 @@ func handleConn(conn net.Conn) error {
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
 		line := scanner.Text()
-		event := presentation.EchoEvent{Line: line}
+		cmd := command.Parse(line)
+
+		event := presentation.InputDebugEvent{
+			Verb: cmd.Verb,
+			Args: cmd.Args,
+		}
 		renderer := presentation.TextRenderer{}
-		response := renderer.Render(event)
+		response := renderer.RenderInputDebug(event)
 		_, err := io.WriteString(conn, response)
 		if err != nil {
 			return err
