@@ -1,5 +1,7 @@
 package world
 
+import "PMud/internal/content"
+
 type RoomObservation struct {
 	Name        string
 	Description string
@@ -38,6 +40,7 @@ type InventoryItemLocation struct {
 func (InventoryItemLocation) itemLocation() {}
 
 type World struct {
+	startRoom     RoomID
 	rooms         map[RoomID]Room
 	items         map[ItemID]Item
 	itemLocations map[ItemID]ItemLocation
@@ -45,6 +48,7 @@ type World struct {
 
 func New() *World {
 	return &World{
+		startRoom: "room.tutorial.start",
 		rooms: map[RoomID]Room{
 			"room.tutorial.start": {
 				Name:        "练习场入口",
@@ -80,8 +84,44 @@ func New() *World {
 	}
 }
 
+func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCatalog) *World {
+	rooms := make(map[RoomID]Room, len(snapshot.Rooms))
+	for roomID, room := range snapshot.Rooms {
+		exits := make(map[string]RoomID, len(room.Exits))
+		for direction, targetRoomID := range room.Exits {
+			exits[string(direction)] = RoomID(targetRoomID)
+		}
+
+		nameKey := catalog.RoomNames[roomID]
+		descriptionKey := catalog.RoomDescriptions[roomID]
+		rooms[RoomID(roomID)] = Room{
+			Name:        catalog.Text[nameKey],
+			Description: catalog.Text[descriptionKey],
+			Exits:       exits,
+		}
+	}
+
+	items := make(map[ItemID]Item, len(snapshot.Items))
+	for itemID := range snapshot.Items {
+		nameKey := catalog.ItemNames[itemID]
+		items[ItemID(itemID)] = Item{Name: catalog.Text[nameKey]}
+	}
+
+	itemLocations := make(map[ItemID]ItemLocation, len(snapshot.ItemLocations))
+	for itemID, roomID := range snapshot.ItemLocations {
+		itemLocations[ItemID(itemID)] = RoomItemLocation{RoomID: RoomID(roomID)}
+	}
+
+	return &World{
+		startRoom:     RoomID(snapshot.StartRoomID),
+		rooms:         rooms,
+		items:         items,
+		itemLocations: itemLocations,
+	}
+}
+
 func (w *World) StartRoom() RoomID {
-	return "room.tutorial.start"
+	return w.startRoom
 }
 
 func (w *World) Look(roomID RoomID) (RoomObservation, bool) {

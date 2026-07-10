@@ -1,9 +1,51 @@
 package world
 
 import (
+	"PMud/internal/content"
 	"slices"
 	"testing"
 )
+
+func TestWorld_NewFromSnapshotPreservesTutorialBehavior(t *testing.T) {
+	// Given
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	game := NewFromSnapshot(compiled.Server, compiled.Client)
+	playerID := PlayerID("player.local")
+
+	// When
+	observation, ok := game.Look(game.StartRoom())
+
+	// Then
+	if !ok {
+		t.Fatal("expected start room to exist")
+	}
+	if observation.Name != "练习场入口" {
+		t.Fatalf("expected start room name, got %q", observation.Name)
+	}
+	if !slices.Contains(observation.Items, "旧油灯") {
+		t.Fatalf("expected old lantern in start room, got %v", observation.Items)
+	}
+	nextRoom, ok := game.Move(game.StartRoom(), "north")
+	if !ok {
+		t.Fatal("expected north movement to work")
+	}
+	if nextRoom != "room.tutorial.yard" {
+		t.Fatalf("expected yard room, got %q", nextRoom)
+	}
+	itemID, ok := game.GetItem(game.StartRoom(), "旧油灯", playerID)
+	if !ok {
+		t.Fatal("expected to get old lantern")
+	}
+	if itemID != "item.tutorial.old_lantern" {
+		t.Fatalf("expected old lantern id, got %q", itemID)
+	}
+	if !slices.Contains(game.Inventory(playerID), "旧油灯") {
+		t.Fatalf("expected old lantern in inventory, got %v", game.Inventory(playerID))
+	}
+}
 
 func TestWorld_ItemMovesBetweenRoomAndInventory(t *testing.T) {
 	// Given
