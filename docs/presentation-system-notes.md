@@ -157,6 +157,67 @@ server -> client:
 
 > 长期传输倾向 WebSocket + JSON 事件流。二进制命令/事件协议后置到 schema 稳定之后。
 
+## 客户端纯渲染与资源包边界
+
+长期客户端应是纯渲染层。客户端可以保存整个游戏的显示资源包，但不保存世界关系、规则、隐藏条件或当前世界状态。
+
+```text
+client owns:
+  text resources
+  i18n catalogs
+  style/theme choices
+  layout and TUI rendering
+  input editing and local aliases
+
+server owns:
+  world graph
+  tags and entity composition
+  rules and requirements
+  random rolls and combat resolution
+  hidden exits and reveal conditions
+  player/NPC/item state
+  observation filtering
+```
+
+这意味着客户端资源包可以包含未来可能出现的文本：
+
+```text
+room.hidden_cave.name = 隐藏洞窟
+room.hidden_cave.description = 墙后传来潮湿的风。
+item.old_lantern.name = 旧油灯
+npc.old_guard.hint_01 = 老守卫低声说：夜里别靠近井边。
+```
+
+但这些文本本身不携带相互关系。玩家即使解包资源，也只得到散页词典：知道某个 key 对应什么显示内容，不知道它什么时候出现、由哪个 tag/provider 暴露、从哪里进入、需要什么条件、会触发什么规则。
+
+客户端不应收到或内置：
+
+```text
+room.hidden_cave.enter_from = room.tutorial.start
+room.hidden_cave.requires = item.rusty_key
+drop.goblin_king.legendary_sword.probability = 0.001
+tag.secret_wall.providers = hidden_cave_exit
+```
+
+这些属于服务端世界事实和规则。服务端只在玩家当前可观察时，向客户端发送可观察对象的 id、资源 key 和必要状态 hint。
+
+```text
+event=room_observed
+room=room.tutorial.start
+name_key=room.tutorial.start.name
+description_key=room.tutorial.start.description
+exits=north
+items=item.old_lantern
+```
+
+客户端根据 `*_key` 查本地资源表，再选择如何展示。改变语言、字体、边框、地图样式、列表布局或无障碍呈现，都只改客户端和资源包，不要求服务端准备多套输出。
+
+原则：
+
+> Client owns text resources and rendering. Server owns world graph, rules, state, and observation filtering.
+
+> 客户端资源泄露的上限是剧透文本；真正需要保护的是未观察世界事实不要下发。
+
 ## TUI 输入原则
 
 固定 TUI 客户端不等于按钮游戏。第一版不依赖鼠标事件；所有操作原则上都应能通过文字命令完成。
