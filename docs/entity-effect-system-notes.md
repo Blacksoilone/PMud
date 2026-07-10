@@ -758,8 +758,8 @@ burn_intensity=123
 
 ```text
 Provider
-  来自 entity 自身、tag state、attachment、equipment、status effect、environment
-  提供 tags、capabilities、stats、behaviors、modifiers
+  来自 entity 自身、part、modifier、equipment、status effect、environment
+  提供 scoped facts，并通过 projection 产生 tags、capabilities、stats、behaviors、modifiers
 ```
 
 系统操作时不直接看原始实体，而是看解析后的 `EffectiveView(entity)`：
@@ -767,6 +767,7 @@ Provider
 ```text
 EffectiveView
   汇总所有 provider
+  计算 explicit projections
   计算 effective tags
   计算 effective capabilities
   计算 effective stats
@@ -795,7 +796,7 @@ EffectiveView
   涂油布条 attached_to 铁棍
 ```
 
-铁棍本身不需要燃烧字段。但通过 attachment provider，`EffectiveView(铁棍)` 可以表现为：
+铁棍本身不需要燃烧字段。但通过 modifier/provider 的显式投影，`EffectiveView(铁棍)` 可以表现为：
 
 ```text
 tags: [棍状, 金属, 固体, 可燃]
@@ -804,6 +805,77 @@ fuel_amount: 来自涂油布条
 ```
 
 燃料烧完时，消耗的是涂油布条上的运行状态，而不是铁棍本体。
+
+重要边界：tag 不自动冒泡。part、modifier、贴附物或装备上的 tag 是局部事实；它们不会因为存在于某个对象上，就自动成为 host、entity、bearer 或 world 的 tag。
+
+跨层影响必须通过明确 projection channel 声明目标作用域：
+
+```text
+description projection:
+  影响观察和描述 facet
+
+combat/stat projection:
+  影响实体作为武器、护甲、工具时的最终数值或战斗效果
+
+bearer projection:
+  只有被持有、装备或携带时影响 actor
+
+social/faction projection:
+  影响其他实体或阵营如何看待 bearer
+
+interaction/restriction projection:
+  暴露、禁止或修改可用动作
+```
+
+例如一把剑的 blade 上涂有圣徒血，grip 上缠有龙皮：
+
+```text
+entity=item.custom_sword
+identity:
+  weapon.sword
+  equipable.hand
+
+parts:
+  blade:
+    tags: [part.blade, material.steel, sharp]
+    modifiers:
+      coating=modifier.saint_blood
+
+  grip:
+    tags: [part.grip, grippable]
+    modifiers:
+      wrap=modifier.dragonhide
+
+modifier.saint_blood:
+  local_facets: [holy, bloody, profane]
+  projections:
+    description:
+      part.blade += blade.coated.saint_blood
+    combat:
+      entity.weapon_effect += damage_multiplier(target.alignment.evil, 2)
+    social:
+      bearer.visible_facet += profane_blood_bearer
+      faction.church.reaction -= severe
+
+modifier.dragonhide:
+  local_facets: [draconic, magical, tough]
+  projections:
+    description:
+      part.grip += grip.wrapped.dragonhide
+    stats:
+      entity.handling += 2
+      entity.durability += 5
+    bearer:
+      while_held.actor.mana_regen += 1
+```
+
+这里 `holy`、`bloody`、`profane`、`magical` 都不是自动加入整把剑或玩家的 tag。真正跨层传播的是 modifier 定义的 projection。这样可以避免“剑柄是龙皮，所以玩家成为 magical entity”或“圣徒血的所有性质污染整把剑”的错误。
+
+原则：
+
+> Local facts stay local. Effects cross scopes only through explicit projections.
+
+> Tag 不冒泡；projection 才跨层传播。
 
 ## 合成与贴附
 
@@ -970,6 +1042,39 @@ and Combustible.flame_temperature < 0
 > 配方隐藏的不是随机答案，而是可推理的结构。
 
 复杂配方是内容设计，不是日常负担。底层支持属性 predicate，但普通玩法不应滥用它。
+
+### Part、Socket 与贴附
+
+原先泛化的“贴附”不应承担所有组成关系。更干净的长期模型是：
+
+```text
+part:
+  实体的内在组成，例如剑刃、剑柄、配重环、灯芯、锁芯。
+
+socket:
+  part 或 entity 暴露的可插拔接口，例如宝石槽、符文槽、涂层槽、缠绕槽。
+
+modifier/socket state:
+  装上后不必作为独立实体存在的状态，例如 MMO 风格宝石、强化、涂层、圣徒血、龙皮缠绕。
+```
+
+对象的根本身份不由 part 反向推导。一个 `weapon.sword` 可以替换剑刃、剑柄和配重环，但系统不尝试根据这些 part 动态判断它现在是不是锤子。这样牺牲一部分物理真实性，换取内容和规则可控。
+
+普通对象不强制拆 part。只有局部差异影响描述、规则或交互时才拆：
+
+```text
+普通铁剑:
+  identity: weapon.sword
+  facets: material.iron
+
+光剑:
+  identity: weapon.sword
+  parts:
+    handle: [material.metal, state.solid]
+    blade: [material.plasma, state.energy, luminous]
+```
+
+part 是作用域，不是 tag 命名膨胀。不要创造 `blade_material_plasma`、`grip_material_dragonhide` 这类 tag；使用同一套 tag，挂在不同 part scope 上。
 
 ### 贴附
 
