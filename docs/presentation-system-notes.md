@@ -218,6 +218,79 @@ items=item.old_lantern
 
 > 客户端资源泄露的上限是剧透文本；真正需要保护的是未观察世界事实不要下发。
 
+## 多 facet 描述组合
+
+描述资源不能假设“一字段对应一句描述”。很多高质量 MUD 文本来自多个可观察 facet 的融合，而不是机械列举每个状态。
+
+错误方向：
+
+```text
+weather=sunny  -> 万里无云。
+time=noon      -> 太阳挂在正上方。
+temperature=hot -> 你感到浑身燥热。
+```
+
+直接拼接后会变成：
+
+```text
+万里无云。太阳挂在正上方。你感到浑身燥热。
+```
+
+更好的表达是由多个 facet 命中一个融合描述：
+
+```text
+facets = [weather.sunny, time.noon, temperature.hot]
+  -> atmosphere.sunny_noon_hot
+  -> 万里无云，正午的阳光晒得地面发白。
+```
+
+长期模型：服务端发送当前玩家可观察到的 facets；客户端不自由创作文本，而是使用 content compiler 生成的组合索引选择 prose key。
+
+```text
+server event:
+  weather=weather.sunny
+  time=time.noon
+  temperature=temperature.hot
+
+client compiled lookup:
+  [weather.sunny, time.noon, temperature.hot]
+    -> atmosphere.sunny_noon_hot
+
+client catalog:
+  atmosphere.sunny_noon_hot = 万里无云，正午的阳光晒得地面发白。
+```
+
+如果最具体组合不存在，客户端按编译好的降级规则查较小组合或 fragment。这个过程仍然是查表，不是运行时 NLG。
+
+```text
+1. [weather.sunny, time.noon, temperature.hot]
+2. [weather.sunny, time.noon]
+3. [weather.sunny, temperature.hot]
+4. [time.noon, temperature.hot]
+5. single-facet fragments
+```
+
+同样原则适用于物品观察深度：
+
+```text
+server event:
+  item=item.iron_sword
+  view=detail.brief
+  condition=condition.rusty
+
+client compiled lookup:
+  [item.iron_sword, detail.brief, condition.rusty]
+    -> item.iron_sword.description.brief_rusty
+```
+
+服务端仍负责观察裁剪，例如玩家只能看到 `detail.brief` 而不是 `detail.full`。客户端负责把这些可观察 facet 通过资源包表达成自然文本。
+
+原则：
+
+> Server sends observable facets. Client selects prose through compiler-generated lookup tables. Client does not invent prose at runtime.
+
+> 会影响交互、布局或玩家选择的事实应作为字段发送；多个显示 facet 可以共同选择一个描述资源；不要为了方便同时发送等价的最终 key 和组成 facets。
+
 ## TUI 输入原则
 
 固定 TUI 客户端不等于按钮游戏。第一版不依赖鼠标事件；所有操作原则上都应能通过文字命令完成。
