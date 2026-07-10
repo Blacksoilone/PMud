@@ -17,6 +17,12 @@ func handleConn(conn net.Conn, game *world.World) error {
 		currentRoom: game.StartRoom(),
 		playerID:    "player.local",
 	}
+	initialResponse := renderer.Render(roomObservationEvent(state.game, state.currentRoom))
+	_, err := io.WriteString(conn, initialResponse)
+	if err != nil {
+		return err
+	}
+
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
 		event := state.handleLine(scanner.Text())
@@ -47,8 +53,11 @@ func (s *sessionState) handleLine(line string) presentation.Event {
 	if trimmed == "look" {
 		return roomObservationEvent(s.game, s.currentRoom)
 	}
+	if trimmed == "help" {
+		return presentation.SystemMessageEvent{Message: "可用命令: look, go <direction>, get <item>, drop <item>, inventory, help\n方向: north/n/北, south/s/南"}
+	}
 	if remainder, ok := strings.CutPrefix(trimmed, "go "); ok {
-		direction := strings.TrimSpace(remainder)
+		direction := normalizeDirection(strings.TrimSpace(remainder))
 		nextRoom, ok := s.game.Move(s.currentRoom, direction)
 		if !ok {
 			return presentation.SystemMessageEvent{Message: "你不能往那个方向走。"}
@@ -77,6 +86,17 @@ func (s *sessionState) handleLine(line string) presentation.Event {
 	}
 
 	return presentation.SystemMessageEvent{Message: "你输入了: " + line}
+}
+
+func normalizeDirection(direction string) string {
+	switch direction {
+	case "n", "北":
+		return "north"
+	case "s", "南":
+		return "south"
+	default:
+		return direction
+	}
 }
 
 func roomObservationEvent(game *world.World, roomID world.RoomID) presentation.Event {

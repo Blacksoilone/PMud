@@ -7,34 +7,35 @@ type TextRenderer struct{}
 func (TextRenderer) Render(event Event) string {
 	switch e := event.(type) {
 	case SystemMessageEvent:
-		return e.Message + "\n"
+		return line("system", field("message", e.Message))
 	case RoomObservationEvent:
-		var builder strings.Builder
-		builder.WriteString(e.Name)
-		builder.WriteString("\n")
-		builder.WriteString(e.Description)
-		builder.WriteString("\n")
-		if len(e.Exits) > 0 {
-			builder.WriteString("出口: ")
-			builder.WriteString(strings.Join(e.Exits, ", "))
-			builder.WriteString("\n")
-		}
-		if len(e.Items) > 0 {
-			builder.WriteString("你看到: ")
-			builder.WriteString(strings.Join(e.Items, ", "))
-			builder.WriteString("\n")
-		}
-		return builder.String()
+		return line(
+			"room",
+			field("name", e.Name),
+			field("description", e.Description),
+			field("exits", strings.Join(e.Exits, ",")),
+			field("items", strings.Join(e.Items, ",")),
+		)
 	case InventoryEvent:
-		if len(e.Items) == 0 {
-			return "你什么也没有带。\n"
-		}
-		var builder strings.Builder
-		builder.WriteString("你带着: ")
-		builder.WriteString(strings.Join(e.Items, ", "))
-		builder.WriteString("\n")
-		return builder.String()
+		return line("inventory", field("items", strings.Join(e.Items, ",")))
 	default:
-		return "未知事件类型: " + e.EventKind() + "\n"
+		return line("unknown", field("kind", event.EventKind()))
 	}
+}
+
+func line(eventKind string, fields ...string) string {
+	parts := make([]string, 0, len(fields)+1)
+	parts = append(parts, field("event", eventKind))
+	parts = append(parts, fields...)
+	return strings.Join(parts, "\t") + "\n"
+}
+
+func field(name string, value string) string {
+	return name + "=" + escapeValue(value)
+}
+
+func escapeValue(value string) string {
+	value = strings.ReplaceAll(value, "\\", "\\\\")
+	value = strings.ReplaceAll(value, "\t", "\\t")
+	return strings.ReplaceAll(value, "\n", "\\n")
 }
