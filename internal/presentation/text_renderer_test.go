@@ -21,17 +21,20 @@ func TestTextRenderer_RenderRoomObservationEvent_asStructuredLine(t *testing.T) 
 	// Given
 	renderer := TextRenderer{}
 	event := RoomObservationEvent{
-		Name:        "练习场入口",
-		Description: "这里是练习场的入口。北边传来木剑碰撞的声音。",
-		Exits:       []string{"north"},
-		Items:       []string{"旧油灯"},
+		Room:           "room.tutorial.start",
+		NameKey:        "room.tutorial.start.name",
+		DescriptionKey: "room.tutorial.start.description",
+		Name:           "练习场入口",
+		Description:    "这里是练习场的入口。北边传来木剑碰撞的声音。",
+		Exits:          []string{"north"},
+		Items:          []string{"item.tutorial.old_lantern"},
 	}
 
 	// When
 	got := renderer.Render(event)
 
 	// Then
-	want := "event=room\tname=练习场入口\tdescription=这里是练习场的入口。北边传来木剑碰撞的声音。\texits=north\titems=旧油灯\n"
+	want := "event=room\troom=room.tutorial.start\tname_key=room.tutorial.start.name\tdescription_key=room.tutorial.start.description\texits=north\titems=item.tutorial.old_lantern\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
@@ -40,13 +43,13 @@ func TestTextRenderer_RenderRoomObservationEvent_asStructuredLine(t *testing.T) 
 func TestTextRenderer_RenderInventoryEvent_withItemsAsStructuredLine(t *testing.T) {
 	// Given
 	renderer := TextRenderer{}
-	event := InventoryEvent{Items: []string{"旧油灯", "练习木剑"}}
+	event := InventoryEvent{Items: []string{"item.tutorial.old_lantern", "item.tutorial.practice_sword"}}
 
 	// When
 	got := renderer.Render(event)
 
 	// Then
-	want := "event=inventory\titems=旧油灯,练习木剑\n"
+	want := "event=inventory\titems=item.tutorial.old_lantern,item.tutorial.practice_sword\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}

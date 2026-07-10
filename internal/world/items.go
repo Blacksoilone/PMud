@@ -54,6 +54,10 @@ func (w *World) Inventory(playerID PlayerID) []string {
 	return w.itemNames(w.itemsInInventory(playerID))
 }
 
+func (w *World) InventoryItemIDs(playerID PlayerID) []ItemID {
+	return w.itemsInInventory(playerID)
+}
+
 func (w *World) itemNames(itemIDs []ItemID) []string {
 	names := make([]string, 0, len(itemIDs))
 	for _, itemID := range itemIDs {

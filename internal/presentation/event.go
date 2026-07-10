@@ -13,10 +13,13 @@ func (e SystemMessageEvent) EventKind() string {
 }
 
 type RoomObservationEvent struct {
-	Name        string
-	Description string
-	Exits       []string
-	Items       []string
+	Room           string
+	NameKey        string
+	DescriptionKey string
+	Name           string
+	Description    string
+	Exits          []string
+	Items          []string
 }
 
 func (e RoomObservationEvent) EventKind() string {

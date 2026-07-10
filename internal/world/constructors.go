@@ -7,15 +7,19 @@ func New() *World {
 		startRoom: "room.tutorial.start",
 		rooms: map[RoomID]Room{
 			"room.tutorial.start": {
-				Name:        "练习场入口",
-				Description: "这里是练习场的入口。北边传来木剑碰撞的声音。",
+				NameKey:        "room.tutorial.start.name",
+				DescriptionKey: "room.tutorial.start.description",
+				Name:           "练习场入口",
+				Description:    "这里是练习场的入口。北边传来木剑碰撞的声音。",
 				Exits: map[string]RoomID{
 					"north": "room.tutorial.yard",
 				},
 			},
 			"room.tutorial.yard": {
-				Name:        "练习场",
-				Description: "几根木桩立在泥地上，地面满是被踩出的脚印。",
+				NameKey:        "room.tutorial.yard.name",
+				DescriptionKey: "room.tutorial.yard.description",
+				Name:           "练习场",
+				Description:    "几根木桩立在泥地上，地面满是被踩出的脚印。",
 				Exits: map[string]RoomID{
 					"south": "room.tutorial.start",
 				},
@@ -23,10 +27,12 @@ func New() *World {
 		},
 		items: map[ItemID]Item{
 			"item.tutorial.old_lantern": {
-				Name: "旧油灯",
+				NameKey: "item.tutorial.old_lantern.name",
+				Name:    "旧油灯",
 			},
 			"item.tutorial.practice_sword": {
-				Name: "练习木剑",
+				NameKey: "item.tutorial.practice_sword.name",
+				Name:    "练习木剑",
 			},
 		},
 		itemLocations: map[ItemID]ItemLocation{
@@ -51,16 +57,18 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 		nameKey := catalog.RoomNames[roomID]
 		descriptionKey := catalog.RoomDescriptions[roomID]
 		rooms[RoomID(roomID)] = Room{
-			Name:        catalog.Text[nameKey],
-			Description: catalog.Text[descriptionKey],
-			Exits:       exits,
+			NameKey:        string(nameKey),
+			DescriptionKey: string(descriptionKey),
+			Name:           catalog.Text[nameKey],
+			Description:    catalog.Text[descriptionKey],
+			Exits:          exits,
 		}
 	}
 
 	items := make(map[ItemID]Item, len(snapshot.Items))
 	for itemID := range snapshot.Items {
 		nameKey := catalog.ItemNames[itemID]
-		items[ItemID(itemID)] = Item{Name: catalog.Text[nameKey]}
+		items[ItemID(itemID)] = Item{NameKey: string(nameKey), Name: catalog.Text[nameKey]}
 	}
 
 	itemLocations := make(map[ItemID]ItemLocation, len(snapshot.ItemLocations))

@@ -1,10 +1,14 @@
 package world
 
 type RoomObservation struct {
-	Name        string
-	Description string
-	Exits       []string
-	Items       []string
+	Room           RoomID
+	NameKey        string
+	DescriptionKey string
+	Name           string
+	Description    string
+	Exits          []string
+	ItemIDs        []ItemID
+	Items          []string
 }
 
 type RoomID string
@@ -12,13 +16,16 @@ type ItemID string
 type PlayerID string
 
 type Room struct {
-	Name        string
-	Description string
-	Exits       map[string]RoomID
+	NameKey        string
+	DescriptionKey string
+	Name           string
+	Description    string
+	Exits          map[string]RoomID
 }
 
 type Item struct {
-	Name string
+	NameKey string
+	Name    string
 }
 
 type ItemLocation interface {

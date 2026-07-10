@@ -14,13 +14,18 @@ func (w *World) Look(roomID RoomID) (RoomObservation, bool) {
 	for direction := range room.Exits {
 		exits = append(exits, direction)
 	}
-	items := w.itemNames(w.itemsInRoom(roomID))
+	itemIDs := w.itemsInRoom(roomID)
+	items := w.itemNames(itemIDs)
 
 	return RoomObservation{
-		Name:        room.Name,
-		Description: room.Description,
-		Exits:       exits,
-		Items:       items,
+		Room:           roomID,
+		NameKey:        room.NameKey,
+		DescriptionKey: room.DescriptionKey,
+		Name:           room.Name,
+		Description:    room.Description,
+		Exits:          exits,
+		ItemIDs:        itemIDs,
+		Items:          items,
 	}, true
 }
 

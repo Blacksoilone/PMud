@@ -87,16 +87,19 @@ func TestHandleConn_writesInitialRoomObservation(t *testing.T) {
 	if !strings.HasPrefix(output, "event=room\t") {
 		t.Fatalf("expected initial output to be a room event line, got %q", output)
 	}
-	if !strings.Contains(output, "\tname=练习场入口\t") {
-		t.Fatalf("expected initial output to include start room name field, got %q", output)
+	if !strings.Contains(output, "\troom=room.tutorial.start\t") {
+		t.Fatalf("expected initial output to include start room id field, got %q", output)
 	}
-	if !strings.Contains(output, "\tdescription=这里是练习场的入口。北边传来木剑碰撞的声音。\t") {
-		t.Fatalf("expected initial output to include start room description field, got %q", output)
+	if !strings.Contains(output, "\tname_key=room.tutorial.start.name\t") {
+		t.Fatalf("expected initial output to include start room name key field, got %q", output)
+	}
+	if !strings.Contains(output, "\tdescription_key=room.tutorial.start.description\t") {
+		t.Fatalf("expected initial output to include start room description key field, got %q", output)
 	}
 	if !strings.Contains(output, "\texits=north\t") {
 		t.Fatalf("expected initial output to include exits field, got %q", output)
 	}
-	if !strings.Contains(output, "\titems=旧油灯\n") {
+	if !strings.Contains(output, "\titems=item.tutorial.old_lantern\n") {
 		t.Fatalf("expected initial output to include items field, got %q", output)
 	}
 

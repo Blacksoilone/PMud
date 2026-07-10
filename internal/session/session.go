@@ -74,7 +74,7 @@ func (s *sessionState) handleLine(line string) presentation.Event {
 		return presentation.SystemMessageEvent{Message: "你拿起了" + itemName + "。"}
 	}
 	if trimmed == "inventory" {
-		return presentation.InventoryEvent{Items: s.game.Inventory(s.playerID)}
+		return presentation.InventoryEvent{Items: itemIDStrings(s.game.InventoryItemIDs(s.playerID))}
 	}
 	if remainder, ok := strings.CutPrefix(trimmed, "drop "); ok {
 		itemName := strings.TrimSpace(remainder)
@@ -105,9 +105,20 @@ func roomObservationEvent(game *world.World, roomID world.RoomID) presentation.E
 		return presentation.SystemMessageEvent{Message: "你迷失在不存在的地方。"}
 	}
 	return presentation.RoomObservationEvent{
-		Name:        observation.Name,
-		Description: observation.Description,
-		Exits:       observation.Exits,
-		Items:       observation.Items,
+		Room:           string(observation.Room),
+		NameKey:        observation.NameKey,
+		DescriptionKey: observation.DescriptionKey,
+		Name:           observation.Name,
+		Description:    observation.Description,
+		Exits:          observation.Exits,
+		Items:          itemIDStrings(observation.ItemIDs),
 	}
+}
+
+func itemIDStrings(itemIDs []world.ItemID) []string {
+	items := make([]string, 0, len(itemIDs))
+	for _, itemID := range itemIDs {
+		items = append(items, string(itemID))
+	}
+	return items
 }

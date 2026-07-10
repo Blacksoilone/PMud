@@ -11,8 +11,9 @@ func (TextRenderer) Render(event Event) string {
 	case RoomObservationEvent:
 		return line(
 			"room",
-			field("name", e.Name),
-			field("description", e.Description),
+			field("room", e.Room),
+			field("name_key", e.NameKey),
+			field("description_key", e.DescriptionKey),
 			field("exits", strings.Join(e.Exits, ",")),
 			field("items", strings.Join(e.Items, ",")),
 		)
