@@ -151,3 +151,64 @@ func TestForwardResolvedCommands_writesResolvedItemIDsToServer(t *testing.T) {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
 }
+
+func TestForwardTUILines_redrawsInputAndWritesResolvedCommand(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	state.Observe(protocol.Event{
+		Name: "room",
+		Fields: map[string]string{
+			"items": "item.tutorial.old_lantern",
+		},
+	})
+	input := strings.NewReader("get 旧油灯\n")
+	var screenOutput strings.Builder
+	var serverOutput strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+
+	err = ForwardTUILines(input, &serverOutput, runtime)
+
+	if err != nil {
+		t.Fatalf("ForwardTUILines: %v", err)
+	}
+	if serverOutput.String() != "get item.tutorial.old_lantern\n" {
+		t.Fatalf("server output = %q", serverOutput.String())
+	}
+	got := screenOutput.String()
+	if !strings.Contains(got, "> get 旧油灯") || !strings.Contains(got, "| >") {
+		t.Fatalf("screen output missing submitted or cleared prompt:\n%s", got)
+	}
+}
+
+func TestRenderTUIObservedProtocolLinesWithRuntime_sharesModelWithForwardTUILines(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	serverEvents := strings.NewReader("event=room\troom=room.tutorial.start\tname_key=room.tutorial.start.name\tdescription_key=room.tutorial.start.description\texits=north\titems=item.tutorial.old_lantern\n")
+	input := strings.NewReader("get 旧油灯\n")
+	var screenOutput strings.Builder
+	var serverOutput strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+
+	err = RenderTUIObservedProtocolLinesWithRuntime(serverEvents, runtime)
+	if err != nil {
+		t.Fatalf("RenderTUIObservedProtocolLinesWithRuntime: %v", err)
+	}
+	err = ForwardTUILines(input, &serverOutput, runtime)
+
+	if err != nil {
+		t.Fatalf("ForwardTUILines: %v", err)
+	}
+	if serverOutput.String() != "get item.tutorial.old_lantern\n" {
+		t.Fatalf("server output = %q", serverOutput.String())
+	}
+	got := screenOutput.String()
+	if !strings.Contains(got, "练习场入口") || !strings.Contains(got, "> get 旧油灯") {
+		t.Fatalf("screen output missing shared event history or input:\n%s", got)
+	}
+}

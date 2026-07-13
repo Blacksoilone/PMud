@@ -2,8 +2,6 @@ package client
 
 import (
 	"PMud/internal/client/render"
-	"PMud/internal/client/screen"
-	"PMud/internal/client/tui"
 	"PMud/internal/content"
 	"PMud/internal/protocol"
 	"bufio"
@@ -30,6 +28,23 @@ func RenderTUIObservedProtocolLines(input io.Reader, output io.Writer, state *St
 	return renderTUIProtocolLines(input, output, state, width, historyLimit, true)
 }
 
+func RenderTUIObservedProtocolLinesWithRuntime(input io.Reader, runtime *TUIRuntime) error {
+	scanner := bufio.NewScanner(input)
+	for scanner.Scan() {
+		event, err := protocol.ParseLine(scanner.Text())
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrProtocolLine, err)
+		}
+		if err := runtime.ObserveEvent(event); err != nil {
+			return err
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func renderProtocolLines(input io.Reader, output io.Writer, catalog content.ClientCatalog, state *State) error {
 	scanner := bufio.NewScanner(input)
 	for scanner.Scan() {
@@ -52,8 +67,7 @@ func renderProtocolLines(input io.Reader, output io.Writer, catalog content.Clie
 }
 
 func renderTUIProtocolLines(input io.Reader, output io.Writer, state *State, width int, historyLimit int, observe bool) error {
-	model := tui.NewModel(historyLimit)
-	renderer := screen.NewRenderer(output)
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: output, Width: width, HistoryLimit: historyLimit})
 	scanner := bufio.NewScanner(input)
 	for scanner.Scan() {
 		event, err := protocol.ParseLine(scanner.Text())
@@ -61,10 +75,10 @@ func renderTUIProtocolLines(input io.Reader, output io.Writer, state *State, wid
 			return fmt.Errorf("%w: %w", ErrProtocolLine, err)
 		}
 		if observe {
-			state.Observe(event)
+			err = runtime.ObserveEvent(event)
+		} else {
+			err = runtime.RenderEvent(event)
 		}
-		model = tui.ApplyEvent(model, event)
-		err = renderer.Draw(tui.View(model, state.catalog, width))
 		if err != nil {
 			return err
 		}
@@ -81,6 +95,19 @@ func ForwardCommands(input io.Reader, server io.Writer) error {
 
 func ForwardResolvedCommands(input io.Reader, server io.Writer, state *State) error {
 	return forwardCommands(input, server, state)
+}
+
+func ForwardTUILines(input io.Reader, server io.Writer, runtime *TUIRuntime) error {
+	scanner := bufio.NewScanner(input)
+	for scanner.Scan() {
+		if err := runtime.SubmitLine(scanner.Text(), server); err != nil {
+			return err
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func forwardCommands(input io.Reader, server io.Writer, state *State) error {

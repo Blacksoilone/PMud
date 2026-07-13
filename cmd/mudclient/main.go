@@ -4,7 +4,6 @@ import (
 	"PMud/internal/client"
 	"PMud/internal/content"
 	"fmt"
-	"io"
 	"net"
 	"os"
 )
@@ -34,15 +33,33 @@ func main() {
 		os.Exit(1)
 	}
 	state := client.NewState(compiled.Client)
+	var runtime *client.TUIRuntime
+	if config.tui {
+		runtime = client.NewTUIRuntime(client.TUIRuntimeConfig{
+			State:        state,
+			Output:       os.Stdout,
+			Width:        defaultTUIWidth,
+			HistoryLimit: defaultTUIHistoryLimit,
+		})
+	}
 
 	serverDone := make(chan error, 1)
 	go func() {
-		serverDone <- renderServer(conn, os.Stdout, state, config)
+		if config.tui {
+			serverDone <- client.RenderTUIObservedProtocolLinesWithRuntime(conn, runtime)
+			return
+		}
+		serverDone <- client.RenderObservedProtocolLines(conn, os.Stdout, state)
 	}()
 
 	inputDone := make(chan error, 1)
 	go func() {
-		err := client.ForwardResolvedCommands(os.Stdin, conn, state)
+		var err error
+		if config.tui {
+			err = client.ForwardTUILines(os.Stdin, conn, runtime)
+		} else {
+			err = client.ForwardResolvedCommands(os.Stdin, conn, state)
+		}
 		if tcpConn, ok := conn.(*net.TCPConn); ok {
 			if closeErr := tcpConn.CloseWrite(); err == nil {
 				err = closeErr
@@ -79,11 +96,4 @@ func parseArgs(args []string) config {
 		config.address = arg
 	}
 	return config
-}
-
-func renderServer(input io.Reader, output io.Writer, state *client.State, config config) error {
-	if config.tui {
-		return client.RenderTUIObservedProtocolLines(input, output, state, defaultTUIWidth, defaultTUIHistoryLimit)
-	}
-	return client.RenderObservedProtocolLines(input, output, state)
 }
