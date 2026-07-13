@@ -2,6 +2,7 @@ package client
 
 import (
 	"PMud/internal/client/render"
+	"PMud/internal/client/screen"
 	"PMud/internal/client/tui"
 	"PMud/internal/content"
 	"PMud/internal/protocol"
@@ -52,6 +53,7 @@ func renderProtocolLines(input io.Reader, output io.Writer, catalog content.Clie
 
 func renderTUIProtocolLines(input io.Reader, output io.Writer, state *State, width int, historyLimit int, observe bool) error {
 	model := tui.NewModel(historyLimit)
+	renderer := screen.NewRenderer(output)
 	scanner := bufio.NewScanner(input)
 	for scanner.Scan() {
 		event, err := protocol.ParseLine(scanner.Text())
@@ -62,7 +64,7 @@ func renderTUIProtocolLines(input io.Reader, output io.Writer, state *State, wid
 			state.Observe(event)
 		}
 		model = tui.ApplyEvent(model, event)
-		_, err = io.WriteString(output, tui.View(model, state.catalog, width).String())
+		err = renderer.Draw(tui.View(model, state.catalog, width))
 		if err != nil {
 			return err
 		}

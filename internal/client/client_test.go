@@ -1,6 +1,7 @@
 package client
 
 import (
+	"PMud/internal/client/screen"
 	"PMud/internal/content"
 	"PMud/internal/protocol"
 	"errors"
@@ -82,6 +83,31 @@ func TestRenderTUIObservedProtocolLines_updatesCommandResolution(t *testing.T) {
 	line := state.ResolveCommand("get 旧油灯")
 	if line != "get item.tutorial.old_lantern" {
 		t.Fatalf("resolved command = %q", line)
+	}
+}
+
+func TestRenderTUIObservedProtocolLines_redrawsPerEvent(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	input := strings.NewReader("event=system\tmessage_key=system.help\n" +
+		"event=inventory\titems=item.tutorial.old_lantern\n")
+	var output strings.Builder
+
+	err = RenderTUIObservedProtocolLines(input, &output, state, 48, 3)
+
+	if err != nil {
+		t.Fatalf("RenderTUIObservedProtocolLines: %v", err)
+	}
+	got := output.String()
+	redrawCount := strings.Count(got, screen.FullRedrawPrefix)
+	if redrawCount != 2 {
+		t.Fatalf("redraw count = %d, want 2; output:\n%s", redrawCount, got)
+	}
+	if !strings.Contains(got, "可用命令") || !strings.Contains(got, "你带着: 旧油灯") || !strings.Contains(got, "> ") {
+		t.Fatalf("output missing expected TUI content:\n%s", got)
 	}
 }
 
