@@ -1,0 +1,74 @@
+package client
+
+import (
+	"PMud/internal/client/screen"
+	"PMud/internal/client/tui"
+	"PMud/internal/protocol"
+	"io"
+	"sync"
+)
+
+type TUIRuntimeConfig struct {
+	State        *State
+	Output       io.Writer
+	Width        int
+	HistoryLimit int
+}
+
+type TUIRuntime struct {
+	state    *State
+	model    tui.Model
+	renderer screen.Renderer
+	width    int
+	mu       sync.Mutex
+}
+
+func NewTUIRuntime(config TUIRuntimeConfig) *TUIRuntime {
+	return &TUIRuntime{
+		state:    config.State,
+		model:    tui.NewModel(config.HistoryLimit),
+		renderer: screen.NewRenderer(config.Output),
+		width:    config.Width,
+	}
+}
+
+func (r *TUIRuntime) RenderEvent(event protocol.Event) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.model = tui.ApplyEvent(r.model, event)
+	return r.draw()
+}
+
+func (r *TUIRuntime) ObserveEvent(event protocol.Event) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.state.Observe(event)
+	r.model = tui.ApplyEvent(r.model, event)
+	return r.draw()
+}
+
+func (r *TUIRuntime) SubmitLine(line string, server io.Writer) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.model, _ = tui.ApplyInput(r.model, tui.Input{Kind: tui.InputText, Text: line})
+	if err := r.draw(); err != nil {
+		return err
+	}
+
+	var command tui.Command
+	r.model, command = tui.ApplyInput(r.model, tui.Input{Kind: tui.InputSubmit})
+	if command.Line != "" {
+		resolved := r.state.ResolveCommand(command.Line)
+		if _, err := io.WriteString(server, resolved+"\n"); err != nil {
+			return err
+		}
+	}
+	return r.draw()
+}
+
+func (r *TUIRuntime) draw() error {
+	return r.renderer.Draw(tui.View(r.model, r.state.catalog, r.width))
+}
