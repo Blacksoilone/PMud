@@ -4,19 +4,24 @@ import (
 	"PMud/internal/client"
 	"PMud/internal/content"
 	"fmt"
+	"io"
 	"net"
 	"os"
 )
 
 const defaultAddress = "127.0.0.1:4000"
+const defaultTUIWidth = 80
+const defaultTUIHistoryLimit = 20
+
+type config struct {
+	address string
+	tui     bool
+}
 
 func main() {
-	address := defaultAddress
-	if len(os.Args) > 1 {
-		address = os.Args[1]
-	}
+	config := parseArgs(os.Args)
 
-	conn, err := net.Dial("tcp", address)
+	conn, err := net.Dial("tcp", config.address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -32,7 +37,7 @@ func main() {
 
 	serverDone := make(chan error, 1)
 	go func() {
-		serverDone <- client.RenderObservedProtocolLines(conn, os.Stdout, state)
+		serverDone <- renderServer(conn, os.Stdout, state, config)
 	}()
 
 	inputDone := make(chan error, 1)
@@ -62,4 +67,23 @@ func main() {
 			os.Exit(1)
 		}
 	}
+}
+
+func parseArgs(args []string) config {
+	config := config{address: defaultAddress}
+	for _, arg := range args[1:] {
+		if arg == "--tui" {
+			config.tui = true
+			continue
+		}
+		config.address = arg
+	}
+	return config
+}
+
+func renderServer(input io.Reader, output io.Writer, state *client.State, config config) error {
+	if config.tui {
+		return client.RenderTUIObservedProtocolLines(input, output, state, defaultTUIWidth, defaultTUIHistoryLimit)
+	}
+	return client.RenderObservedProtocolLines(input, output, state)
 }

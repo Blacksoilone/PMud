@@ -2,6 +2,7 @@ package client
 
 import (
 	"PMud/internal/client/render"
+	"PMud/internal/client/tui"
 	"PMud/internal/content"
 	"PMud/internal/protocol"
 	"bufio"
@@ -20,6 +21,14 @@ func RenderObservedProtocolLines(input io.Reader, output io.Writer, state *State
 	return renderProtocolLines(input, output, state.catalog, state)
 }
 
+func RenderTUIProtocolLines(input io.Reader, output io.Writer, state *State, width int, historyLimit int) error {
+	return renderTUIProtocolLines(input, output, state, width, historyLimit, false)
+}
+
+func RenderTUIObservedProtocolLines(input io.Reader, output io.Writer, state *State, width int, historyLimit int) error {
+	return renderTUIProtocolLines(input, output, state, width, historyLimit, true)
+}
+
 func renderProtocolLines(input io.Reader, output io.Writer, catalog content.ClientCatalog, state *State) error {
 	scanner := bufio.NewScanner(input)
 	for scanner.Scan() {
@@ -31,6 +40,29 @@ func renderProtocolLines(input io.Reader, output io.Writer, catalog content.Clie
 			state.Observe(event)
 		}
 		_, err = io.WriteString(output, render.Render(event, catalog))
+		if err != nil {
+			return err
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func renderTUIProtocolLines(input io.Reader, output io.Writer, state *State, width int, historyLimit int, observe bool) error {
+	model := tui.NewModel(historyLimit)
+	scanner := bufio.NewScanner(input)
+	for scanner.Scan() {
+		event, err := protocol.ParseLine(scanner.Text())
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrProtocolLine, err)
+		}
+		if observe {
+			state.Observe(event)
+		}
+		model = tui.ApplyEvent(model, event)
+		_, err = io.WriteString(output, tui.View(model, state.catalog, width).String())
 		if err != nil {
 			return err
 		}
