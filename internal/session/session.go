@@ -80,6 +80,13 @@ func (s *sessionState) handleLine(line string) presentation.Event {
 	if trimmed == "inventory" {
 		return presentation.InventoryEvent{Items: itemIDStrings(s.game.InventoryItemIDs(s.playerID))}
 	}
+	if remainder, ok := strings.CutPrefix(trimmed, "examine "); ok {
+		item, ok := s.game.ExamineItem(s.currentRoom, world.ItemID(strings.TrimSpace(remainder)), s.playerID)
+		if !ok {
+			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
+		}
+		return itemObservationEvent(item)
+	}
 	if remainder, ok := strings.CutPrefix(trimmed, "drop "); ok {
 		itemID, ok := s.game.DropInventoryItem(s.currentRoom, world.ItemID(strings.TrimSpace(remainder)), s.playerID)
 		if !ok {
@@ -98,6 +105,16 @@ func (s *sessionState) handleLine(line string) presentation.Event {
 		Fields: map[string]string{
 			"input": line,
 		},
+	}
+}
+
+func itemObservationEvent(item world.ItemObservation) presentation.Event {
+	return presentation.ItemObservationEvent{
+		Item:           string(item.Item),
+		NameKey:        item.NameKey,
+		DescriptionKey: item.DescriptionKey,
+		Name:           item.Name,
+		Description:    item.Description,
 	}
 }
 

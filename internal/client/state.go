@@ -57,6 +57,9 @@ func (s *State) ResolveCommand(command string) string {
 	if remainder, ok := strings.CutPrefix(trimmed, "drop "); ok {
 		return "drop " + s.resolveItem(strings.TrimSpace(remainder))
 	}
+	if remainder, ok := strings.CutPrefix(trimmed, "examine "); ok {
+		return "examine " + s.resolveItem(strings.TrimSpace(remainder))
+	}
 	return command
 }
 

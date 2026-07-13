@@ -63,6 +63,21 @@ func TestState_ResolveCommand_mapsInventoryItemNameToID(t *testing.T) {
 	}
 }
 
+func TestState_ResolveCommand_mapsExamineItemNameToID(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+
+	got := state.ResolveCommand("examine 旧油灯")
+
+	want := "examine item.tutorial.old_lantern"
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
 func TestState_ResolveCommand_keepsDirectItemID(t *testing.T) {
 	compiled, err := content.Compile(content.TutorialSource())
 	if err != nil {

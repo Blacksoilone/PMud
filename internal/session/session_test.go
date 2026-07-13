@@ -123,6 +123,52 @@ func TestSessionDrop_requiresItemID(t *testing.T) {
 	}
 }
 
+func TestSessionExamine_returnsVisibleRoomItem(t *testing.T) {
+	state := newTestSessionState()
+
+	event := state.handleLine("examine item.tutorial.old_lantern")
+
+	observation, ok := event.(presentation.ItemObservationEvent)
+	if !ok {
+		t.Fatalf("expected item observation, got %T", event)
+	}
+	if observation.Item != "item.tutorial.old_lantern" {
+		t.Fatalf("expected old lantern id, got %q", observation.Item)
+	}
+	if observation.DescriptionKey != "item.tutorial.old_lantern.description" {
+		t.Fatalf("expected old lantern description key, got %q", observation.DescriptionKey)
+	}
+}
+
+func TestSessionExamine_returnsInventoryItem(t *testing.T) {
+	state := newTestSessionState()
+	state.handleLine("get item.tutorial.old_lantern")
+
+	event := state.handleLine("examine item.tutorial.old_lantern")
+
+	observation, ok := event.(presentation.ItemObservationEvent)
+	if !ok {
+		t.Fatalf("expected item observation, got %T", event)
+	}
+	if observation.Name != "旧油灯" {
+		t.Fatalf("expected old lantern name, got %q", observation.Name)
+	}
+}
+
+func TestSessionExamine_returnsNotHereForInvisibleItem(t *testing.T) {
+	state := newTestSessionState()
+
+	event := state.handleLine("examine item.tutorial.practice_sword")
+
+	message, ok := event.(presentation.SystemMessageEvent)
+	if !ok {
+		t.Fatalf("expected system message, got %T", event)
+	}
+	if message.MessageKey != "system.item.not_here" {
+		t.Fatalf("expected not_here message key, got %q", message.MessageKey)
+	}
+}
+
 func TestHandleConn_writesInitialRoomObservation(t *testing.T) {
 	serverConn, clientConn := net.Pipe()
 	defer clientConn.Close()
