@@ -35,7 +35,7 @@ func TestWorld_NewFromSnapshotPreservesTutorialBehavior(t *testing.T) {
 	if nextRoom != "room.tutorial.yard" {
 		t.Fatalf("expected yard room, got %q", nextRoom)
 	}
-	itemID, ok := game.GetItem(game.StartRoom(), "旧油灯", playerID)
+	itemID, ok := game.GetItem(game.StartRoom(), "item.tutorial.old_lantern", playerID)
 	if !ok {
 		t.Fatal("expected to get old lantern")
 	}
@@ -54,7 +54,7 @@ func TestWorld_ItemMovesBetweenRoomAndInventory(t *testing.T) {
 	startRoom := game.StartRoom()
 
 	// When
-	itemID, ok := game.GetItem(startRoom, "旧油灯", playerID)
+	itemID, ok := game.GetItem(startRoom, "item.tutorial.old_lantern", playerID)
 
 	// Then
 	if !ok {
@@ -72,7 +72,7 @@ func TestWorld_ItemMovesBetweenRoomAndInventory(t *testing.T) {
 	}
 
 	// When
-	droppedItemID, ok := game.DropItemByName(startRoom, "旧油灯", playerID)
+	droppedItemID, ok := game.DropInventoryItem(startRoom, "item.tutorial.old_lantern", playerID)
 
 	// Then
 	if !ok {

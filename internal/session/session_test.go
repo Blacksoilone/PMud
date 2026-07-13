@@ -11,13 +11,10 @@ import (
 )
 
 func TestSessionHelp_returnsCommandSummary(t *testing.T) {
-	// Given
 	state := newTestSessionState()
 
-	// When
 	event := state.handleLine("help")
 
-	// Then
 	message, ok := event.(presentation.SystemMessageEvent)
 	if !ok {
 		t.Fatalf("expected system message, got %T", event)
@@ -28,13 +25,10 @@ func TestSessionHelp_returnsCommandSummary(t *testing.T) {
 }
 
 func TestSessionUnknownCommand_returnsMessageKeyWithInput(t *testing.T) {
-	// Given
 	state := newTestSessionState()
 
-	// When
 	event := state.handleLine("dance")
 
-	// Then
 	message, ok := event.(presentation.SystemMessageEvent)
 	if !ok {
 		t.Fatalf("expected system message, got %T", event)
@@ -62,14 +56,11 @@ func TestSessionDirectionAliases_moveBetweenRooms(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Given
 			state := newTestSessionState()
 			state.currentRoom = tt.fromRoom
 
-			// When
 			event := state.handleLine(tt.command)
 
-			// Then
 			observation, ok := event.(presentation.RoomObservationEvent)
 			if !ok {
 				t.Fatalf("expected room observation, got %T", event)
@@ -81,8 +72,58 @@ func TestSessionDirectionAliases_moveBetweenRooms(t *testing.T) {
 	}
 }
 
+func TestSessionGet_requiresItemID(t *testing.T) {
+	state := newTestSessionState()
+
+	nameEvent := state.handleLine("get 旧油灯")
+	idEvent := state.handleLine("get item.tutorial.old_lantern")
+
+	nameMessage, ok := nameEvent.(presentation.SystemMessageEvent)
+	if !ok {
+		t.Fatalf("expected system message, got %T", nameEvent)
+	}
+	if nameMessage.MessageKey != "system.item.not_here" {
+		t.Fatalf("expected not_here for display name command, got %q", nameMessage.MessageKey)
+	}
+	idMessage, ok := idEvent.(presentation.SystemMessageEvent)
+	if !ok {
+		t.Fatalf("expected system message, got %T", idEvent)
+	}
+	if idMessage.MessageKey != "system.item.taken" {
+		t.Fatalf("expected taken for item id command, got %q", idMessage.MessageKey)
+	}
+	if idMessage.Fields["item"] != "item.tutorial.old_lantern" {
+		t.Fatalf("expected item id field, got %q", idMessage.Fields["item"])
+	}
+}
+
+func TestSessionDrop_requiresItemID(t *testing.T) {
+	state := newTestSessionState()
+	state.handleLine("get item.tutorial.old_lantern")
+
+	nameEvent := state.handleLine("drop 旧油灯")
+	idEvent := state.handleLine("drop item.tutorial.old_lantern")
+
+	nameMessage, ok := nameEvent.(presentation.SystemMessageEvent)
+	if !ok {
+		t.Fatalf("expected system message, got %T", nameEvent)
+	}
+	if nameMessage.MessageKey != "system.item.not_carried" {
+		t.Fatalf("expected not_carried for display name command, got %q", nameMessage.MessageKey)
+	}
+	idMessage, ok := idEvent.(presentation.SystemMessageEvent)
+	if !ok {
+		t.Fatalf("expected system message, got %T", idEvent)
+	}
+	if idMessage.MessageKey != "system.item.dropped" {
+		t.Fatalf("expected dropped for item id command, got %q", idMessage.MessageKey)
+	}
+	if idMessage.Fields["item"] != "item.tutorial.old_lantern" {
+		t.Fatalf("expected item id field, got %q", idMessage.Fields["item"])
+	}
+}
+
 func TestHandleConn_writesInitialRoomObservation(t *testing.T) {
-	// Given
 	serverConn, clientConn := net.Pipe()
 	defer clientConn.Close()
 	done := make(chan error, 1)
@@ -90,14 +131,12 @@ func TestHandleConn_writesInitialRoomObservation(t *testing.T) {
 		done <- handleConn(serverConn, world.New())
 	}()
 
-	// When
 	if err := clientConn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	buffer := make([]byte, 512)
 	n, err := clientConn.Read(buffer)
 
-	// Then
 	if err != nil {
 		t.Fatalf("expected initial room output, got %v", err)
 	}
@@ -130,7 +169,6 @@ func TestHandleConn_writesInitialRoomObservation(t *testing.T) {
 }
 
 func TestHandleConn_acceptsExistingCommandsAndWritesStructuredResponses(t *testing.T) {
-	// Given
 	serverConn, clientConn := net.Pipe()
 	defer clientConn.Close()
 	done := make(chan error, 1)
@@ -146,13 +184,11 @@ func TestHandleConn_acceptsExistingCommandsAndWritesStructuredResponses(t *testi
 		t.Fatalf("expected initial room output, got %v", err)
 	}
 
-	// When
 	if _, err := io.WriteString(clientConn, "inventory\n"); err != nil {
 		t.Fatal(err)
 	}
 	n, err := clientConn.Read(buffer)
 
-	// Then
 	if err != nil {
 		t.Fatalf("expected inventory output, got %v", err)
 	}

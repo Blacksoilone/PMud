@@ -1,12 +1,8 @@
 package world
 
-func (w *World) GetItem(roomID RoomID, name string, playerID PlayerID) (ItemID, bool) {
+func (w *World) GetItem(roomID RoomID, targetItemID ItemID, playerID PlayerID) (ItemID, bool) {
 	for _, itemID := range w.itemsInRoom(roomID) {
-		item, ok := w.items[itemID]
-		if !ok {
-			continue
-		}
-		if item.Name != name {
+		if itemID != targetItemID {
 			continue
 		}
 
@@ -21,13 +17,9 @@ func (w *World) DropItem(roomID RoomID, itemID ItemID) {
 	w.itemLocations[itemID] = RoomItemLocation{RoomID: roomID}
 }
 
-func (w *World) DropItemByName(roomID RoomID, name string, playerID PlayerID) (ItemID, bool) {
+func (w *World) DropInventoryItem(roomID RoomID, targetItemID ItemID, playerID PlayerID) (ItemID, bool) {
 	for _, itemID := range w.itemsInInventory(playerID) {
-		item, ok := w.items[itemID]
-		if !ok {
-			continue
-		}
-		if item.Name != name {
+		if itemID != targetItemID {
 			continue
 		}
 

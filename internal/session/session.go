@@ -66,8 +66,7 @@ func (s *sessionState) handleLine(line string) presentation.Event {
 		return roomObservationEvent(s.game, s.currentRoom)
 	}
 	if remainder, ok := strings.CutPrefix(trimmed, "get "); ok {
-		itemName := strings.TrimSpace(remainder)
-		itemID, ok := s.game.GetItem(s.currentRoom, itemName, s.playerID)
+		itemID, ok := s.game.GetItem(s.currentRoom, world.ItemID(strings.TrimSpace(remainder)), s.playerID)
 		if !ok {
 			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
 		}
@@ -82,8 +81,7 @@ func (s *sessionState) handleLine(line string) presentation.Event {
 		return presentation.InventoryEvent{Items: itemIDStrings(s.game.InventoryItemIDs(s.playerID))}
 	}
 	if remainder, ok := strings.CutPrefix(trimmed, "drop "); ok {
-		itemName := strings.TrimSpace(remainder)
-		itemID, ok := s.game.DropItemByName(s.currentRoom, itemName, s.playerID)
+		itemID, ok := s.game.DropInventoryItem(s.currentRoom, world.ItemID(strings.TrimSpace(remainder)), s.playerID)
 		if !ok {
 			return presentation.SystemMessageEvent{MessageKey: "system.item.not_carried"}
 		}

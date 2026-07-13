@@ -28,15 +28,16 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	state := client.NewState(compiled.Client)
 
 	serverDone := make(chan error, 1)
 	go func() {
-		serverDone <- client.RenderProtocolLines(conn, os.Stdout, compiled.Client)
+		serverDone <- client.RenderObservedProtocolLines(conn, os.Stdout, state)
 	}()
 
 	inputDone := make(chan error, 1)
 	go func() {
-		err := client.ForwardCommands(os.Stdin, conn)
+		err := client.ForwardResolvedCommands(os.Stdin, conn, state)
 		if tcpConn, ok := conn.(*net.TCPConn); ok {
 			if closeErr := tcpConn.CloseWrite(); err == nil {
 				err = closeErr
