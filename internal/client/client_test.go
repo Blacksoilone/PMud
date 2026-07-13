@@ -212,3 +212,77 @@ func TestRenderTUIObservedProtocolLinesWithRuntime_sharesModelWithForwardTUILine
 		t.Fatalf("screen output missing shared event history or input:\n%s", got)
 	}
 }
+
+func TestForwardTUIKeyInput_decodesTextBackspaceAndSubmit(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	state.Observe(protocol.Event{Name: "room", Fields: map[string]string{"items": "item.tutorial.old_lantern"}})
+	input := strings.NewReader("get 旧油灯\x7f灯\n")
+	var screenOutput strings.Builder
+	var serverOutput strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+
+	err = ForwardTUIKeyInput(input, &serverOutput, runtime)
+
+	if err != nil {
+		t.Fatalf("ForwardTUIKeyInput: %v", err)
+	}
+	if serverOutput.String() != "get item.tutorial.old_lantern\n" {
+		t.Fatalf("server output = %q", serverOutput.String())
+	}
+	got := screenOutput.String()
+	if !strings.Contains(got, "> get 旧油灯") {
+		t.Fatalf("screen output missing typed or cleared prompt:\n%s", got)
+	}
+}
+
+func TestForwardTUIKeyInput_decodesClear(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	input := strings.NewReader("look\x15inventory\n")
+	var screenOutput strings.Builder
+	var serverOutput strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+
+	err = ForwardTUIKeyInput(input, &serverOutput, runtime)
+
+	if err != nil {
+		t.Fatalf("ForwardTUIKeyInput: %v", err)
+	}
+	if serverOutput.String() != "inventory\n" {
+		t.Fatalf("server output = %q", serverOutput.String())
+	}
+	if !strings.Contains(screenOutput.String(), "| >") {
+		t.Fatalf("screen output missing cleared prompt:\n%s", screenOutput.String())
+	}
+}
+
+func TestForwardTUIKeyInput_quitStopsWithoutSubmittingLaterInput(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	input := strings.NewReader("look\x03inventory\n")
+	var screenOutput strings.Builder
+	var serverOutput strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+
+	err = ForwardTUIKeyInput(input, &serverOutput, runtime)
+
+	if err != nil {
+		t.Fatalf("ForwardTUIKeyInput: %v", err)
+	}
+	if serverOutput.String() != "" {
+		t.Fatalf("server output = %q, want empty", serverOutput.String())
+	}
+	if strings.Contains(screenOutput.String(), "inventory") {
+		t.Fatalf("screen output includes input after quit:\n%s", screenOutput.String())
+	}
+}

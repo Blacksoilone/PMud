@@ -1,6 +1,7 @@
 package client
 
 import (
+	"PMud/internal/client/keyinput"
 	"PMud/internal/client/render"
 	"PMud/internal/content"
 	"PMud/internal/protocol"
@@ -106,6 +107,36 @@ func ForwardTUILines(input io.Reader, server io.Writer, runtime *TUIRuntime) err
 	}
 	if err := scanner.Err(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func ForwardTUIKeyInput(input io.Reader, server io.Writer, runtime *TUIRuntime) error {
+	buffer := make([]byte, 256)
+	for {
+		count, err := input.Read(buffer)
+		if count > 0 {
+			if err := forwardTUIKeyActions(buffer[:count], server, runtime); err != nil {
+				return err
+			}
+		}
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func forwardTUIKeyActions(data []byte, server io.Writer, runtime *TUIRuntime) error {
+	for _, action := range keyinput.Decode(data) {
+		if action.Quit {
+			return nil
+		}
+		if err := runtime.ApplyInput(action.Input, server); err != nil {
+			return err
+		}
 	}
 	return nil
 }
