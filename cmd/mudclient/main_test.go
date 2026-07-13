@@ -45,3 +45,19 @@ func TestParseArgsEnablesTUIWithAddressOverride(t *testing.T) {
 		t.Fatalf("tui = false, want true")
 	}
 }
+
+func TestLoadClientCatalogLoadsTutorialData(t *testing.T) {
+	catalog, err := loadClientCatalog("../../data/tutorial/source.json")
+	if err != nil {
+		t.Fatalf("loadClientCatalog: %v", err)
+	}
+
+	startNameKey := catalog.RoomNames["room.tutorial.start"]
+	if catalog.Text[startNameKey] != "练习场入口" {
+		t.Fatalf("start room name = %q, want 练习场入口", catalog.Text[startNameKey])
+	}
+	oldLanternKey := catalog.ItemNames["item.tutorial.old_lantern"]
+	if catalog.Text[oldLanternKey] != "旧油灯" {
+		t.Fatalf("old lantern name = %q, want 旧油灯", catalog.Text[oldLanternKey])
+	}
+}

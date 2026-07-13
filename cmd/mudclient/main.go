@@ -10,6 +10,7 @@ import (
 )
 
 const defaultAddress = "127.0.0.1:4000"
+const defaultContentPath = "data/tutorial/source.json"
 const defaultTUIWidth = 80
 const defaultTUIHistoryLimit = 20
 
@@ -28,12 +29,12 @@ func main() {
 	}
 	defer conn.Close()
 
-	compiled, err := content.Compile(content.TutorialSource())
+	catalog, err := loadClientCatalog(defaultContentPath)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	state := client.NewState(compiled.Client)
+	state := client.NewState(catalog)
 	var runtime *client.TUIRuntime
 	if config.tui {
 		runtime = client.NewTUIRuntime(client.TUIRuntimeConfig{
@@ -103,4 +104,16 @@ func parseArgs(args []string) config {
 		config.address = arg
 	}
 	return config
+}
+
+func loadClientCatalog(path string) (content.ClientCatalog, error) {
+	source, err := content.LoadSource(path)
+	if err != nil {
+		return content.ClientCatalog{}, err
+	}
+	compiled, err := content.Compile(source)
+	if err != nil {
+		return content.ClientCatalog{}, err
+	}
+	return compiled.Client, nil
 }

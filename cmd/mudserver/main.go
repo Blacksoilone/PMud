@@ -4,19 +4,31 @@ import (
 	"PMud/internal/content"
 	"PMud/internal/session"
 	"PMud/internal/world"
+	"fmt"
+	"os"
 )
 
+const defaultContentPath = "data/tutorial/source.json"
+
 func main() {
-	game := buildGame()
+	game, err := buildGame(defaultContentPath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 
 	session.StartSession(game)
 
 }
 
-func buildGame() *world.World {
-	compiled, err := content.Compile(content.TutorialSource())
+func buildGame(path string) (*world.World, error) {
+	source, err := content.LoadSource(path)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return world.NewFromSnapshot(compiled.Server, compiled.Client)
+	compiled, err := content.Compile(source)
+	if err != nil {
+		return nil, err
+	}
+	return world.NewFromSnapshot(compiled.Server, compiled.Client), nil
 }
