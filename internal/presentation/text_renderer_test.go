@@ -90,6 +90,27 @@ func TestTextRenderer_RenderInventoryEvent_withoutItemsAsStructuredLine(t *testi
 	}
 }
 
+func TestTextRenderer_RenderItemObservationEvent_asStructuredLine(t *testing.T) {
+	// Given
+	renderer := TextRenderer{}
+	event := ItemObservationEvent{
+		Item:           "item.tutorial.old_lantern",
+		NameKey:        "item.tutorial.old_lantern.name",
+		DescriptionKey: "item.tutorial.old_lantern.description",
+		Name:           "旧油灯",
+		Description:    "灯罩上蒙着一层灰，里面还剩一点灯油。",
+	}
+
+	// When
+	got := renderer.Render(event)
+
+	// Then
+	want := "event=item\titem=item.tutorial.old_lantern\tname_key=item.tutorial.old_lantern.name\tdescription_key=item.tutorial.old_lantern.description\n"
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
 func TestTextRenderer_RenderEscapesFieldSeparators(t *testing.T) {
 	// Given
 	renderer := TextRenderer{}

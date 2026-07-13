@@ -10,6 +10,8 @@ func Render(event protocol.Event, catalog content.ClientCatalog) string {
 	switch event.Name {
 	case "room":
 		return renderRoom(event, catalog)
+	case "item":
+		return renderItem(event, catalog)
 	case "inventory":
 		return renderInventory(event, catalog)
 	case "system":
@@ -39,6 +41,15 @@ func renderRoom(event protocol.Event, catalog content.ClientCatalog) string {
 		builder.WriteString(strings.Join(items, ", "))
 		builder.WriteString("\n")
 	}
+	return builder.String()
+}
+
+func renderItem(event protocol.Event, catalog content.ClientCatalog) string {
+	var builder strings.Builder
+	builder.WriteString(text(catalog, event.Fields["name_key"]))
+	builder.WriteString("\n")
+	builder.WriteString(text(catalog, event.Fields["description_key"]))
+	builder.WriteString("\n")
 	return builder.String()
 }
 

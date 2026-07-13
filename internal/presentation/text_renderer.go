@@ -35,6 +35,13 @@ func (TextRenderer) Render(event Event) string {
 		)
 	case InventoryEvent:
 		return line("inventory", field("items", strings.Join(e.Items, ",")))
+	case ItemObservationEvent:
+		return line(
+			"item",
+			field("item", e.Item),
+			field("name_key", e.NameKey),
+			field("description_key", e.DescriptionKey),
+		)
 	default:
 		return line("unknown", field("kind", event.EventKind()))
 	}

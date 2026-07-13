@@ -35,3 +35,15 @@ type InventoryEvent struct {
 func (e InventoryEvent) EventKind() string {
 	return "InventoryEvent"
 }
+
+type ItemObservationEvent struct {
+	Item           string
+	NameKey        string
+	DescriptionKey string
+	Name           string
+	Description    string
+}
+
+func (e ItemObservationEvent) EventKind() string {
+	return "ItemObservationEvent"
+}
