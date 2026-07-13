@@ -63,6 +63,46 @@ func TestEqualWidths_reportsMismatchedCellWidths(t *testing.T) {
 	}
 }
 
+func TestJoinHorizontal_joinsEqualHeightBlocks(t *testing.T) {
+	left := []string{
+		"+------+",
+		"| 旧油灯 |",
+		"+------+",
+	}
+	right := []string{
+		"+----+",
+		"| HP |",
+		"+----+",
+	}
+	got := JoinHorizontal(left, right, 2)
+	want := []string{
+		"+------+    +----+",
+		"| 旧油灯 |  | HP |",
+		"+------+    +----+",
+	}
+	assertLines(t, got, want)
+}
+
+func TestJoinHorizontal_padsShorterBlock(t *testing.T) {
+	left := []string{"旧油灯"}
+	right := []string{"HP", "MP"}
+	got := JoinHorizontal(left, right, 1)
+	want := []string{
+		"旧油灯 HP",
+		"       MP",
+	}
+	assertLines(t, got, want)
+}
+
+func TestJoinHorizontal_preservesEqualWidths(t *testing.T) {
+	left := BoxLines([]string{"旧油灯"}, 6)
+	right := BoxLines([]string{"HP"}, 4)
+	got := JoinHorizontal(left, right, 2)
+	if !EqualWidths(got) {
+		t.Fatalf("expected equal widths, got %v", got)
+	}
+}
+
 func assertLines(t *testing.T, got []string, want []string) {
 	t.Helper()
 	if len(got) != len(want) {

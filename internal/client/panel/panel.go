@@ -42,3 +42,35 @@ func EqualWidths(lines []string) bool {
 	}
 	return true
 }
+
+func JoinHorizontal(left []string, right []string, gap int) []string {
+	leftWidth := blockWidth(left)
+	rightWidth := blockWidth(right)
+	height := max(len(left), len(right))
+
+	separator := strings.Repeat(" ", gap)
+	joined := make([]string, 0, height)
+	for index := range height {
+		leftLine := paddedLine(left, index, leftWidth)
+		rightLine := paddedLine(right, index, rightWidth)
+		joined = append(joined, leftLine+separator+rightLine)
+	}
+	return joined
+}
+
+func blockWidth(lines []string) int {
+	width := 0
+	for _, line := range lines {
+		if lineWidth := termwidth.Width(line); lineWidth > width {
+			width = lineWidth
+		}
+	}
+	return width
+}
+
+func paddedLine(lines []string, index int, width int) string {
+	if index >= len(lines) {
+		return strings.Repeat(" ", width)
+	}
+	return termwidth.RightPad(lines[index], width)
+}
