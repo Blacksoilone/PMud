@@ -33,3 +33,27 @@ func TestLineWidth_returnsLongestRenderedLine(t *testing.T) {
 		t.Fatalf("expected %d, got %d", want, got)
 	}
 }
+
+func TestRightPad_padsToTargetCellWidth(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		targetWidth int
+		want        string
+	}{
+		{name: "pads ASCII text", input: "HP", targetWidth: 5, want: "HP   "},
+		{name: "pads CJK text by rendered cells", input: "旧油灯", targetWidth: 8, want: "旧油灯  "},
+		{name: "pads mixed ASCII and CJK text", input: "HP:旧油灯", targetWidth: 12, want: "HP:旧油灯   "},
+		{name: "leaves exact width unchanged", input: "旧油灯", targetWidth: 6, want: "旧油灯"},
+		{name: "leaves already overwide text unchanged", input: "旧油灯", targetWidth: 4, want: "旧油灯"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := RightPad(test.input, test.targetWidth)
+			if got != test.want {
+				t.Fatalf("expected %q, got %q", test.want, got)
+			}
+		})
+	}
+}

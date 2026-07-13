@@ -21,6 +21,14 @@ func LineWidth(text string) int {
 	return maxWidth
 }
 
+func RightPad(text string, targetWidth int) string {
+	width := Width(text)
+	if width >= targetWidth {
+		return text
+	}
+	return text + strings.Repeat(" ", targetWidth-width)
+}
+
 func runeWidth(char rune) int {
 	if isWideRune(char) {
 		return 2
