@@ -2,6 +2,7 @@ package main
 
 import (
 	"PMud/internal/client"
+	"PMud/internal/client/rawterm"
 	"PMud/internal/content"
 	"fmt"
 	"net"
@@ -41,6 +42,12 @@ func main() {
 			Width:        defaultTUIWidth,
 			HistoryLimit: defaultTUIHistoryLimit,
 		})
+		session, err := rawterm.Start(int(os.Stdin.Fd()), rawterm.RealController())
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		defer session.Close()
 	}
 
 	serverDone := make(chan error, 1)
@@ -56,7 +63,7 @@ func main() {
 	go func() {
 		var err error
 		if config.tui {
-			err = client.ForwardTUILines(os.Stdin, conn, runtime)
+			err = client.ForwardTUIKeyInput(os.Stdin, conn, runtime)
 		} else {
 			err = client.ForwardResolvedCommands(os.Stdin, conn, state)
 		}
