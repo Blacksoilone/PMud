@@ -50,16 +50,18 @@ func (r *TUIRuntime) ObserveEvent(event protocol.Event) error {
 }
 
 func (r *TUIRuntime) SubmitLine(line string, server io.Writer) error {
+	if err := r.ApplyInput(tui.Input{Kind: tui.InputText, Text: line}, server); err != nil {
+		return err
+	}
+	return r.ApplyInput(tui.Input{Kind: tui.InputSubmit}, server)
+}
+
+func (r *TUIRuntime) ApplyInput(input tui.Input, server io.Writer) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.model, _ = tui.ApplyInput(r.model, tui.Input{Kind: tui.InputText, Text: line})
-	if err := r.draw(); err != nil {
-		return err
-	}
-
 	var command tui.Command
-	r.model, command = tui.ApplyInput(r.model, tui.Input{Kind: tui.InputSubmit})
+	r.model, command = tui.ApplyInput(r.model, input)
 	if command.Line != "" {
 		resolved := r.state.ResolveCommand(command.Line)
 		if _, err := io.WriteString(server, resolved+"\n"); err != nil {
