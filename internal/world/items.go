@@ -30,6 +30,26 @@ func (w *World) DropInventoryItem(roomID RoomID, targetItemID ItemID, playerID P
 	return "", false
 }
 
+func (w *World) ExamineItem(roomID RoomID, targetItemID ItemID, playerID PlayerID) (ItemObservation, bool) {
+	for _, itemID := range w.visibleItemIDs(roomID, playerID) {
+		if itemID != targetItemID {
+			continue
+		}
+		item, ok := w.items[itemID]
+		if !ok {
+			return ItemObservation{}, false
+		}
+		return ItemObservation{
+			Item:           itemID,
+			NameKey:        item.NameKey,
+			DescriptionKey: item.DescriptionKey,
+			Name:           item.Name,
+			Description:    item.Description,
+		}, true
+	}
+	return ItemObservation{}, false
+}
+
 func (w *World) ItemName(itemID ItemID) (string, bool) {
 	item, ok := w.items[itemID]
 	if !ok {
@@ -87,5 +107,11 @@ func (w *World) itemsInInventory(playerID PlayerID) []ItemID {
 			itemIDs = append(itemIDs, itemID)
 		}
 	}
+	return itemIDs
+}
+
+func (w *World) visibleItemIDs(roomID RoomID, playerID PlayerID) []ItemID {
+	itemIDs := w.itemsInRoom(roomID)
+	itemIDs = append(itemIDs, w.itemsInInventory(playerID)...)
 	return itemIDs
 }

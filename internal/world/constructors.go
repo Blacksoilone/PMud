@@ -27,12 +27,16 @@ func New() *World {
 		},
 		items: map[ItemID]Item{
 			"item.tutorial.old_lantern": {
-				NameKey: "item.tutorial.old_lantern.name",
-				Name:    "旧油灯",
+				NameKey:        "item.tutorial.old_lantern.name",
+				DescriptionKey: "item.tutorial.old_lantern.description",
+				Name:           "旧油灯",
+				Description:    "灯罩上蒙着一层灰，里面还剩一点灯油。",
 			},
 			"item.tutorial.practice_sword": {
-				NameKey: "item.tutorial.practice_sword.name",
-				Name:    "练习木剑",
+				NameKey:        "item.tutorial.practice_sword.name",
+				DescriptionKey: "item.tutorial.practice_sword.description",
+				Name:           "练习木剑",
+				Description:    "一把被许多人握过的木剑，剑柄已经磨得发亮。",
 			},
 		},
 		itemLocations: map[ItemID]ItemLocation{
@@ -68,7 +72,13 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 	items := make(map[ItemID]Item, len(snapshot.Items))
 	for itemID := range snapshot.Items {
 		nameKey := catalog.ItemNames[itemID]
-		items[ItemID(itemID)] = Item{NameKey: string(nameKey), Name: catalog.Text[nameKey]}
+		descriptionKey := catalog.ItemDescriptions[itemID]
+		items[ItemID(itemID)] = Item{
+			NameKey:        string(nameKey),
+			DescriptionKey: string(descriptionKey),
+			Name:           catalog.Text[nameKey],
+			Description:    catalog.Text[descriptionKey],
+		}
 	}
 
 	itemLocations := make(map[ItemID]ItemLocation, len(snapshot.ItemLocations))

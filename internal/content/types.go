@@ -20,9 +20,10 @@ type RoomSource struct {
 }
 
 type ItemSource struct {
-	ID          ItemID
-	NameKey     TextKey
-	InitialRoom RoomID
+	ID             ItemID
+	NameKey        TextKey
+	DescriptionKey TextKey
+	InitialRoom    RoomID
 }
 
 type CompiledContent struct {
@@ -47,5 +48,6 @@ type ClientCatalog struct {
 	RoomNames        map[RoomID]TextKey
 	RoomDescriptions map[RoomID]TextKey
 	ItemNames        map[ItemID]TextKey
+	ItemDescriptions map[ItemID]TextKey
 	Text             map[TextKey]string
 }

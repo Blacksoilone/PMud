@@ -11,6 +11,14 @@ type RoomObservation struct {
 	Items          []string
 }
 
+type ItemObservation struct {
+	Item           ItemID
+	NameKey        string
+	DescriptionKey string
+	Name           string
+	Description    string
+}
+
 type RoomID string
 type ItemID string
 type PlayerID string
@@ -24,8 +32,10 @@ type Room struct {
 }
 
 type Item struct {
-	NameKey string
-	Name    string
+	NameKey        string
+	DescriptionKey string
+	Name           string
+	Description    string
 }
 
 type ItemLocation interface {

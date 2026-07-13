@@ -13,6 +13,7 @@ func Compile(source ContentSource) (CompiledContent, error) {
 		RoomNames:        make(map[RoomID]TextKey, len(source.Rooms)),
 		RoomDescriptions: make(map[RoomID]TextKey, len(source.Rooms)),
 		ItemNames:        make(map[ItemID]TextKey, len(source.Items)),
+		ItemDescriptions: make(map[ItemID]TextKey, len(source.Items)),
 		Text:             make(map[TextKey]string, len(source.Text)),
 	}
 
@@ -28,6 +29,7 @@ func Compile(source ContentSource) (CompiledContent, error) {
 		server.Items[item.ID] = ServerItem{}
 		server.ItemLocations[item.ID] = item.InitialRoom
 		client.ItemNames[item.ID] = item.NameKey
+		client.ItemDescriptions[item.ID] = item.DescriptionKey
 	}
 
 	maps.Copy(client.Text, source.Text)

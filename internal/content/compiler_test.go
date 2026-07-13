@@ -53,6 +53,9 @@ func TestCompile_projectsClientCatalog(t *testing.T) {
 	if got := compiled.Client.ItemNames["item.tutorial.old_lantern"]; got != "item.tutorial.old_lantern.name" {
 		t.Fatalf("expected item name key, got %q", got)
 	}
+	if got := compiled.Client.ItemDescriptions["item.tutorial.old_lantern"]; got != "item.tutorial.old_lantern.description" {
+		t.Fatalf("expected item description key, got %q", got)
+	}
 	if got := compiled.Client.Text["room.tutorial.start.name"]; got != "练习场入口" {
 		t.Fatalf("expected room name text, got %q", got)
 	}
@@ -115,23 +118,27 @@ func testContentSource() ContentSource {
 		},
 		Items: []ItemSource{
 			{
-				ID:          "item.tutorial.old_lantern",
-				NameKey:     "item.tutorial.old_lantern.name",
-				InitialRoom: "room.tutorial.start",
+				ID:             "item.tutorial.old_lantern",
+				NameKey:        "item.tutorial.old_lantern.name",
+				DescriptionKey: "item.tutorial.old_lantern.description",
+				InitialRoom:    "room.tutorial.start",
 			},
 			{
-				ID:          "item.tutorial.practice_sword",
-				NameKey:     "item.tutorial.practice_sword.name",
-				InitialRoom: "room.tutorial.yard",
+				ID:             "item.tutorial.practice_sword",
+				NameKey:        "item.tutorial.practice_sword.name",
+				DescriptionKey: "item.tutorial.practice_sword.description",
+				InitialRoom:    "room.tutorial.yard",
 			},
 		},
 		Text: map[TextKey]string{
-			"room.tutorial.start.name":          "练习场入口",
-			"room.tutorial.start.description":   "这里是练习场的入口。北边传来木剑碰撞的声音。",
-			"room.tutorial.yard.name":           "练习场",
-			"room.tutorial.yard.description":    "几根木桩立在泥地上，地面满是被踩出的脚印。",
-			"item.tutorial.old_lantern.name":    "旧油灯",
-			"item.tutorial.practice_sword.name": "练习木剑",
+			"room.tutorial.start.name":                 "练习场入口",
+			"room.tutorial.start.description":          "这里是练习场的入口。北边传来木剑碰撞的声音。",
+			"room.tutorial.yard.name":                  "练习场",
+			"room.tutorial.yard.description":           "几根木桩立在泥地上，地面满是被踩出的脚印。",
+			"item.tutorial.old_lantern.name":           "旧油灯",
+			"item.tutorial.old_lantern.description":    "灯罩上蒙着一层灰，里面还剩一点灯油。",
+			"item.tutorial.practice_sword.name":        "练习木剑",
+			"item.tutorial.practice_sword.description": "一把被许多人握过的木剑，剑柄已经磨得发亮。",
 		},
 	}
 }

@@ -95,3 +95,49 @@ func TestWorld_ItemMovesBetweenRoomAndInventory(t *testing.T) {
 		t.Fatal("expected item id to be non-empty")
 	}
 }
+
+func TestWorld_ExamineItemFindsItemInCurrentRoom(t *testing.T) {
+	game := New()
+	playerID := PlayerID("player.local")
+
+	observation, ok := game.ExamineItem(game.StartRoom(), "item.tutorial.old_lantern", playerID)
+
+	if !ok {
+		t.Fatal("expected to examine old lantern in current room")
+	}
+	if observation.Item != "item.tutorial.old_lantern" {
+		t.Fatalf("expected old lantern id, got %q", observation.Item)
+	}
+	if observation.Name != "旧油灯" {
+		t.Fatalf("expected old lantern name, got %q", observation.Name)
+	}
+	if observation.Description == "" {
+		t.Fatal("expected old lantern description")
+	}
+}
+
+func TestWorld_ExamineItemFindsItemInInventory(t *testing.T) {
+	game := New()
+	playerID := PlayerID("player.local")
+	game.GetItem(game.StartRoom(), "item.tutorial.old_lantern", playerID)
+
+	observation, ok := game.ExamineItem(game.StartRoom(), "item.tutorial.old_lantern", playerID)
+
+	if !ok {
+		t.Fatal("expected to examine old lantern in inventory")
+	}
+	if observation.Item != "item.tutorial.old_lantern" {
+		t.Fatalf("expected old lantern id, got %q", observation.Item)
+	}
+}
+
+func TestWorld_ExamineItemRejectsInvisibleItem(t *testing.T) {
+	game := New()
+	playerID := PlayerID("player.local")
+
+	_, ok := game.ExamineItem(game.StartRoom(), "item.tutorial.practice_sword", playerID)
+
+	if ok {
+		t.Fatal("expected practice sword in another room to be invisible")
+	}
+}
