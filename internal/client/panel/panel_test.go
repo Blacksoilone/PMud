@@ -36,6 +36,33 @@ func TestBoxLines_usesLongestLineWhenWidthIsSmaller(t *testing.T) {
 	assertLines(t, got, want)
 }
 
+func TestRenderLines_joinsLinesWithFinalNewline(t *testing.T) {
+	got := RenderLines([]string{"+--+", "|  |", "+--+"})
+	want := "+--+\n|  |\n+--+\n"
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestEqualWidths_reportsConsistentCellWidths(t *testing.T) {
+	lines := []string{
+		"+----------+",
+		"| HP: 10   |",
+		"| 旧油灯   |",
+		"+----------+",
+	}
+	if !EqualWidths(lines) {
+		t.Fatal("expected equal cell widths")
+	}
+}
+
+func TestEqualWidths_reportsMismatchedCellWidths(t *testing.T) {
+	lines := []string{"abc", "旧油灯"}
+	if EqualWidths(lines) {
+		t.Fatal("expected mismatched cell widths")
+	}
+}
+
 func assertLines(t *testing.T, got []string, want []string) {
 	t.Helper()
 	if len(got) != len(want) {
