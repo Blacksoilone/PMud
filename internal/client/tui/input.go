@@ -42,10 +42,7 @@ func removeLastRune(value string) string {
 }
 
 func submitInput(model Model) (Model, Command) {
-	line := model.Input
+	line := strings.TrimSpace(model.Input)
 	model.Input = ""
-	if strings.TrimSpace(line) == "" {
-		return model, Command{}
-	}
-	return model, Command{Line: line}
+	return model, Command{Line: line, Submitted: true}
 }

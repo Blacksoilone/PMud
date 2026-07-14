@@ -64,6 +64,38 @@ func TestCompile_projectsClientCatalog(t *testing.T) {
 	}
 }
 
+func TestCompile_projectsClientItemAliases(t *testing.T) {
+	// Given
+	source := testContentSource()
+	source.Items[0].Aliases = []TextKey{
+		"item.tutorial.old_lantern.alias.jiuyoudeng",
+		"item.tutorial.old_lantern.alias.old_lantern",
+	}
+	source.Text["item.tutorial.old_lantern.alias.jiuyoudeng"] = "jiuyoudeng"
+	source.Text["item.tutorial.old_lantern.alias.old_lantern"] = "old_lantern"
+
+	// When
+	compiled, err := Compile(source)
+
+	// Then
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := compiled.Client.ItemAliases["item.tutorial.old_lantern"]
+	if len(got) != 2 {
+		t.Fatalf("expected 2 item aliases, got %d", len(got))
+	}
+	if got[0] != "item.tutorial.old_lantern.alias.jiuyoudeng" {
+		t.Fatalf("expected first alias key, got %q", got[0])
+	}
+	if got[1] != "item.tutorial.old_lantern.alias.old_lantern" {
+		t.Fatalf("expected second alias key, got %q", got[1])
+	}
+	if got := compiled.Client.Text[got[0]]; got != "jiuyoudeng" {
+		t.Fatalf("expected alias text to be copied, got %q", got)
+	}
+}
+
 func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
 	// Given
 	source := TutorialSource()

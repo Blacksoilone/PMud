@@ -9,7 +9,8 @@ type Model struct {
 }
 
 type Command struct {
-	Line string
+	Line      string
+	Submitted bool
 }
 
 func NewModel(historyLimit int) Model {

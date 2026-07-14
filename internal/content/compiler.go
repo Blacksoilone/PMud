@@ -14,6 +14,7 @@ func Compile(source ContentSource) (CompiledContent, error) {
 		RoomDescriptions: make(map[RoomID]TextKey, len(source.Rooms)),
 		ItemNames:        make(map[ItemID]TextKey, len(source.Items)),
 		ItemDescriptions: make(map[ItemID]TextKey, len(source.Items)),
+		ItemAliases:      make(map[ItemID][]TextKey, len(source.Items)),
 		Text:             make(map[TextKey]string, len(source.Text)),
 	}
 
@@ -30,6 +31,9 @@ func Compile(source ContentSource) (CompiledContent, error) {
 		server.ItemLocations[item.ID] = item.InitialRoom
 		client.ItemNames[item.ID] = item.NameKey
 		client.ItemDescriptions[item.ID] = item.DescriptionKey
+		if len(item.Aliases) > 0 {
+			client.ItemAliases[item.ID] = append([]TextKey(nil), item.Aliases...)
+		}
 	}
 
 	maps.Copy(client.Text, source.Text)

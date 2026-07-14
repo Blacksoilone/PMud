@@ -146,7 +146,11 @@ func forwardCommands(input io.Reader, server io.Writer, state *State) error {
 	for scanner.Scan() {
 		line := scanner.Text()
 		if state != nil {
-			line = state.ResolveCommand(line)
+			resolution := state.ResolveCommandInput(line)
+			if !resolution.Send {
+				continue
+			}
+			line = resolution.Command
 		}
 		_, err := io.WriteString(server, line+"\n")
 		if err != nil {

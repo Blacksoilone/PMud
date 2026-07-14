@@ -178,3 +178,76 @@ func TestTUIRuntimeApplyInputSubmitWritesResolvedCommandAndClearsPrompt(t *testi
 		t.Fatalf("last frame missing cleared prompt:\n%s", lastFrame)
 	}
 }
+
+func TestTUIRuntimeSubmitLineShowsAmbiguousItemFeedback(t *testing.T) {
+	compiled, err := content.Compile(ambiguousAliasContentSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	var output strings.Builder
+	var server strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
+
+	err = runtime.SubmitLine("get shared", &server)
+
+	if err != nil {
+		t.Fatalf("SubmitLine: %v", err)
+	}
+	if got := server.String(); got != "" {
+		t.Fatalf("server output = %q, want empty", got)
+	}
+	got := output.String()
+	if !strings.Contains(got, "名字不明确") {
+		t.Fatalf("output missing ambiguity message:\n%s", got)
+	}
+	if !strings.Contains(got, "旧油灯") || !strings.Contains(got, "练习木剑") {
+		t.Fatalf("output missing candidate names:\n%s", got)
+	}
+}
+
+func TestTUIRuntimeSubmitLineShowsHelpLocally(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	var output strings.Builder
+	var server strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
+
+	err = runtime.SubmitLine("help", &server)
+
+	if err != nil {
+		t.Fatalf("SubmitLine: %v", err)
+	}
+	if got := server.String(); got != "" {
+		t.Fatalf("server output = %q, want empty", got)
+	}
+	if got := output.String(); !strings.Contains(got, "可用命令") {
+		t.Fatalf("output missing help text:\n%s", got)
+	}
+}
+
+func TestTUIRuntimeSubmitLineShowsEmptyInputLocally(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	var output strings.Builder
+	var server strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
+
+	err = runtime.SubmitLine("", &server)
+
+	if err != nil {
+		t.Fatalf("SubmitLine: %v", err)
+	}
+	if got := server.String(); got != "" {
+		t.Fatalf("server output = %q, want empty", got)
+	}
+	if got := output.String(); !strings.Contains(got, "你没有输入任何内容") {
+		t.Fatalf("output missing empty-input text:\n%s", got)
+	}
+}

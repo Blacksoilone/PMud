@@ -1,6 +1,7 @@
 package session
 
 import (
+	"PMud/internal/command"
 	"PMud/internal/presentation"
 	"PMud/internal/world"
 	"bufio"
@@ -46,27 +47,49 @@ type sessionState struct {
 
 func (s *sessionState) handleLine(line string) presentation.Event {
 	trimmed := strings.TrimSpace(line)
-
 	if trimmed == "" {
 		return presentation.SystemMessageEvent{MessageKey: "system.empty_input"}
 	}
-	if trimmed == "look" {
+
+	parsed := command.ParseServerInput(line)
+	switch command := parsed.(type) {
+	case command.LookCommand:
 		return roomObservationEvent(s.game, s.currentRoom)
-	}
-	if trimmed == "help" {
+	case command.HelpCommand:
 		return presentation.SystemMessageEvent{MessageKey: "system.help"}
-	}
-	if remainder, ok := strings.CutPrefix(trimmed, "go "); ok {
-		direction := normalizeDirection(strings.TrimSpace(remainder))
-		nextRoom, ok := s.game.Move(s.currentRoom, direction)
+	case command.MoveCommand:
+		nextRoom, ok := s.game.Move(s.currentRoom, command.Direction)
 		if !ok {
 			return presentation.SystemMessageEvent{MessageKey: "system.move.blocked"}
 		}
 		s.currentRoom = nextRoom
 		return roomObservationEvent(s.game, s.currentRoom)
+	case command.InventoryCommand:
+		return presentation.InventoryEvent{Items: itemIDStrings(s.game.InventoryItemIDs(s.playerID))}
+	case command.ItemCommand:
+		return s.handleItemCommand(command)
+	case command.UnknownCommand:
+		return presentation.SystemMessageEvent{
+			MessageKey: "system.unknown_command",
+			Fields: map[string]string{
+				"input": command.Input,
+			},
+		}
+	default:
+		return presentation.SystemMessageEvent{
+			MessageKey: "system.unknown_command",
+			Fields: map[string]string{
+				"input": line,
+			},
+		}
 	}
-	if remainder, ok := strings.CutPrefix(trimmed, "get "); ok {
-		itemID, ok := s.game.GetItem(s.currentRoom, world.ItemID(strings.TrimSpace(remainder)), s.playerID)
+}
+
+func (s *sessionState) handleItemCommand(itemCommand command.ItemCommand) presentation.Event {
+	itemID := world.ItemID(itemCommand.Target)
+	switch itemCommand.Verb {
+	case command.ItemVerbGet:
+		itemID, ok := s.game.GetItem(s.currentRoom, itemID, s.playerID)
 		if !ok {
 			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
 		}
@@ -76,19 +99,8 @@ func (s *sessionState) handleLine(line string) presentation.Event {
 				"item": string(itemID),
 			},
 		}
-	}
-	if trimmed == "inventory" {
-		return presentation.InventoryEvent{Items: itemIDStrings(s.game.InventoryItemIDs(s.playerID))}
-	}
-	if remainder, ok := strings.CutPrefix(trimmed, "examine "); ok {
-		item, ok := s.game.ExamineItem(s.currentRoom, world.ItemID(strings.TrimSpace(remainder)), s.playerID)
-		if !ok {
-			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
-		}
-		return itemObservationEvent(item)
-	}
-	if remainder, ok := strings.CutPrefix(trimmed, "drop "); ok {
-		itemID, ok := s.game.DropInventoryItem(s.currentRoom, world.ItemID(strings.TrimSpace(remainder)), s.playerID)
+	case command.ItemVerbDrop:
+		itemID, ok := s.game.DropInventoryItem(s.currentRoom, itemID, s.playerID)
 		if !ok {
 			return presentation.SystemMessageEvent{MessageKey: "system.item.not_carried"}
 		}
@@ -98,13 +110,14 @@ func (s *sessionState) handleLine(line string) presentation.Event {
 				"item": string(itemID),
 			},
 		}
-	}
-
-	return presentation.SystemMessageEvent{
-		MessageKey: "system.unknown_command",
-		Fields: map[string]string{
-			"input": line,
-		},
+	case command.ItemVerbExamine:
+		item, ok := s.game.ExamineItem(s.currentRoom, itemID, s.playerID)
+		if !ok {
+			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
+		}
+		return itemObservationEvent(item)
+	default:
+		return presentation.SystemMessageEvent{MessageKey: "system.unknown_command"}
 	}
 }
 
@@ -119,14 +132,11 @@ func itemObservationEvent(item world.ItemObservation) presentation.Event {
 }
 
 func normalizeDirection(direction string) string {
-	switch direction {
-	case "n", "北":
-		return "north"
-	case "s", "南":
-		return "south"
-	default:
-		return direction
+	canonical, ok := command.CanonicalDirection(direction)
+	if ok {
+		return canonical
 	}
+	return direction
 }
 
 func roomObservationEvent(game *world.World, roomID world.RoomID) presentation.Event {

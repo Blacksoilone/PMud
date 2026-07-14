@@ -62,9 +62,17 @@ func (r *TUIRuntime) ApplyInput(input tui.Input, server io.Writer) error {
 
 	var command tui.Command
 	r.model, command = tui.ApplyInput(r.model, input)
-	if command.Line != "" {
-		resolved := r.state.ResolveCommand(command.Line)
-		if _, err := io.WriteString(server, resolved+"\n"); err != nil {
+	if command.Submitted {
+		resolution := r.state.ResolveCommandInput(command.Line)
+		if !resolution.Send {
+			event := resolution.LocalEvent
+			if event.Name == "" {
+				event = r.state.AmbiguousItemEvent(resolution.AmbiguousItems)
+			}
+			r.model = tui.ApplyEvent(r.model, event)
+			return r.draw()
+		}
+		if _, err := io.WriteString(server, resolution.Command+"\n"); err != nil {
 			return err
 		}
 	}

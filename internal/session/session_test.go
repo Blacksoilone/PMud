@@ -72,6 +72,36 @@ func TestSessionDirectionAliases_moveBetweenRooms(t *testing.T) {
 	}
 }
 
+func TestNormalizeDirection_mapsStandardAliases(t *testing.T) {
+	tests := []struct {
+		name      string
+		direction string
+		want      string
+	}{
+		{name: "north", direction: "n", want: "north"},
+		{name: "south", direction: "s", want: "south"},
+		{name: "east", direction: "e", want: "east"},
+		{name: "west", direction: "w", want: "west"},
+		{name: "up", direction: "u", want: "up"},
+		{name: "down", direction: "d", want: "down"},
+		{name: "northeast", direction: "ne", want: "northeast"},
+		{name: "northwest", direction: "nw", want: "northwest"},
+		{name: "southeast", direction: "se", want: "southeast"},
+		{name: "southwest", direction: "sw", want: "southwest"},
+		{name: "keeps special exits", direction: "trapdoor", want: "trapdoor"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeDirection(tt.direction)
+
+			if got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
 func TestSessionGet_requiresItemID(t *testing.T) {
 	state := newTestSessionState()
 

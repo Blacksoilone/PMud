@@ -152,6 +152,26 @@ func TestForwardResolvedCommands_writesResolvedItemIDsToServer(t *testing.T) {
 	}
 }
 
+func TestForwardResolvedCommands_keepsAmbiguousItemCommandLocal(t *testing.T) {
+	compiled, err := content.Compile(ambiguousAliasContentSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	input := strings.NewReader("get shared\nlook\n")
+	var output strings.Builder
+
+	err = ForwardResolvedCommands(input, &output, state)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "look\n"
+	if got := output.String(); got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
 func TestForwardTUILines_redrawsInputAndWritesResolvedCommand(t *testing.T) {
 	compiled, err := content.Compile(content.TutorialSource())
 	if err != nil {
