@@ -2,33 +2,10 @@ package client
 
 import (
 	"PMud/internal/content"
-	"PMud/internal/protocol"
-	"slices"
 	"testing"
 )
 
-func TestState_ResolveCommand_mapsObservedItemNameToID(t *testing.T) {
-	compiled, err := content.Compile(content.TutorialSource())
-	if err != nil {
-		t.Fatal(err)
-	}
-	state := NewState(compiled.Client)
-	state.Observe(protocol.Event{
-		Name: "room",
-		Fields: map[string]string{
-			"items": "item.tutorial.old_lantern",
-		},
-	})
-
-	got := state.ResolveCommand("get 旧油灯")
-
-	want := "get item.tutorial.old_lantern"
-	if got != want {
-		t.Fatalf("expected %q, got %q", want, got)
-	}
-}
-
-func TestState_ResolveCommand_mapsCatalogItemNameBeforeObservation(t *testing.T) {
+func TestState_ResolveCommand_forwardsObservedItemPhrase(t *testing.T) {
 	compiled, err := content.Compile(content.TutorialSource())
 	if err != nil {
 		t.Fatal(err)
@@ -37,34 +14,43 @@ func TestState_ResolveCommand_mapsCatalogItemNameBeforeObservation(t *testing.T)
 
 	got := state.ResolveCommand("get 旧油灯")
 
-	want := "get item.tutorial.old_lantern"
+	want := "get 旧油灯"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
 }
 
-func TestState_ResolveCommand_mapsInventoryItemNameToID(t *testing.T) {
+func TestState_ResolveCommand_forwardsCatalogItemPhrase(t *testing.T) {
 	compiled, err := content.Compile(content.TutorialSource())
 	if err != nil {
 		t.Fatal(err)
 	}
 	state := NewState(compiled.Client)
-	state.Observe(protocol.Event{
-		Name: "inventory",
-		Fields: map[string]string{
-			"items": "item.tutorial.old_lantern",
-		},
-	})
+
+	got := state.ResolveCommand("get 旧油灯")
+
+	want := "get 旧油灯"
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestState_ResolveCommand_forwardsInventoryItemPhrase(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
 
 	got := state.ResolveCommand("drop 旧油灯")
 
-	want := "drop item.tutorial.old_lantern"
+	want := "drop 旧油灯"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
 }
 
-func TestState_ResolveCommand_mapsExamineItemNameToID(t *testing.T) {
+func TestState_ResolveCommand_forwardsExamineItemPhrase(t *testing.T) {
 	compiled, err := content.Compile(content.TutorialSource())
 	if err != nil {
 		t.Fatal(err)
@@ -73,7 +59,7 @@ func TestState_ResolveCommand_mapsExamineItemNameToID(t *testing.T) {
 
 	got := state.ResolveCommand("examine 旧油灯")
 
-	want := "examine item.tutorial.old_lantern"
+	want := "examine 旧油灯"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
@@ -109,7 +95,7 @@ func TestState_ResolveCommand_keepsUnknownItemName(t *testing.T) {
 	}
 }
 
-func TestState_ResolveCommand_mapsAliasItemNameToID(t *testing.T) {
+func TestState_ResolveCommand_forwardsAliasItemPhrase(t *testing.T) {
 	compiled, err := content.Compile(aliasContentSource())
 	if err != nil {
 		t.Fatal(err)
@@ -118,7 +104,7 @@ func TestState_ResolveCommand_mapsAliasItemNameToID(t *testing.T) {
 
 	got := state.ResolveCommand("get jiuyoudeng")
 
-	want := "get item.tutorial.old_lantern"
+	want := "get jiuyoudeng"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
@@ -157,7 +143,7 @@ func TestState_ResolveCommand_keepsAmbiguousDisplayName(t *testing.T) {
 	}
 }
 
-func TestState_ResolveCommandInput_reportsAmbiguousCandidates(t *testing.T) {
+func TestState_ResolveCommandInput_forwardsAmbiguousItemPhrase(t *testing.T) {
 	compiled, err := content.Compile(ambiguousAliasContentSource())
 	if err != nil {
 		t.Fatal(err)
@@ -166,15 +152,11 @@ func TestState_ResolveCommandInput_reportsAmbiguousCandidates(t *testing.T) {
 
 	got := state.ResolveCommandInput("get shared")
 
-	if got.Send {
-		t.Fatalf("expected ambiguous command not to send")
+	if !got.Send {
+		t.Fatalf("expected ambiguous phrase to send")
 	}
 	if got.Command != "get shared" {
 		t.Fatalf("command = %q, want original command", got.Command)
-	}
-	wantCandidates := []string{"item.tutorial.old_lantern", "item.tutorial.practice_sword"}
-	if !slices.Equal(got.AmbiguousItems, wantCandidates) {
-		t.Fatalf("candidates = %#v, want %#v", got.AmbiguousItems, wantCandidates)
 	}
 }
 
@@ -189,9 +171,9 @@ func TestState_ResolveCommandInput_mapsCommandAliases(t *testing.T) {
 		command string
 		want    string
 	}{
-		{name: "take item", command: "take jiuyoudeng", want: "get item.tutorial.old_lantern"},
-		{name: "x item", command: "x jiuyoudeng", want: "examine item.tutorial.old_lantern"},
-		{name: "inspect item", command: "inspect jiuyoudeng", want: "examine item.tutorial.old_lantern"},
+		{name: "take item", command: "take jiuyoudeng", want: "get jiuyoudeng"},
+		{name: "x item", command: "x jiuyoudeng", want: "examine jiuyoudeng"},
+		{name: "inspect item", command: "inspect jiuyoudeng", want: "examine jiuyoudeng"},
 		{name: "inventory", command: "i", want: "inventory"},
 		{name: "look", command: "l", want: "look"},
 	}

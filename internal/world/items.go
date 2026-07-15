@@ -1,5 +1,10 @@
 package world
 
+import (
+	"slices"
+	"strings"
+)
+
 func (w *World) GetItem(roomID RoomID, targetItemID ItemID, playerID PlayerID) (ItemID, bool) {
 	for _, itemID := range w.itemsInRoom(roomID) {
 		if itemID != targetItemID {
@@ -48,6 +53,69 @@ func (w *World) ExamineItem(roomID RoomID, targetItemID ItemID, playerID PlayerI
 		}, true
 	}
 	return ItemObservation{}, false
+}
+
+func (w *World) ResolveRoomItemPhrase(roomID RoomID, phrase string) ItemResolution {
+	return w.resolveItemPhrase(w.itemsInRoom(roomID), phrase)
+}
+
+func (w *World) ResolveInventoryItemPhrase(playerID PlayerID, phrase string) ItemResolution {
+	return w.resolveItemPhrase(w.itemsInInventory(playerID), phrase)
+}
+
+func (w *World) ResolveVisibleItemPhrase(roomID RoomID, playerID PlayerID, phrase string) ItemResolution {
+	return w.resolveItemPhrase(w.visibleItemIDs(roomID, playerID), phrase)
+}
+
+func (w *World) resolveItemPhrase(itemIDs []ItemID, phrase string) ItemResolution {
+	matches := make([]ItemID, 0, 1)
+	for _, itemID := range itemIDs {
+		item, ok := w.items[itemID]
+		if !ok {
+			continue
+		}
+		if item.matchesPhrase(itemID, phrase) {
+			matches = append(matches, itemID)
+		}
+	}
+	slices.Sort(matches)
+	if len(matches) == 0 {
+		return ItemResolution{}
+	}
+	if len(matches) > 1 {
+		return ItemResolution{AmbiguousItemIDs: matches}
+	}
+	return ItemResolution{ItemID: matches[0], Found: true}
+}
+
+func (i Item) matchesPhrase(itemID ItemID, phrase string) bool {
+	if phrase == string(itemID) {
+		return true
+	}
+	if phrase == i.Name {
+		return true
+	}
+	normalizedPhrase := normalizeInputName(phrase)
+	if normalizedPhrase == "" {
+		return false
+	}
+	if normalizedPhrase == normalizeInputName(i.InnerName) {
+		return true
+	}
+	for _, alias := range i.Aliases {
+		if normalizedPhrase == normalizeInputName(alias) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeInputName(name string) string {
+	name = strings.ToLower(name)
+	name = strings.ReplaceAll(name, "-", "")
+	name = strings.ReplaceAll(name, "_", "")
+	name = strings.ReplaceAll(name, " ", "")
+	return name
 }
 
 func (w *World) ItemName(itemID ItemID) (string, bool) {

@@ -81,7 +81,7 @@ func TestRenderTUIObservedProtocolLines_updatesCommandResolution(t *testing.T) {
 		t.Fatalf("RenderTUIObservedProtocolLines: %v", err)
 	}
 	line := state.ResolveCommand("get 旧油灯")
-	if line != "get item.tutorial.old_lantern" {
+	if line != "get 旧油灯" {
 		t.Fatalf("resolved command = %q", line)
 	}
 }
@@ -126,18 +126,12 @@ func TestForwardCommands_writesInputLinesToServer(t *testing.T) {
 	}
 }
 
-func TestForwardResolvedCommands_writesResolvedItemIDsToServer(t *testing.T) {
+func TestForwardResolvedCommands_forwardsUnresolvedItemPhrasesToServer(t *testing.T) {
 	compiled, err := content.Compile(content.TutorialSource())
 	if err != nil {
 		t.Fatal(err)
 	}
 	state := NewState(compiled.Client)
-	state.Observe(protocol.Event{
-		Name: "room",
-		Fields: map[string]string{
-			"items": "item.tutorial.old_lantern",
-		},
-	})
 	input := strings.NewReader("get 旧油灯\nlook\n")
 	var output strings.Builder
 
@@ -146,13 +140,13 @@ func TestForwardResolvedCommands_writesResolvedItemIDsToServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "get item.tutorial.old_lantern\nlook\n"
+	want := "get 旧油灯\nlook\n"
 	if got := output.String(); got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
 }
 
-func TestForwardResolvedCommands_keepsAmbiguousItemCommandLocal(t *testing.T) {
+func TestForwardResolvedCommands_forwardsAmbiguousItemPhraseToServer(t *testing.T) {
 	compiled, err := content.Compile(ambiguousAliasContentSource())
 	if err != nil {
 		t.Fatal(err)
@@ -166,7 +160,7 @@ func TestForwardResolvedCommands_keepsAmbiguousItemCommandLocal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "look\n"
+	want := "get shared\nlook\n"
 	if got := output.String(); got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
@@ -194,7 +188,7 @@ func TestForwardTUILines_redrawsInputAndWritesResolvedCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ForwardTUILines: %v", err)
 	}
-	if serverOutput.String() != "get item.tutorial.old_lantern\n" {
+	if serverOutput.String() != "get 旧油灯\n" {
 		t.Fatalf("server output = %q", serverOutput.String())
 	}
 	got := screenOutput.String()
@@ -224,7 +218,7 @@ func TestRenderTUIObservedProtocolLinesWithRuntime_sharesModelWithForwardTUILine
 	if err != nil {
 		t.Fatalf("ForwardTUILines: %v", err)
 	}
-	if serverOutput.String() != "get item.tutorial.old_lantern\n" {
+	if serverOutput.String() != "get 旧油灯\n" {
 		t.Fatalf("server output = %q", serverOutput.String())
 	}
 	got := screenOutput.String()
@@ -250,7 +244,7 @@ func TestForwardTUIKeyInput_decodesTextBackspaceAndSubmit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ForwardTUIKeyInput: %v", err)
 	}
-	if serverOutput.String() != "get item.tutorial.old_lantern\n" {
+	if serverOutput.String() != "get 旧油灯\n" {
 		t.Fatalf("server output = %q", serverOutput.String())
 	}
 	got := screenOutput.String()

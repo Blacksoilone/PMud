@@ -45,7 +45,7 @@ func TestTUIRuntimeSubmitLineRedrawsInputThenClearsPrompt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubmitLine: %v", err)
 	}
-	if serverOutput.String() != "get item.tutorial.old_lantern\n" {
+	if serverOutput.String() != "get 旧油灯\n" {
 		t.Fatalf("server output = %q", serverOutput.String())
 	}
 	got := screenOutput.String()
@@ -74,7 +74,7 @@ func TestTUIRuntimeSubmitLineWritesCaseInsensitiveAliases(t *testing.T) {
 		t.Fatalf("SubmitLine NW: %v", err)
 	}
 
-	want := "get item.tutorial.old_lantern\ngo northwest\n"
+	want := "get jiuyoudeng\ngo northwest\n"
 	if got := serverOutput.String(); got != want {
 		t.Fatalf("server output = %q, want %q", got, want)
 	}
@@ -189,7 +189,7 @@ func TestTUIRuntimeApplyInputSubmitWritesResolvedCommandAndClearsPrompt(t *testi
 	if err != nil {
 		t.Fatalf("ApplyInput submit: %v", err)
 	}
-	if server.String() != "get item.tutorial.old_lantern\n" {
+	if server.String() != "get 旧油灯\n" {
 		t.Fatalf("server output = %q", server.String())
 	}
 	got := output.String()
@@ -202,7 +202,7 @@ func TestTUIRuntimeApplyInputSubmitWritesResolvedCommandAndClearsPrompt(t *testi
 	}
 }
 
-func TestTUIRuntimeSubmitLineShowsAmbiguousItemFeedback(t *testing.T) {
+func TestTUIRuntimeSubmitLineForwardsAmbiguousItemPhrase(t *testing.T) {
 	compiled, err := content.Compile(ambiguousAliasContentSource())
 	if err != nil {
 		t.Fatal(err)
@@ -217,15 +217,11 @@ func TestTUIRuntimeSubmitLineShowsAmbiguousItemFeedback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubmitLine: %v", err)
 	}
-	if got := server.String(); got != "" {
-		t.Fatalf("server output = %q, want empty", got)
+	if got := server.String(); got != "get shared\n" {
+		t.Fatalf("server output = %q, want get shared", got)
 	}
-	got := output.String()
-	if !strings.Contains(got, "名字不明确") {
-		t.Fatalf("output missing ambiguity message:\n%s", got)
-	}
-	if !strings.Contains(got, "旧油灯") || !strings.Contains(got, "练习木剑") {
-		t.Fatalf("output missing candidate names:\n%s", got)
+	if got := output.String(); strings.Contains(got, "名字不明确") {
+		t.Fatalf("output should not include local ambiguity message:\n%s", got)
 	}
 }
 

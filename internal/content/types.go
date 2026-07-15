@@ -44,7 +44,12 @@ type ServerRoom struct {
 	Exits map[Direction]RoomID
 }
 
-type ServerItem struct{}
+type ServerItem struct {
+	DisplayNameKey TextKey
+	InnerNameKey   TextKey
+	DescriptionKey TextKey
+	Aliases        []TextKey
+}
 
 type ClientCatalog struct {
 	RoomNames        map[RoomID]TextKey

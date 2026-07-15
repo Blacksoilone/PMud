@@ -28,12 +28,15 @@ func New() *World {
 		items: map[ItemID]Item{
 			"item.tutorial.old_lantern": {
 				NameKey:        "item.tutorial.old_lantern.name",
+				InnerName:      "old lantern",
 				DescriptionKey: "item.tutorial.old_lantern.description",
 				Name:           "旧油灯",
 				Description:    "灯罩上蒙着一层灰，里面还剩一点灯油。",
+				Aliases:        []string{"jiuyoudeng", "old_lantern"},
 			},
 			"item.tutorial.practice_sword": {
 				NameKey:        "item.tutorial.practice_sword.name",
+				InnerName:      "practice sword",
 				DescriptionKey: "item.tutorial.practice_sword.description",
 				Name:           "练习木剑",
 				Description:    "一把被许多人握过的木剑，剑柄已经磨得发亮。",
@@ -71,13 +74,16 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 
 	items := make(map[ItemID]Item, len(snapshot.Items))
 	for itemID := range snapshot.Items {
+		serverItem := snapshot.Items[itemID]
 		nameKey := catalog.ItemDisplayNames[itemID]
 		descriptionKey := catalog.ItemDescriptions[itemID]
 		items[ItemID(itemID)] = Item{
 			NameKey:        string(nameKey),
+			InnerName:      catalog.Text[serverItem.InnerNameKey],
 			DescriptionKey: string(descriptionKey),
 			Name:           catalog.Text[nameKey],
 			Description:    catalog.Text[descriptionKey],
+			Aliases:        textKeysToStrings(catalog, serverItem.Aliases),
 		}
 	}
 
@@ -92,4 +98,17 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 		items:         items,
 		itemLocations: itemLocations,
 	}
+}
+
+func textKeysToStrings(catalog content.ClientCatalog, keys []content.TextKey) []string {
+	if len(keys) == 0 {
+		return nil
+	}
+	values := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if value, ok := catalog.Text[key]; ok {
+			values = append(values, value)
+		}
+	}
+	return values
 }

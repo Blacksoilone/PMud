@@ -33,9 +33,17 @@ type Room struct {
 
 type Item struct {
 	NameKey        string
+	InnerName      string
 	DescriptionKey string
 	Name           string
 	Description    string
+	Aliases        []string
+}
+
+type ItemResolution struct {
+	ItemID           ItemID
+	AmbiguousItemIDs []ItemID
+	Found            bool
 }
 
 type ItemLocation interface {

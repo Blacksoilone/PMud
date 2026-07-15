@@ -28,7 +28,12 @@ func Compile(source ContentSource) (CompiledContent, error) {
 	}
 
 	for _, item := range source.Items {
-		server.Items[item.ID] = ServerItem{}
+		server.Items[item.ID] = ServerItem{
+			DisplayNameKey: item.DisplayNameKey,
+			InnerNameKey:   item.InnerNameKey,
+			DescriptionKey: item.DescriptionKey,
+			Aliases:        append([]TextKey(nil), item.Aliases...),
+		}
 		server.ItemLocations[item.ID] = item.InitialRoom
 		client.ItemDisplayNames[item.ID] = item.DisplayNameKey
 		client.ItemInnerNames[item.ID] = item.InnerNameKey

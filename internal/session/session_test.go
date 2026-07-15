@@ -102,19 +102,24 @@ func TestNormalizeDirection_mapsStandardAliases(t *testing.T) {
 	}
 }
 
-func TestSessionGet_requiresItemID(t *testing.T) {
+func TestSessionGet_resolvesVisibleItemPhrase(t *testing.T) {
 	state := newTestSessionState()
 
 	nameEvent := state.handleLine("get 旧油灯")
-	idEvent := state.handleLine("get item.tutorial.old_lantern")
 
 	nameMessage, ok := nameEvent.(presentation.SystemMessageEvent)
 	if !ok {
 		t.Fatalf("expected system message, got %T", nameEvent)
 	}
-	if nameMessage.MessageKey != "system.item.not_here" {
-		t.Fatalf("expected not_here for display name command, got %q", nameMessage.MessageKey)
+	if nameMessage.MessageKey != "system.item.taken" {
+		t.Fatalf("expected taken for display name command, got %q", nameMessage.MessageKey)
 	}
+	if nameMessage.Fields["item"] != "item.tutorial.old_lantern" {
+		t.Fatalf("expected old lantern id for display name command, got %q", nameMessage.Fields["item"])
+	}
+
+	idState := newTestSessionState()
+	idEvent := idState.handleLine("get item.tutorial.old_lantern")
 	idMessage, ok := idEvent.(presentation.SystemMessageEvent)
 	if !ok {
 		t.Fatalf("expected system message, got %T", idEvent)
@@ -127,20 +132,26 @@ func TestSessionGet_requiresItemID(t *testing.T) {
 	}
 }
 
-func TestSessionDrop_requiresItemID(t *testing.T) {
+func TestSessionDrop_resolvesInventoryItemPhrase(t *testing.T) {
 	state := newTestSessionState()
 	state.handleLine("get item.tutorial.old_lantern")
 
 	nameEvent := state.handleLine("drop 旧油灯")
-	idEvent := state.handleLine("drop item.tutorial.old_lantern")
 
 	nameMessage, ok := nameEvent.(presentation.SystemMessageEvent)
 	if !ok {
 		t.Fatalf("expected system message, got %T", nameEvent)
 	}
-	if nameMessage.MessageKey != "system.item.not_carried" {
-		t.Fatalf("expected not_carried for display name command, got %q", nameMessage.MessageKey)
+	if nameMessage.MessageKey != "system.item.dropped" {
+		t.Fatalf("expected dropped for display name command, got %q", nameMessage.MessageKey)
 	}
+	if nameMessage.Fields["item"] != "item.tutorial.old_lantern" {
+		t.Fatalf("expected old lantern id for display name command, got %q", nameMessage.Fields["item"])
+	}
+
+	idState := newTestSessionState()
+	idState.handleLine("get item.tutorial.old_lantern")
+	idEvent := idState.handleLine("drop item.tutorial.old_lantern")
 	idMessage, ok := idEvent.(presentation.SystemMessageEvent)
 	if !ok {
 		t.Fatalf("expected system message, got %T", idEvent)
@@ -153,10 +164,10 @@ func TestSessionDrop_requiresItemID(t *testing.T) {
 	}
 }
 
-func TestSessionExamine_returnsVisibleRoomItem(t *testing.T) {
+func TestSessionExamine_resolvesVisibleItemPhrase(t *testing.T) {
 	state := newTestSessionState()
 
-	event := state.handleLine("examine item.tutorial.old_lantern")
+	event := state.handleLine("examine 旧油灯")
 
 	observation, ok := event.(presentation.ItemObservationEvent)
 	if !ok {
@@ -170,18 +181,17 @@ func TestSessionExamine_returnsVisibleRoomItem(t *testing.T) {
 	}
 }
 
-func TestSessionExamine_returnsInventoryItem(t *testing.T) {
+func TestSessionExamine_resolvesAliasPhrase(t *testing.T) {
 	state := newTestSessionState()
-	state.handleLine("get item.tutorial.old_lantern")
 
-	event := state.handleLine("examine item.tutorial.old_lantern")
+	event := state.handleLine("examine jiuyoudeng")
 
 	observation, ok := event.(presentation.ItemObservationEvent)
 	if !ok {
 		t.Fatalf("expected item observation, got %T", event)
 	}
-	if observation.Name != "旧油灯" {
-		t.Fatalf("expected old lantern name, got %q", observation.Name)
+	if observation.Item != "item.tutorial.old_lantern" {
+		t.Fatalf("expected old lantern id, got %q", observation.Item)
 	}
 }
 

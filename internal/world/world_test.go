@@ -141,3 +141,141 @@ func TestWorld_ExamineItemRejectsInvisibleItem(t *testing.T) {
 		t.Fatal("expected practice sword in another room to be invisible")
 	}
 }
+
+func TestWorldResolveRoomItemPhrase_matchesDisplayName(t *testing.T) {
+	// Given
+	game := New()
+
+	// When
+	resolution := game.ResolveRoomItemPhrase(game.StartRoom(), "旧油灯")
+
+	// Then
+	if !resolution.Found {
+		t.Fatal("expected old lantern to resolve")
+	}
+	if resolution.ItemID != "item.tutorial.old_lantern" {
+		t.Fatalf("item id = %q, want old lantern", resolution.ItemID)
+	}
+}
+
+func TestWorldResolveRoomItemPhrase_matchesInnerNameSeparatorsCaseInsensitively(t *testing.T) {
+	// Given
+	game := New()
+
+	tests := []string{"oldlantern", "old-lantern", "old_lantern", "OLD-LANTERN"}
+	for _, phrase := range tests {
+		t.Run(phrase, func(t *testing.T) {
+			// When
+			resolution := game.ResolveRoomItemPhrase(game.StartRoom(), phrase)
+
+			// Then
+			if !resolution.Found {
+				t.Fatal("expected old lantern to resolve")
+			}
+			if resolution.ItemID != "item.tutorial.old_lantern" {
+				t.Fatalf("item id = %q, want old lantern", resolution.ItemID)
+			}
+		})
+	}
+}
+
+func TestWorldResolveRoomItemPhrase_matchesAliasSeparatorsCaseInsensitively(t *testing.T) {
+	// Given
+	game := New()
+
+	tests := []string{"jiuyoudeng", "jiu-youdeng", "jiu_youdeng", "JIU_YOUDENG"}
+	for _, phrase := range tests {
+		t.Run(phrase, func(t *testing.T) {
+			// When
+			resolution := game.ResolveRoomItemPhrase(game.StartRoom(), phrase)
+
+			// Then
+			if !resolution.Found {
+				t.Fatal("expected old lantern to resolve")
+			}
+			if resolution.ItemID != "item.tutorial.old_lantern" {
+				t.Fatalf("item id = %q, want old lantern", resolution.ItemID)
+			}
+		})
+	}
+}
+
+func TestWorldResolveInventoryItemPhrase_matchesOnlyInventory(t *testing.T) {
+	// Given
+	game := New()
+	playerID := PlayerID("player.local")
+	game.GetItem(game.StartRoom(), "item.tutorial.old_lantern", playerID)
+
+	// When
+	inventoryResolution := game.ResolveInventoryItemPhrase(playerID, "旧油灯")
+	roomResolution := game.ResolveRoomItemPhrase(game.StartRoom(), "旧油灯")
+
+	// Then
+	if !inventoryResolution.Found {
+		t.Fatal("expected old lantern to resolve in inventory")
+	}
+	if inventoryResolution.ItemID != "item.tutorial.old_lantern" {
+		t.Fatalf("item id = %q, want old lantern", inventoryResolution.ItemID)
+	}
+	if roomResolution.Found {
+		t.Fatalf("expected old lantern not to resolve in room after pickup, got %#v", roomResolution)
+	}
+}
+
+func TestWorldResolveVisibleItemPhrase_matchesRoomAndInventory(t *testing.T) {
+	// Given
+	game := New()
+	playerID := PlayerID("player.local")
+	game.GetItem(game.StartRoom(), "item.tutorial.old_lantern", playerID)
+
+	// When
+	inventoryResolution := game.ResolveVisibleItemPhrase(game.StartRoom(), playerID, "旧油灯")
+	yardResolution := game.ResolveVisibleItemPhrase("room.tutorial.yard", playerID, "练习木剑")
+
+	// Then
+	if !inventoryResolution.Found || inventoryResolution.ItemID != "item.tutorial.old_lantern" {
+		t.Fatalf("inventory visible resolution = %#v, want old lantern", inventoryResolution)
+	}
+	if !yardResolution.Found || yardResolution.ItemID != "item.tutorial.practice_sword" {
+		t.Fatalf("yard visible resolution = %#v, want practice sword", yardResolution)
+	}
+}
+
+func TestWorldResolveRoomItemPhrase_reportsAmbiguityOnlyWithinRoom(t *testing.T) {
+	// Given
+	game := New()
+	game.items["item.tutorial.second_lantern"] = Item{
+		NameKey:        "item.tutorial.second_lantern.name",
+		DescriptionKey: "item.tutorial.second_lantern.description",
+		Name:           "旧油灯",
+		InnerName:      "old lantern",
+		Description:    "另一盏旧油灯。",
+		Aliases:        []string{"jiuyoudeng"},
+	}
+	game.itemLocations["item.tutorial.second_lantern"] = RoomItemLocation{RoomID: game.StartRoom()}
+	game.items["item.tutorial.distant_lantern"] = Item{
+		NameKey:        "item.tutorial.distant_lantern.name",
+		DescriptionKey: "item.tutorial.distant_lantern.description",
+		Name:           "旧油灯",
+		InnerName:      "old lantern",
+		Description:    "远处的旧油灯。",
+		Aliases:        []string{"jiuyoudeng"},
+	}
+	game.itemLocations["item.tutorial.distant_lantern"] = RoomItemLocation{RoomID: "room.tutorial.yard"}
+
+	// When
+	startResolution := game.ResolveRoomItemPhrase(game.StartRoom(), "旧油灯")
+	yardResolution := game.ResolveRoomItemPhrase("room.tutorial.yard", "旧油灯")
+
+	// Then
+	wantAmbiguous := []ItemID{"item.tutorial.old_lantern", "item.tutorial.second_lantern"}
+	if startResolution.Found {
+		t.Fatalf("expected ambiguous start room resolution, got found %#v", startResolution)
+	}
+	if !slices.Equal(startResolution.AmbiguousItemIDs, wantAmbiguous) {
+		t.Fatalf("ambiguous ids = %#v, want %#v", startResolution.AmbiguousItemIDs, wantAmbiguous)
+	}
+	if !yardResolution.Found || yardResolution.ItemID != "item.tutorial.distant_lantern" {
+		t.Fatalf("yard resolution = %#v, want distant lantern only", yardResolution)
+	}
+}

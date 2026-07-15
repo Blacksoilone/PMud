@@ -86,10 +86,16 @@ func (s *sessionState) handleLine(line string) presentation.Event {
 }
 
 func (s *sessionState) handleItemCommand(itemCommand command.ItemCommand) presentation.Event {
-	itemID := world.ItemID(itemCommand.Target)
 	switch itemCommand.Verb {
 	case command.ItemVerbGet:
-		itemID, ok := s.game.GetItem(s.currentRoom, itemID, s.playerID)
+		resolution := s.game.ResolveRoomItemPhrase(s.currentRoom, itemCommand.Target)
+		if len(resolution.AmbiguousItemIDs) > 0 {
+			return ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs)
+		}
+		if !resolution.Found {
+			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
+		}
+		itemID, ok := s.game.GetItem(s.currentRoom, resolution.ItemID, s.playerID)
 		if !ok {
 			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
 		}
@@ -100,7 +106,14 @@ func (s *sessionState) handleItemCommand(itemCommand command.ItemCommand) presen
 			},
 		}
 	case command.ItemVerbDrop:
-		itemID, ok := s.game.DropInventoryItem(s.currentRoom, itemID, s.playerID)
+		resolution := s.game.ResolveInventoryItemPhrase(s.playerID, itemCommand.Target)
+		if len(resolution.AmbiguousItemIDs) > 0 {
+			return ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs)
+		}
+		if !resolution.Found {
+			return presentation.SystemMessageEvent{MessageKey: "system.item.not_carried"}
+		}
+		itemID, ok := s.game.DropInventoryItem(s.currentRoom, resolution.ItemID, s.playerID)
 		if !ok {
 			return presentation.SystemMessageEvent{MessageKey: "system.item.not_carried"}
 		}
@@ -111,7 +124,14 @@ func (s *sessionState) handleItemCommand(itemCommand command.ItemCommand) presen
 			},
 		}
 	case command.ItemVerbExamine:
-		item, ok := s.game.ExamineItem(s.currentRoom, itemID, s.playerID)
+		resolution := s.game.ResolveVisibleItemPhrase(s.currentRoom, s.playerID, itemCommand.Target)
+		if len(resolution.AmbiguousItemIDs) > 0 {
+			return ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs)
+		}
+		if !resolution.Found {
+			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
+		}
+		item, ok := s.game.ExamineItem(s.currentRoom, resolution.ItemID, s.playerID)
 		if !ok {
 			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
 		}
@@ -119,6 +139,10 @@ func (s *sessionState) handleItemCommand(itemCommand command.ItemCommand) presen
 	default:
 		return presentation.SystemMessageEvent{MessageKey: "system.unknown_command"}
 	}
+}
+
+func ambiguousItemEvent(game *world.World, itemIDs []world.ItemID) presentation.Event {
+	return presentation.SystemMessageEvent{Message: "名字不明确: " + strings.Join(game.ItemNames(itemIDs), ", ")}
 }
 
 func itemObservationEvent(item world.ItemObservation) presentation.Event {
