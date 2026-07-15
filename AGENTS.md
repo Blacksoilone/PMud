@@ -29,7 +29,10 @@ Authoritative supplementary specs:
 
 - Use TDD for behavior changes: write the failing behavior test first, then implement.
 - Test behavior boundaries, not every file or private helper.
-- Prefer useful vertical slices. Do not split progress into tiny Zeno-style tasks.
+- Prefer useful vertical slices, but optimize for delivering the first playable version of the big feature.
+- Small slices are a means to an end: they exist to build foundations or clean up after a larger feature lands.
+- Use small cuts when they are necessary, not when they are merely smaller.
+- If the foundations are ready, do not keep postponing the larger feature.
 - After edits, run diagnostics on changed Go files.
 - Run targeted tests first, then:
 
