@@ -33,6 +33,8 @@ Authoritative supplementary specs:
 - Small slices are a means to an end: they exist to build foundations or clean up after a larger feature lands.
 - Use small cuts when they are necessary, not when they are merely smaller.
 - If the foundations are ready, do not keep postponing the larger feature.
+- Refactoring has priority over feature work when existing design debt would make the larger feature harder or messier.
+- Do not build major features on top of known historical baggage when that baggage is directly in the feature path.
 - After edits, run diagnostics on changed Go files.
 - Run targeted tests first, then:
 
