@@ -16,6 +16,7 @@ Authoritative supplementary specs:
 
 - `docs/superpowers/specs/2026-07-13-tag-definition-instance-design.md`
 - `docs/superpowers/specs/2026-07-14-simplified-progression-quest-system.md`
+- `docs/superpowers/specs/2026-07-15-object-naming-and-alias-design.md`
 
 ## Project Shape
 
@@ -46,25 +47,34 @@ go test -race -shuffle=on -count=1 ./...
 - A cohesive single-behavior file may remain intact until about `600` lines.
 - Above `600` lines, stop and consider helpers, branch reduction, or registry/dispatcher design.
 - Do not split files just to satisfy a numeric limit.
+- Test files are exempt from normal source LOC split triggers. Prefer keeping tests for the same behavior area together; split tests only when they mix unrelated behavior areas or become hard to navigate.
 
 ## Package Boundaries
 
 - `internal/command`: command parsing and canonicalization.
-- `internal/client`: TUI/client state, item display-name and alias resolution, ambiguity feedback, local static commands.
+- `internal/client`: TUI/client state, command aliases, rendering support, local static commands.
 - `internal/session`: server command dispatch from canonical commands to world actions.
 - `internal/world`: authoritative world graph, state, and rules. No text command parsing.
 - `internal/content`: content source, compiler, server snapshot, client catalog projection.
 - `internal/presentation`: server event to wire protocol.
 - `internal/client/render`: wire protocol to player-facing text.
 
+## Exit Direction
+
+- Exits should eventually be first-class world entities/objects so they can be created, destroyed, hidden, locked, or transformed.
+- Temporary room exit maps are acceptable during early implementation.
+- Do not extend room exits into a separate permanent exit-specific rule system.
+- Do not treat exits as normal inventory items in rendering.
+
 ## Command System
 
 - TUI input goes through `internal/command.ParseClientInput`.
-- The client resolves item names/aliases to item ids.
-- Ambiguous item names are handled locally in the TUI and are not sent to the server.
-- The client sends canonical wire commands.
+- The client handles fixed command aliases and future player-custom command aliases.
+- The client must not resolve object display names, object aliases, or object ids.
+- Object phrases are sent unresolved as part of canonical wire commands.
 - The server parses canonical wire commands with `internal/command.ParseServerInput`.
-- The server must not parse item display names or client item aliases.
+- The server resolves object phrases in the current action context and reports object ambiguity.
+- Current client-side item alias resolution is temporary and should migrate server-side.
 
 Client-only aliases include:
 
@@ -118,10 +128,12 @@ Tag direction:
 
 - This is a single-person project; default to the current branch.
 - New branches are allowed when they clearly help isolate risky or large work. Do not over-branch.
-- Commit only when the user asks.
-- After a requested commit, pushing is allowed when upstream/remotes are configured or GitHub sync is desired.
+- Agents may commit whenever current progress is worth saving.
+- Agents may push committed progress to the current repository's current branch when an upstream/remotes are configured or GitHub sync is desired.
+- Before staging, inspect status, diff, recent log, remotes, and `.gitignore`.
+- Gitignore first: any file that should not be added must be covered by `.gitignore` before staging other files.
 - Follow the repository style: Chinese plain commit messages.
-- Before committing, inspect status, diff, and recent log.
+- Never push to a different repository or remote than this current checkout's configured repository.
 - Never amend, force-push, or rewrite history unless explicitly asked.
 
 ## Agent Guardrails
@@ -131,5 +143,5 @@ Tag direction:
 - Do not revive discarded designs from old docs or conversation history.
 - Do not expand non-TUI UX by default.
 - Do not put executable logic in data.
-- Do not parse item display names on the server.
+- Do not parse item display names on the client; object phrase resolution belongs server-side.
 - Do not weaken tests.
