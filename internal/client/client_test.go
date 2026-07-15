@@ -22,7 +22,7 @@ func TestRenderProtocolLines_rendersServerEvents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "练习场入口\n这里是练习场的入口。北边传来木剑碰撞的声音。\n出口: north\n你看到: 旧油灯\n"
+	want := "练习场入口\n这里是练习场的入口。北边传来木剑碰撞的声音。\n出口: north\n你看到: 旧油灯（old lantern）\n"
 	if got := output.String(); got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
@@ -106,7 +106,7 @@ func TestRenderTUIObservedProtocolLines_redrawsPerEvent(t *testing.T) {
 	if redrawCount != 2 {
 		t.Fatalf("redraw count = %d, want 2; output:\n%s", redrawCount, got)
 	}
-	if !strings.Contains(got, "可用命令") || !strings.Contains(got, "你带着: 旧油灯") || !strings.Contains(got, "> ") {
+	if !strings.Contains(got, "可用命令") || !strings.Contains(got, "你带着: 旧油灯（old lantern）") || !strings.Contains(got, "> ") {
 		t.Fatalf("output missing expected TUI content:\n%s", got)
 	}
 }

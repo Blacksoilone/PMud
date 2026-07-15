@@ -46,7 +46,7 @@ func renderRoom(event protocol.Event, catalog content.ClientCatalog) string {
 
 func renderItem(event protocol.Event, catalog content.ClientCatalog) string {
 	var builder strings.Builder
-	builder.WriteString(text(catalog, event.Fields["name_key"]))
+	builder.WriteString(itemDisplayName(catalog, content.ItemID(event.Fields["item"])))
 	builder.WriteString("\n")
 	builder.WriteString(text(catalog, event.Fields["description_key"]))
 	builder.WriteString("\n")
@@ -83,11 +83,7 @@ func fieldText(name string, value string, catalog content.ClientCatalog) string 
 	if name != "item" {
 		return value
 	}
-	nameKey, ok := catalog.ItemNames[content.ItemID(value)]
-	if !ok {
-		return value
-	}
-	return text(catalog, string(nameKey))
+	return itemDisplayName(catalog, content.ItemID(value))
 }
 
 func itemNames(catalog content.ClientCatalog, itemIDs string) []string {
@@ -98,14 +94,31 @@ func itemNames(catalog content.ClientCatalog, itemIDs string) []string {
 	names := make([]string, 0, len(ids))
 	for _, id := range ids {
 		itemID := content.ItemID(id)
-		nameKey, ok := catalog.ItemNames[itemID]
-		if !ok {
+		name := itemDisplayName(catalog, itemID)
+		if name == id {
 			names = append(names, id)
 			continue
 		}
-		names = append(names, text(catalog, string(nameKey)))
+		names = append(names, name)
 	}
 	return names
+}
+
+func itemDisplayName(catalog content.ClientCatalog, itemID content.ItemID) string {
+	displayKey, ok := catalog.ItemDisplayNames[itemID]
+	if !ok {
+		return string(itemID)
+	}
+	innerKey, ok := catalog.ItemInnerNames[itemID]
+	if !ok {
+		return text(catalog, string(displayKey))
+	}
+	display := text(catalog, string(displayKey))
+	inner := text(catalog, string(innerKey))
+	if inner == "" {
+		return display
+	}
+	return display + "（" + inner + "）"
 }
 
 func text(catalog content.ClientCatalog, key string) string {

@@ -57,6 +57,29 @@ func TestTUIRuntimeSubmitLineRedrawsInputThenClearsPrompt(t *testing.T) {
 	}
 }
 
+func TestTUIRuntimeSubmitLineWritesCaseInsensitiveAliases(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	var screenOutput strings.Builder
+	var serverOutput strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+
+	if err := runtime.SubmitLine("TAKE jiuyoudeng", &serverOutput); err != nil {
+		t.Fatalf("SubmitLine TAKE: %v", err)
+	}
+	if err := runtime.SubmitLine("NW", &serverOutput); err != nil {
+		t.Fatalf("SubmitLine NW: %v", err)
+	}
+
+	want := "get item.tutorial.old_lantern\ngo northwest\n"
+	if got := serverOutput.String(); got != want {
+		t.Fatalf("server output = %q, want %q", got, want)
+	}
+}
+
 func TestTUIRuntimeApplyInputRedrawsText(t *testing.T) {
 	compiled, err := content.Compile(content.TutorialSource())
 	if err != nil {
@@ -226,6 +249,12 @@ func TestTUIRuntimeSubmitLineShowsHelpLocally(t *testing.T) {
 	}
 	if got := output.String(); !strings.Contains(got, "可用命令") {
 		t.Fatalf("output missing help text:\n%s", got)
+	}
+	if got := output.String(); !strings.Contains(got, "get/take <item>") || !strings.Contains(got, "examine/x/inspect <item>") {
+		t.Fatalf("output missing item command aliases:\n%s", got)
+	}
+	if got := output.String(); !strings.Contains(got, "northeast/ne") || !strings.Contains(got, "northwest/nw") || !strings.Contains(got, "southeast/se") || !strings.Contains(got, "southwest/sw") {
+		t.Fatalf("output missing diagonal direction aliases:\n%s", got)
 	}
 }
 

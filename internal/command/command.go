@@ -91,79 +91,103 @@ var standardDirections = map[string]string{
 }
 
 func CanonicalDirection(direction string) (string, bool) {
-	canonical, ok := standardDirections[strings.TrimSpace(direction)]
+	canonical, ok := standardDirections[strings.ToLower(strings.TrimSpace(direction))]
 	return canonical, ok
 }
 
 func ParseClientInput(input string) ClientCommand {
 	trimmed := strings.TrimSpace(input)
+	verb, target := splitVerbTarget(trimmed)
 	if trimmed == "" {
 		return EmptyCommand{}
 	}
-	if trimmed == "look" || trimmed == "l" {
+	if verb == "look" || verb == "l" {
 		return LookCommand{}
 	}
-	if trimmed == "inventory" || trimmed == "i" {
+	if verb == "inventory" || verb == "i" {
 		return InventoryCommand{}
 	}
-	if trimmed == "help" {
+	if verb == "help" {
 		return HelpCommand{}
 	}
 	if direction, ok := CanonicalDirection(trimmed); ok {
 		return MoveCommand{Direction: direction}
 	}
-	if remainder, ok := strings.CutPrefix(trimmed, "go "); ok {
-		if direction, ok := CanonicalDirection(remainder); ok {
+	if verb == "go" {
+		if direction, ok := CanonicalDirection(target); ok {
 			return MoveCommand{Direction: direction}
 		}
 		return UnknownCommand{Input: input}
 	}
-	if item, ok := strings.CutPrefix(trimmed, "get "); ok {
-		return ItemCommand{Verb: ItemVerbGet, Target: strings.TrimSpace(item)}
+	if verb == "get" {
+		return clientItemCommand(input, target, ItemVerbGet)
 	}
-	if item, ok := strings.CutPrefix(trimmed, "take "); ok {
-		return ItemCommand{Verb: ItemVerbGet, Target: strings.TrimSpace(item)}
+	if verb == "take" {
+		return clientItemCommand(input, target, ItemVerbGet)
 	}
-	if item, ok := strings.CutPrefix(trimmed, "drop "); ok {
-		return ItemCommand{Verb: ItemVerbDrop, Target: strings.TrimSpace(item)}
+	if verb == "drop" {
+		return clientItemCommand(input, target, ItemVerbDrop)
 	}
-	if item, ok := strings.CutPrefix(trimmed, "examine "); ok {
-		return ItemCommand{Verb: ItemVerbExamine, Target: strings.TrimSpace(item)}
+	if verb == "examine" {
+		return clientItemCommand(input, target, ItemVerbExamine)
 	}
-	if item, ok := strings.CutPrefix(trimmed, "x "); ok {
-		return ItemCommand{Verb: ItemVerbExamine, Target: strings.TrimSpace(item)}
+	if verb == "x" {
+		return clientItemCommand(input, target, ItemVerbExamine)
 	}
-	if item, ok := strings.CutPrefix(trimmed, "inspect "); ok {
-		return ItemCommand{Verb: ItemVerbExamine, Target: strings.TrimSpace(item)}
+	if verb == "inspect" {
+		return clientItemCommand(input, target, ItemVerbExamine)
 	}
 	return UnknownCommand{Input: input}
 }
 
 func ParseServerInput(input string) ServerCommand {
 	trimmed := strings.TrimSpace(input)
-	if trimmed == "look" {
+	verb, target := splitVerbTarget(trimmed)
+	if verb == "look" {
 		return LookCommand{}
 	}
-	if trimmed == "inventory" {
+	if verb == "inventory" {
 		return InventoryCommand{}
 	}
-	if trimmed == "help" {
+	if verb == "help" {
 		return HelpCommand{}
 	}
-	if remainder, ok := strings.CutPrefix(trimmed, "go "); ok {
-		if direction, ok := CanonicalDirection(remainder); ok {
+	if verb == "go" {
+		if direction, ok := CanonicalDirection(target); ok {
 			return MoveCommand{Direction: direction}
 		}
 		return UnknownCommand{Input: input}
 	}
-	if item, ok := strings.CutPrefix(trimmed, "get "); ok {
-		return ItemCommand{Verb: ItemVerbGet, Target: strings.TrimSpace(item)}
+	if verb == "get" {
+		return serverItemCommand(input, target, ItemVerbGet)
 	}
-	if item, ok := strings.CutPrefix(trimmed, "drop "); ok {
-		return ItemCommand{Verb: ItemVerbDrop, Target: strings.TrimSpace(item)}
+	if verb == "drop" {
+		return serverItemCommand(input, target, ItemVerbDrop)
 	}
-	if item, ok := strings.CutPrefix(trimmed, "examine "); ok {
-		return ItemCommand{Verb: ItemVerbExamine, Target: strings.TrimSpace(item)}
+	if verb == "examine" {
+		return serverItemCommand(input, target, ItemVerbExamine)
 	}
 	return UnknownCommand{Input: input}
+}
+
+func clientItemCommand(input string, target string, verb ItemVerb) ClientCommand {
+	if target == "" {
+		return UnknownCommand{Input: input}
+	}
+	return ItemCommand{Verb: verb, Target: target}
+}
+
+func serverItemCommand(input string, target string, verb ItemVerb) ServerCommand {
+	if target == "" {
+		return UnknownCommand{Input: input}
+	}
+	return ItemCommand{Verb: verb, Target: target}
+}
+
+func splitVerbTarget(input string) (string, string) {
+	verb, target, ok := strings.Cut(input, " ")
+	if !ok {
+		return strings.ToLower(input), ""
+	}
+	return strings.ToLower(verb), strings.TrimSpace(target)
 }

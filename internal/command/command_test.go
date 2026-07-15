@@ -32,6 +32,30 @@ func TestParseClientInput_mapsCommandAliases(t *testing.T) {
 	}
 }
 
+func TestParseClientInput_mapsCommandAliasesCaseInsensitively(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  ClientCommand
+	}{
+		{name: "take uppercase", input: "TAKE Old_Lantern", want: ItemCommand{Verb: ItemVerbGet, Target: "Old_Lantern"}},
+		{name: "examine mixed case", input: "Examine Old_Lantern", want: ItemCommand{Verb: ItemVerbExamine, Target: "Old_Lantern"}},
+		{name: "inventory uppercase", input: "I", want: InventoryCommand{}},
+		{name: "look uppercase", input: "L", want: LookCommand{}},
+		{name: "help uppercase", input: "HELP", want: HelpCommand{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParseClientInput(tt.input)
+
+			if got != tt.want {
+				t.Fatalf("ParseClientInput(%q) = %#v, want %#v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseClientInput_mapsStandardDirections(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -64,6 +88,28 @@ func TestParseClientInput_mapsStandardDirections(t *testing.T) {
 	}
 }
 
+func TestParseClientInput_mapsStandardDirectionsCaseInsensitively(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  MoveCommand
+	}{
+		{name: "bare uppercase", input: "N", want: MoveCommand{Direction: "north"}},
+		{name: "go uppercase alias", input: "GO NW", want: MoveCommand{Direction: "northwest"}},
+		{name: "full mixed case", input: "NorthEast", want: MoveCommand{Direction: "northeast"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParseClientInput(tt.input)
+
+			if got != tt.want {
+				t.Fatalf("ParseClientInput(%q) = %#v, want %#v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCanonicalDirection_mapsOnlyStandardDirections(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -83,6 +129,8 @@ func TestCanonicalDirection_mapsOnlyStandardDirections(t *testing.T) {
 		{name: "northwest", direction: "nw", want: "northwest", wantOK: true},
 		{name: "southeast", direction: "se", want: "southeast", wantOK: true},
 		{name: "southwest", direction: "sw", want: "southwest", wantOK: true},
+		{name: "uppercase alias", direction: "NW", want: "northwest", wantOK: true},
+		{name: "mixed full name", direction: "SouthEast", want: "southeast", wantOK: true},
 		{name: "keeps special exits out", direction: "trapdoor", want: "", wantOK: false},
 	}
 
@@ -106,6 +154,32 @@ func TestParseClientInput_preservesUnknownInput(t *testing.T) {
 	want := UnknownCommand{Input: "dance wildly"}
 	if got != want {
 		t.Fatalf("ParseClientInput() = %#v, want %#v", got, want)
+	}
+}
+
+func TestParseClientInput_preservesCommandsMissingRequiredTargets(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "go missing direction", input: "go"},
+		{name: "get missing item", input: "get"},
+		{name: "take missing item", input: "take"},
+		{name: "drop missing item", input: "drop"},
+		{name: "examine missing item", input: "examine"},
+		{name: "x missing item", input: "x"},
+		{name: "inspect missing item", input: "inspect"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParseClientInput(tt.input)
+
+			want := UnknownCommand{Input: tt.input}
+			if got != want {
+				t.Fatalf("ParseClientInput(%q) = %#v, want %#v", tt.input, got, want)
+			}
+		})
 	}
 }
 
@@ -145,6 +219,29 @@ func TestParseServerInput_mapsCanonicalCommands(t *testing.T) {
 	}
 }
 
+func TestParseServerInput_mapsCanonicalCommandsCaseInsensitively(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  ServerCommand
+	}{
+		{name: "look uppercase", input: "LOOK", want: LookCommand{}},
+		{name: "inventory mixed case", input: "Inventory", want: InventoryCommand{}},
+		{name: "go uppercase alias", input: "GO NW", want: MoveCommand{Direction: "northwest"}},
+		{name: "get uppercase verb preserves target", input: "GET Item.Tutorial.Old_Lantern", want: ItemCommand{Verb: ItemVerbGet, Target: "Item.Tutorial.Old_Lantern"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParseServerInput(tt.input)
+
+			if got != tt.want {
+				t.Fatalf("ParseServerInput(%q) = %#v, want %#v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseServerInput_preservesUnknownAndClientOnlyAliases(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -156,6 +253,10 @@ func TestParseServerInput_preservesUnknownAndClientOnlyAliases(t *testing.T) {
 		{name: "client inventory alias", input: "i"},
 		{name: "bare direction", input: "nw"},
 		{name: "special exit", input: "go trapdoor"},
+		{name: "go missing direction", input: "go"},
+		{name: "get missing item", input: "get"},
+		{name: "drop missing item", input: "drop"},
+		{name: "examine missing item", input: "examine"},
 	}
 
 	for _, tt := range tests {

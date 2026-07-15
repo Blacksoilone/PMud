@@ -12,7 +12,8 @@ func Compile(source ContentSource) (CompiledContent, error) {
 	client := ClientCatalog{
 		RoomNames:        make(map[RoomID]TextKey, len(source.Rooms)),
 		RoomDescriptions: make(map[RoomID]TextKey, len(source.Rooms)),
-		ItemNames:        make(map[ItemID]TextKey, len(source.Items)),
+		ItemDisplayNames: make(map[ItemID]TextKey, len(source.Items)),
+		ItemInnerNames:   make(map[ItemID]TextKey, len(source.Items)),
 		ItemDescriptions: make(map[ItemID]TextKey, len(source.Items)),
 		ItemAliases:      make(map[ItemID][]TextKey, len(source.Items)),
 		Text:             make(map[TextKey]string, len(source.Text)),
@@ -29,7 +30,8 @@ func Compile(source ContentSource) (CompiledContent, error) {
 	for _, item := range source.Items {
 		server.Items[item.ID] = ServerItem{}
 		server.ItemLocations[item.ID] = item.InitialRoom
-		client.ItemNames[item.ID] = item.NameKey
+		client.ItemDisplayNames[item.ID] = item.DisplayNameKey
+		client.ItemInnerNames[item.ID] = item.InnerNameKey
 		client.ItemDescriptions[item.ID] = item.DescriptionKey
 		if len(item.Aliases) > 0 {
 			client.ItemAliases[item.ID] = append([]TextKey(nil), item.Aliases...)

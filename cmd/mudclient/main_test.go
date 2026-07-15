@@ -56,8 +56,12 @@ func TestLoadClientCatalogLoadsTutorialData(t *testing.T) {
 	if catalog.Text[startNameKey] != "练习场入口" {
 		t.Fatalf("start room name = %q, want 练习场入口", catalog.Text[startNameKey])
 	}
-	oldLanternKey := catalog.ItemNames["item.tutorial.old_lantern"]
+	oldLanternKey := catalog.ItemDisplayNames["item.tutorial.old_lantern"]
 	if catalog.Text[oldLanternKey] != "旧油灯" {
 		t.Fatalf("old lantern name = %q, want 旧油灯", catalog.Text[oldLanternKey])
+	}
+	oldLanternInnerKey := catalog.ItemInnerNames["item.tutorial.old_lantern"]
+	if catalog.Text[oldLanternInnerKey] != "old lantern" {
+		t.Fatalf("old lantern inner name = %q, want old lantern", catalog.Text[oldLanternInnerKey])
 	}
 }

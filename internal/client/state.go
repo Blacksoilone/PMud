@@ -27,7 +27,7 @@ func NewState(catalog content.ClientCatalog) *State {
 		catalog: catalog,
 		itemIDs: make(map[string][]string),
 	}
-	for itemID, nameKey := range catalog.ItemNames {
+	for itemID, nameKey := range catalog.ItemDisplayNames {
 		name, ok := catalog.Text[nameKey]
 		if !ok {
 			continue
@@ -53,7 +53,7 @@ func (s *State) Observe(event protocol.Event) {
 	s.itemIDsMux.Lock()
 	defer s.itemIDsMux.Unlock()
 	for itemID := range strings.SplitSeq(items, ",") {
-		nameKey, ok := s.catalog.ItemNames[content.ItemID(itemID)]
+		nameKey, ok := s.catalog.ItemDisplayNames[content.ItemID(itemID)]
 		if !ok {
 			continue
 		}
@@ -103,7 +103,7 @@ func systemMessageEvent(messageKey string) protocol.Event {
 func (s *State) AmbiguousItemEvent(itemIDs []string) protocol.Event {
 	names := make([]string, 0, len(itemIDs))
 	for _, itemID := range itemIDs {
-		nameKey, ok := s.catalog.ItemNames[content.ItemID(itemID)]
+		nameKey, ok := s.catalog.ItemDisplayNames[content.ItemID(itemID)]
 		if !ok {
 			names = append(names, itemID)
 			continue

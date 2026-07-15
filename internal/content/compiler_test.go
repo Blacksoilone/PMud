@@ -50,8 +50,11 @@ func TestCompile_projectsClientCatalog(t *testing.T) {
 	if got := compiled.Client.RoomDescriptions["room.tutorial.start"]; got != "room.tutorial.start.description" {
 		t.Fatalf("expected room description key, got %q", got)
 	}
-	if got := compiled.Client.ItemNames["item.tutorial.old_lantern"]; got != "item.tutorial.old_lantern.name" {
-		t.Fatalf("expected item name key, got %q", got)
+	if got := compiled.Client.ItemDisplayNames["item.tutorial.old_lantern"]; got != "item.tutorial.old_lantern.name" {
+		t.Fatalf("expected item display name key, got %q", got)
+	}
+	if got := compiled.Client.ItemInnerNames["item.tutorial.old_lantern"]; got != "item.tutorial.old_lantern.inner_name" {
+		t.Fatalf("expected item inner name key, got %q", got)
 	}
 	if got := compiled.Client.ItemDescriptions["item.tutorial.old_lantern"]; got != "item.tutorial.old_lantern.description" {
 		t.Fatalf("expected item description key, got %q", got)
@@ -61,6 +64,9 @@ func TestCompile_projectsClientCatalog(t *testing.T) {
 	}
 	if got := compiled.Client.Text["item.tutorial.old_lantern.name"]; got != "旧油灯" {
 		t.Fatalf("expected item name text, got %q", got)
+	}
+	if got := compiled.Client.Text["item.tutorial.old_lantern.inner_name"]; got != "old lantern" {
+		t.Fatalf("expected item inner name text, got %q", got)
 	}
 }
 
@@ -122,8 +128,11 @@ func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
 	if got := compiled.Client.Text[compiled.Client.RoomNames["room.tutorial.start"]]; got != "练习场入口" {
 		t.Fatalf("expected start room text, got %q", got)
 	}
-	if got := compiled.Client.Text[compiled.Client.ItemNames["item.tutorial.practice_sword"]]; got != "练习木剑" {
+	if got := compiled.Client.Text[compiled.Client.ItemDisplayNames["item.tutorial.practice_sword"]]; got != "练习木剑" {
 		t.Fatalf("expected practice sword text, got %q", got)
+	}
+	if got := compiled.Client.Text[compiled.Client.ItemInnerNames["item.tutorial.practice_sword"]]; got != "practice sword" {
+		t.Fatalf("expected practice sword inner name text, got %q", got)
 	}
 }
 
@@ -151,13 +160,15 @@ func testContentSource() ContentSource {
 		Items: []ItemSource{
 			{
 				ID:             "item.tutorial.old_lantern",
-				NameKey:        "item.tutorial.old_lantern.name",
+				DisplayNameKey: "item.tutorial.old_lantern.name",
+				InnerNameKey:   "item.tutorial.old_lantern.inner_name",
 				DescriptionKey: "item.tutorial.old_lantern.description",
 				InitialRoom:    "room.tutorial.start",
 			},
 			{
 				ID:             "item.tutorial.practice_sword",
-				NameKey:        "item.tutorial.practice_sword.name",
+				DisplayNameKey: "item.tutorial.practice_sword.name",
+				InnerNameKey:   "item.tutorial.practice_sword.inner_name",
 				DescriptionKey: "item.tutorial.practice_sword.description",
 				InitialRoom:    "room.tutorial.yard",
 			},
@@ -168,8 +179,10 @@ func testContentSource() ContentSource {
 			"room.tutorial.yard.name":                  "练习场",
 			"room.tutorial.yard.description":           "几根木桩立在泥地上，地面满是被踩出的脚印。",
 			"item.tutorial.old_lantern.name":           "旧油灯",
+			"item.tutorial.old_lantern.inner_name":     "old lantern",
 			"item.tutorial.old_lantern.description":    "灯罩上蒙着一层灰，里面还剩一点灯油。",
 			"item.tutorial.practice_sword.name":        "练习木剑",
+			"item.tutorial.practice_sword.inner_name":  "practice sword",
 			"item.tutorial.practice_sword.description": "一把被许多人握过的木剑，剑柄已经磨得发亮。",
 		},
 	}

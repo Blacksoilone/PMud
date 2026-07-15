@@ -19,7 +19,7 @@ func TestRenderBlock_roomEventUsesClientCatalog(t *testing.T) {
 	}
 
 	got := RenderBlock(event, catalog).String()
-	want := "练习场入口\n这里是练习场的入口。北边传来木剑碰撞的声音。\n出口: north\n你看到: 旧油灯\n"
+	want := "练习场入口\n这里是练习场的入口。北边传来木剑碰撞的声音。\n出口: north\n你看到: 旧油灯（old lantern）\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
@@ -35,7 +35,7 @@ func TestRenderBlock_canBeBoxedByLayout(t *testing.T) {
 	}
 
 	got := RenderBlock(event, catalog).Lines
-	want := []string{"你带着: 旧油灯"}
+	want := []string{"你带着: 旧油灯（old lantern）"}
 	if len(got) != len(want) {
 		t.Fatalf("expected %d lines, got %d", len(want), len(got))
 	}

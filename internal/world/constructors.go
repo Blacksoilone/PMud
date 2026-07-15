@@ -71,7 +71,7 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 
 	items := make(map[ItemID]Item, len(snapshot.Items))
 	for itemID := range snapshot.Items {
-		nameKey := catalog.ItemNames[itemID]
+		nameKey := catalog.ItemDisplayNames[itemID]
 		descriptionKey := catalog.ItemDescriptions[itemID]
 		items[ItemID(itemID)] = Item{
 			NameKey:        string(nameKey),

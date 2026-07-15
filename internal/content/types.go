@@ -21,7 +21,8 @@ type RoomSource struct {
 
 type ItemSource struct {
 	ID             ItemID
-	NameKey        TextKey
+	DisplayNameKey TextKey
+	InnerNameKey   TextKey
 	DescriptionKey TextKey
 	Aliases        []TextKey
 	InitialRoom    RoomID
@@ -48,7 +49,8 @@ type ServerItem struct{}
 type ClientCatalog struct {
 	RoomNames        map[RoomID]TextKey
 	RoomDescriptions map[RoomID]TextKey
-	ItemNames        map[ItemID]TextKey
+	ItemDisplayNames map[ItemID]TextKey
+	ItemInnerNames   map[ItemID]TextKey
 	ItemDescriptions map[ItemID]TextKey
 	ItemAliases      map[ItemID][]TextKey
 	Text             map[TextKey]string
