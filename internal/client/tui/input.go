@@ -12,6 +12,7 @@ const (
 	InputBackspace
 	InputClear
 	InputSubmit
+	InputForceRedraw
 )
 
 type Input struct {
@@ -29,6 +30,8 @@ func ApplyInput(model Model, input Input) (Model, Command) {
 		model.Input = ""
 	case InputSubmit:
 		return submitInput(model)
+	case InputForceRedraw:
+		return model, Command{}
 	}
 	return model, Command{}
 }

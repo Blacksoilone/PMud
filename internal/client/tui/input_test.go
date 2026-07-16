@@ -71,3 +71,17 @@ func TestApplyInputSubmitWhitespaceReturnsEmptyCommand(t *testing.T) {
 		t.Fatalf("Input = %q, want empty", model.Input)
 	}
 }
+
+func TestApplyInputForceRedrawDoesNotChangeInputOrSubmitCommand(t *testing.T) {
+	model := NewModel(3)
+	model.Input = "look"
+
+	model, command := ApplyInput(model, Input{Kind: InputForceRedraw})
+
+	if command.Submitted {
+		t.Fatal("Command.Submitted = true, want false")
+	}
+	if model.Input != "look" {
+		t.Fatalf("Input = %q, want look", model.Input)
+	}
+}

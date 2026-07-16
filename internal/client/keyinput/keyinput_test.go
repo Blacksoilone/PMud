@@ -56,6 +56,17 @@ func TestDecodeCtrlUClear(t *testing.T) {
 	}
 }
 
+func TestDecodeCtrlRForceRedraw(t *testing.T) {
+	actions := keyinput.Decode([]byte{0x12})
+
+	if len(actions) != 1 {
+		t.Fatalf("actions length = %d, want 1", len(actions))
+	}
+	if actions[0].Input.Kind != tui.InputForceRedraw {
+		t.Fatalf("Input.Kind = %v, want InputForceRedraw", actions[0].Input.Kind)
+	}
+}
+
 func TestDecodeCtrlCQuit(t *testing.T) {
 	actions := keyinput.Decode([]byte{0x03})
 

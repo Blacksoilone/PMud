@@ -1,9 +1,10 @@
 package keyinput
 
 import (
-	"PMud/internal/client/tui"
 	"unicode"
 	"unicode/utf8"
+
+	"PMud/internal/client/tui"
 )
 
 type Action struct {
@@ -35,6 +36,8 @@ func decodeRune(r rune) (Action, bool) {
 		return Action{Input: tui.Input{Kind: tui.InputBackspace}}, true
 	case '\x15':
 		return Action{Input: tui.Input{Kind: tui.InputClear}}, true
+	case '\x12':
+		return Action{Input: tui.Input{Kind: tui.InputForceRedraw}}, true
 	case '\x03':
 		return Action{Quit: true}, true
 	}
