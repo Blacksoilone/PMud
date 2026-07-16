@@ -5,8 +5,8 @@ import "testing"
 func TestApplyInputAppendsText(t *testing.T) {
 	model := NewModel(3)
 
-	model, command := ApplyInput(model, Input{Kind: InputText, Text: "get "})
-	model, command = ApplyInput(model, Input{Kind: InputText, Text: "旧油灯"})
+	model, _ = ApplyInput(model, Input{Kind: InputText, Text: "get "})
+	model, command := ApplyInput(model, Input{Kind: InputText, Text: "旧油灯"})
 
 	if command.Line != "" {
 		t.Fatalf("Command.Line = %q, want empty", command.Line)
