@@ -28,11 +28,13 @@ func handleConn(conn net.Conn, game *world.World) error {
 
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {
-		event := state.handleLine(scanner.Text())
-		response := renderer.Render(event)
-		_, err := io.WriteString(conn, response)
-		if err != nil {
-			return err
+		events := state.handleLine(scanner.Text())
+		for _, event := range events {
+			response := renderer.Render(event)
+			_, err := io.WriteString(conn, response)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -48,118 +50,125 @@ type sessionState struct {
 	progression *progression.Engine
 }
 
-func (s *sessionState) handleLine(line string) presentation.Event {
+func (s *sessionState) handleLine(line string) []presentation.Event {
 	trimmed := strings.TrimSpace(line)
 	if trimmed == "" {
-		return presentation.SystemMessageEvent{MessageKey: "system.empty_input"}
+		return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.empty_input"})
 	}
 
 	parsed := command.ParseServerInput(line)
 	switch command := parsed.(type) {
 	case command.LookCommand:
-		return roomObservationEvent(s.game, s.currentRoom)
+		return singleEvent(roomObservationEvent(s.game, s.currentRoom))
 	case command.HelpCommand:
-		return presentation.SystemMessageEvent{MessageKey: "system.help"}
+		return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.help"})
 	case command.QuestCommand:
-		return s.questStatusEvent()
+		return singleEvent(s.questStatusEvent())
 	case command.MoveCommand:
 		nextRoom, ok := s.game.Move(s.currentRoom, command.Direction)
 		if !ok {
-			return presentation.SystemMessageEvent{MessageKey: "system.move.blocked"}
+			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.move.blocked"})
 		}
 		s.currentRoom = nextRoom
-		s.applyProgression(progression.Trigger{Kind: progression.TriggerMovedRoom, RoomID: string(nextRoom)})
-		return roomObservationEvent(s.game, s.currentRoom)
+		events := singleEvent(roomObservationEvent(s.game, s.currentRoom))
+		events = append(events, s.applyProgression(progression.Trigger{Kind: progression.TriggerMovedRoom, RoomID: string(nextRoom)})...)
+		return events
 	case command.InventoryCommand:
-		return presentation.InventoryEvent{Items: itemIDStrings(s.game.InventoryItemIDs(s.playerID))}
+		return singleEvent(presentation.InventoryEvent{Items: itemIDStrings(s.game.InventoryItemIDs(s.playerID))})
 	case command.ItemCommand:
 		return s.handleItemCommand(command)
 	case command.UnknownCommand:
-		return presentation.SystemMessageEvent{
+		return singleEvent(presentation.SystemMessageEvent{
 			MessageKey: "system.unknown_command",
 			Fields: map[string]string{
 				"input": command.Input,
 			},
-		}
+		})
 	default:
-		return presentation.SystemMessageEvent{
+		return singleEvent(presentation.SystemMessageEvent{
 			MessageKey: "system.unknown_command",
 			Fields: map[string]string{
 				"input": line,
 			},
-		}
+		})
 	}
 }
 
-func (s *sessionState) handleItemCommand(itemCommand command.ItemCommand) presentation.Event {
+func (s *sessionState) handleItemCommand(itemCommand command.ItemCommand) []presentation.Event {
 	switch itemCommand.Verb {
 	case command.ItemVerbGet:
 		resolution := s.game.ResolveRoomItemPhrase(s.currentRoom, itemCommand.Target)
 		if len(resolution.AmbiguousItemIDs) > 0 {
-			return ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs)
+			return singleEvent(ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs))
 		}
 		if !resolution.Found {
-			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
+			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
 		}
 		itemID, ok := s.game.GetItem(s.currentRoom, resolution.ItemID, s.playerID)
 		if !ok {
-			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
+			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
 		}
-		s.applyProgression(progression.Trigger{Kind: progression.TriggerGotItem, ItemID: string(itemID)})
-		return presentation.SystemMessageEvent{
+		events := singleEvent(presentation.SystemMessageEvent{
 			MessageKey: "system.item.taken",
 			Fields: map[string]string{
 				"item": string(itemID),
 			},
-		}
+		})
+		events = append(events, s.applyProgression(progression.Trigger{Kind: progression.TriggerGotItem, ItemID: string(itemID)})...)
+		return events
 	case command.ItemVerbDrop:
 		resolution := s.game.ResolveInventoryItemPhrase(s.playerID, itemCommand.Target)
 		if len(resolution.AmbiguousItemIDs) > 0 {
-			return ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs)
+			return singleEvent(ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs))
 		}
 		if !resolution.Found {
-			return presentation.SystemMessageEvent{MessageKey: "system.item.not_carried"}
+			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_carried"})
 		}
 		itemID, ok := s.game.DropInventoryItem(s.currentRoom, resolution.ItemID, s.playerID)
 		if !ok {
-			return presentation.SystemMessageEvent{MessageKey: "system.item.not_carried"}
+			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_carried"})
 		}
-		return presentation.SystemMessageEvent{
+		return singleEvent(presentation.SystemMessageEvent{
 			MessageKey: "system.item.dropped",
 			Fields: map[string]string{
 				"item": string(itemID),
 			},
-		}
+		})
 	case command.ItemVerbExamine:
 		resolution := s.game.ResolveVisibleItemPhrase(s.currentRoom, s.playerID, itemCommand.Target)
 		if len(resolution.AmbiguousItemIDs) > 0 {
-			return ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs)
+			return singleEvent(ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs))
 		}
 		if !resolution.Found {
-			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
+			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
 		}
 		item, ok := s.game.ExamineItem(s.currentRoom, resolution.ItemID, s.playerID)
 		if !ok {
-			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
+			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
 		}
-		s.applyProgression(progression.Trigger{Kind: progression.TriggerExaminedItem, ItemID: string(item.Item)})
-		return itemObservationEvent(item)
+		events := singleEvent(itemObservationEvent(item))
+		events = append(events, s.applyProgression(progression.Trigger{Kind: progression.TriggerExaminedItem, ItemID: string(item.Item)})...)
+		return events
 	case command.ItemVerbLook:
 		resolution := s.game.ResolveVisibleItemPhrase(s.currentRoom, s.playerID, itemCommand.Target)
 		if len(resolution.AmbiguousItemIDs) > 0 {
-			return ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs)
+			return singleEvent(ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs))
 		}
 		if !resolution.Found {
-			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
+			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
 		}
 		item, ok := s.game.ExamineItem(s.currentRoom, resolution.ItemID, s.playerID)
 		if !ok {
-			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
+			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
 		}
-		return itemObservationEvent(item)
+		return singleEvent(itemObservationEvent(item))
 	default:
-		return presentation.SystemMessageEvent{MessageKey: "system.unknown_command"}
+		return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.unknown_command"})
 	}
+}
+
+func singleEvent(event presentation.Event) []presentation.Event {
+	return []presentation.Event{event}
 }
 
 func (s *sessionState) progressionEngine() *progression.Engine {
@@ -169,10 +178,28 @@ func (s *sessionState) progressionEngine() *progression.Engine {
 	return s.progression
 }
 
-func (s *sessionState) applyProgression(trigger progression.Trigger) {
+func (s *sessionState) applyProgression(trigger progression.Trigger) []presentation.Event {
 	status, advanced := s.progressionEngine().Apply(string(s.playerID), trigger)
-	if advanced && status.State == progression.QuestStateRewardPending {
-		s.progressionEngine().ResolveRewards(string(s.playerID))
+	if !advanced {
+		return nil
+	}
+	if status.State == progression.QuestStateRewardPending {
+		resolvedStatus, resolved := s.progressionEngine().ResolveRewards(string(s.playerID))
+		if resolved {
+			status = resolvedStatus
+		}
+	}
+	return singleEvent(questProgressEvent(status))
+}
+
+func questProgressEvent(status progression.Status) presentation.Event {
+	return presentation.SystemMessageEvent{
+		MessageKey: "system.quest.progress",
+		Fields: map[string]string{
+			"quest_id": status.QuestID,
+			"stage_id": status.StageID,
+			"state":    string(status.State),
+		},
 	}
 }
 

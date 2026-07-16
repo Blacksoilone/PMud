@@ -14,7 +14,7 @@ import (
 func TestSessionQuest_reportsTutorialStatus(t *testing.T) {
 	state := newTestSessionState()
 
-	event := state.handleLine("quest")
+	event := requireSingleSessionEvent(t, state.handleLine("quest"))
 
 	quest, ok := event.(presentation.QuestStatusEvent)
 	if !ok {
@@ -44,13 +44,13 @@ func TestSessionActions_advanceTutorialQuest(t *testing.T) {
 	state := newTestSessionState()
 
 	state.handleLine("get 旧油灯")
-	afterGet := state.handleLine("quest").(presentation.QuestStatusEvent)
+	afterGet := requireSingleSessionEvent(t, state.handleLine("quest")).(presentation.QuestStatusEvent)
 	if afterGet.StageID != "quest.tutorial.first_steps.stage.enter_yard" {
 		t.Fatalf("stage after get = %q", afterGet.StageID)
 	}
 
 	state.handleLine("go north")
-	afterMove := state.handleLine("quest").(presentation.QuestStatusEvent)
+	afterMove := requireSingleSessionEvent(t, state.handleLine("quest")).(presentation.QuestStatusEvent)
 	if afterMove.StageID != "quest.tutorial.first_steps.stage.examine_sword" {
 		t.Fatalf("stage after move = %q", afterMove.StageID)
 	}
@@ -59,7 +59,7 @@ func TestSessionActions_advanceTutorialQuest(t *testing.T) {
 	}
 
 	state.handleLine("examine 练习木剑")
-	afterExamine := state.handleLine("quest").(presentation.QuestStatusEvent)
+	afterExamine := requireSingleSessionEvent(t, state.handleLine("quest")).(presentation.QuestStatusEvent)
 	if afterExamine.StageID != "quest.tutorial.first_steps.stage.examine_sword" {
 		t.Fatalf("stage after examine = %q", afterExamine.StageID)
 	}
@@ -68,10 +68,61 @@ func TestSessionActions_advanceTutorialQuest(t *testing.T) {
 	}
 }
 
+func TestSessionActions_returnQuestProgressNotificationAfterAdvancingQuest(t *testing.T) {
+	state := newTestSessionState()
+
+	events := state.handleLine("get 旧油灯")
+
+	if len(events) != 2 {
+		t.Fatalf("event count = %d, want 2", len(events))
+	}
+	taken, ok := events[0].(presentation.SystemMessageEvent)
+	if !ok {
+		t.Fatalf("first event type = %T, want presentation.SystemMessageEvent", events[0])
+	}
+	if taken.MessageKey != "system.item.taken" {
+		t.Fatalf("first message key = %q, want system.item.taken", taken.MessageKey)
+	}
+	assertQuestProgressEvent(t, events[1], "quest.tutorial.first_steps.stage.enter_yard", "active")
+}
+
+func TestSessionActions_returnQuestCompletedNotificationAfterFinalStage(t *testing.T) {
+	state := newTestSessionState()
+	state.handleLine("get 旧油灯")
+	state.handleLine("go north")
+
+	events := state.handleLine("examine 练习木剑")
+
+	if len(events) != 2 {
+		t.Fatalf("event count = %d, want 2", len(events))
+	}
+	item, ok := events[0].(presentation.ItemObservationEvent)
+	if !ok {
+		t.Fatalf("first event type = %T, want presentation.ItemObservationEvent", events[0])
+	}
+	if item.Item != "item.tutorial.practice_sword" {
+		t.Fatalf("item = %q, want item.tutorial.practice_sword", item.Item)
+	}
+	assertQuestProgressEvent(t, events[1], "quest.tutorial.first_steps.stage.examine_sword", "completed")
+}
+
+func TestSessionActions_doNotReturnQuestProgressNotificationWhenQuestDoesNotAdvance(t *testing.T) {
+	state := newTestSessionState()
+
+	events := state.handleLine("go north")
+
+	if len(events) != 1 {
+		t.Fatalf("event count = %d, want 1", len(events))
+	}
+	if _, ok := events[0].(presentation.RoomObservationEvent); !ok {
+		t.Fatalf("event type = %T, want presentation.RoomObservationEvent", events[0])
+	}
+}
+
 func TestSessionHelp_returnsCommandSummary(t *testing.T) {
 	state := newTestSessionState()
 
-	event := state.handleLine("help")
+	event := requireSingleSessionEvent(t, state.handleLine("help"))
 
 	message, ok := event.(presentation.SystemMessageEvent)
 	if !ok {
@@ -82,10 +133,27 @@ func TestSessionHelp_returnsCommandSummary(t *testing.T) {
 	}
 }
 
+func TestSessionHandleLine_returnsSingleEventListForHelp(t *testing.T) {
+	state := newTestSessionState()
+
+	events := state.handleLine("help")
+
+	if len(events) != 1 {
+		t.Fatalf("event count = %d, want 1", len(events))
+	}
+	message, ok := events[0].(presentation.SystemMessageEvent)
+	if !ok {
+		t.Fatalf("expected system message, got %T", events[0])
+	}
+	if message.MessageKey != "system.help" {
+		t.Fatalf("expected help message key, got %q", message.MessageKey)
+	}
+}
+
 func TestSessionUnknownCommand_returnsMessageKeyWithInput(t *testing.T) {
 	state := newTestSessionState()
 
-	event := state.handleLine("dance")
+	event := requireSingleSessionEvent(t, state.handleLine("dance"))
 
 	message, ok := event.(presentation.SystemMessageEvent)
 	if !ok {
@@ -117,7 +185,7 @@ func TestSessionDirectionAliases_moveBetweenRooms(t *testing.T) {
 			state := newTestSessionState()
 			state.currentRoom = tt.fromRoom
 
-			event := state.handleLine(tt.command)
+			event := requireSingleSessionEvent(t, state.handleLine(tt.command))
 
 			observation, ok := event.(presentation.RoomObservationEvent)
 			if !ok {
@@ -163,7 +231,7 @@ func TestNormalizeDirection_mapsStandardAliases(t *testing.T) {
 func TestSessionGet_resolvesVisibleItemPhrase(t *testing.T) {
 	state := newTestSessionState()
 
-	nameEvent := state.handleLine("get 旧油灯")
+	nameEvent := requireFirstSessionEvent(t, state.handleLine("get 旧油灯"))
 
 	nameMessage, ok := nameEvent.(presentation.SystemMessageEvent)
 	if !ok {
@@ -177,7 +245,7 @@ func TestSessionGet_resolvesVisibleItemPhrase(t *testing.T) {
 	}
 
 	idState := newTestSessionState()
-	idEvent := idState.handleLine("get item.tutorial.old_lantern")
+	idEvent := requireFirstSessionEvent(t, idState.handleLine("get item.tutorial.old_lantern"))
 	idMessage, ok := idEvent.(presentation.SystemMessageEvent)
 	if !ok {
 		t.Fatalf("expected system message, got %T", idEvent)
@@ -194,7 +262,7 @@ func TestSessionDrop_resolvesInventoryItemPhrase(t *testing.T) {
 	state := newTestSessionState()
 	state.handleLine("get item.tutorial.old_lantern")
 
-	nameEvent := state.handleLine("drop 旧油灯")
+	nameEvent := requireSingleSessionEvent(t, state.handleLine("drop 旧油灯"))
 
 	nameMessage, ok := nameEvent.(presentation.SystemMessageEvent)
 	if !ok {
@@ -209,7 +277,7 @@ func TestSessionDrop_resolvesInventoryItemPhrase(t *testing.T) {
 
 	idState := newTestSessionState()
 	idState.handleLine("get item.tutorial.old_lantern")
-	idEvent := idState.handleLine("drop item.tutorial.old_lantern")
+	idEvent := requireSingleSessionEvent(t, idState.handleLine("drop item.tutorial.old_lantern"))
 	idMessage, ok := idEvent.(presentation.SystemMessageEvent)
 	if !ok {
 		t.Fatalf("expected system message, got %T", idEvent)
@@ -225,7 +293,7 @@ func TestSessionDrop_resolvesInventoryItemPhrase(t *testing.T) {
 func TestSessionExamine_resolvesVisibleItemPhrase(t *testing.T) {
 	state := newTestSessionState()
 
-	event := state.handleLine("examine 旧油灯")
+	event := requireSingleSessionEvent(t, state.handleLine("examine 旧油灯"))
 
 	observation, ok := event.(presentation.ItemObservationEvent)
 	if !ok {
@@ -242,7 +310,7 @@ func TestSessionExamine_resolvesVisibleItemPhrase(t *testing.T) {
 func TestSessionExamine_resolvesAliasPhrase(t *testing.T) {
 	state := newTestSessionState()
 
-	event := state.handleLine("examine jiuyoudeng")
+	event := requireSingleSessionEvent(t, state.handleLine("examine jiuyoudeng"))
 
 	observation, ok := event.(presentation.ItemObservationEvent)
 	if !ok {
@@ -257,7 +325,7 @@ func TestSessionLook_resolvesItemPhrase(t *testing.T) {
 	state := newTestSessionState()
 	state.handleLine("go north")
 
-	event := state.handleLine("look practice-sword")
+	event := requireSingleSessionEvent(t, state.handleLine("look practice-sword"))
 
 	observation, ok := event.(presentation.ItemObservationEvent)
 	if !ok {
@@ -272,7 +340,7 @@ func TestSessionExamine_resolvesPracticeSwordPinyinAlias(t *testing.T) {
 	state := newTestSessionState()
 	state.handleLine("go north")
 
-	event := state.handleLine("examine lianximujian")
+	event := requireSingleSessionEvent(t, state.handleLine("examine lianximujian"))
 
 	observation, ok := event.(presentation.ItemObservationEvent)
 	if !ok {
@@ -286,7 +354,7 @@ func TestSessionExamine_resolvesPracticeSwordPinyinAlias(t *testing.T) {
 func TestSessionExamine_returnsNotHereForInvisibleItem(t *testing.T) {
 	state := newTestSessionState()
 
-	event := state.handleLine("examine item.tutorial.practice_sword")
+	event := requireSingleSessionEvent(t, state.handleLine("examine item.tutorial.practice_sword"))
 
 	message, ok := event.(presentation.SystemMessageEvent)
 	if !ok {
@@ -383,5 +451,41 @@ func newTestSessionState() sessionState {
 		game:        game,
 		currentRoom: game.StartRoom(),
 		playerID:    "player.local",
+	}
+}
+
+func requireSingleSessionEvent(t *testing.T, events []presentation.Event) presentation.Event {
+	t.Helper()
+	if len(events) != 1 {
+		t.Fatalf("event count = %d, want 1", len(events))
+	}
+	return events[0]
+}
+
+func requireFirstSessionEvent(t *testing.T, events []presentation.Event) presentation.Event {
+	t.Helper()
+	if len(events) == 0 {
+		t.Fatal("event count = 0, want at least 1")
+	}
+	return events[0]
+}
+
+func assertQuestProgressEvent(t *testing.T, event presentation.Event, wantStageID, wantState string) {
+	t.Helper()
+	progress, ok := event.(presentation.SystemMessageEvent)
+	if !ok {
+		t.Fatalf("progress event type = %T, want presentation.SystemMessageEvent", event)
+	}
+	if progress.MessageKey != "system.quest.progress" {
+		t.Fatalf("progress message key = %q, want system.quest.progress", progress.MessageKey)
+	}
+	if progress.Fields["quest_id"] != "quest.tutorial.first_steps" {
+		t.Fatalf("quest_id = %q, want quest.tutorial.first_steps", progress.Fields["quest_id"])
+	}
+	if progress.Fields["stage_id"] != wantStageID {
+		t.Fatalf("stage_id = %q, want %q", progress.Fields["stage_id"], wantStageID)
+	}
+	if progress.Fields["state"] != wantState {
+		t.Fatalf("state = %q, want %q", progress.Fields["state"], wantState)
 	}
 }
