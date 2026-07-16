@@ -69,17 +69,30 @@ rejected input = iron sword
 Rules:
 
 - They are not shown by default.
-- They are for pinyin, common nicknames, abbreviations, or other non-derived input forms.
+- They are for author-provided pinyin, common nicknames, abbreviations, or other non-derived input forms.
 - They must not contain spaces.
 - They must not contain `.`.
 - Matching is case-insensitive for ASCII letters.
 - `-` and `_` are accepted as equivalent separators for alphabetic aliases.
+- Pinyin aliases are not inferred from `display_name`.
+- Pinyin aliases should use the form players are expected to type, not strict linguistic transcription.
+- The system does not automatically treat `ue`, `ve`, `v`, or `ü` as equivalent. If multiple forms are useful, authors must list them explicitly.
 
 Example:
 
 ```text
 input_aliases = [tiejian]
 accepted input = tiejian, tie-jian, tie_jian, TIE_JIAN
+```
+
+For pinyin involving `ü`, authors choose the expected player input explicitly:
+
+```text
+input_aliases = [lvbaoshi]
+accepted input = lvbaoshi, lv-baoshi, lv_baoshi
+
+input_aliases = [xuexi]
+accepted input = xuexi, xue-xi, xue_xi
 ```
 
 ## Display Format
