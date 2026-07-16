@@ -1,9 +1,10 @@
 package world
 
 import (
-	"PMud/internal/content"
 	"slices"
 	"testing"
+
+	"PMud/internal/content"
 )
 
 func TestWorld_NewFromSnapshotPreservesTutorialBehavior(t *testing.T) {
@@ -197,6 +198,22 @@ func TestWorldResolveRoomItemPhrase_matchesAliasSeparatorsCaseInsensitively(t *t
 				t.Fatalf("item id = %q, want old lantern", resolution.ItemID)
 			}
 		})
+	}
+}
+
+func TestWorldResolveRoomItemPhrase_matchesPracticeSwordPinyinAlias(t *testing.T) {
+	// Given
+	game := New()
+
+	// When
+	resolution := game.ResolveRoomItemPhrase("room.tutorial.yard", "lianximujian")
+
+	// Then
+	if !resolution.Found {
+		t.Fatal("expected practice sword to resolve")
+	}
+	if resolution.ItemID != "item.tutorial.practice_sword" {
+		t.Fatalf("item id = %q, want practice sword", resolution.ItemID)
 	}
 }
 

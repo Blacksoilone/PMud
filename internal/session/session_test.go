@@ -253,6 +253,36 @@ func TestSessionExamine_resolvesAliasPhrase(t *testing.T) {
 	}
 }
 
+func TestSessionLook_resolvesItemPhrase(t *testing.T) {
+	state := newTestSessionState()
+	state.handleLine("go north")
+
+	event := state.handleLine("look practice-sword")
+
+	observation, ok := event.(presentation.ItemObservationEvent)
+	if !ok {
+		t.Fatalf("expected item observation, got %T", event)
+	}
+	if observation.Item != "item.tutorial.practice_sword" {
+		t.Fatalf("expected practice sword id, got %q", observation.Item)
+	}
+}
+
+func TestSessionExamine_resolvesPracticeSwordPinyinAlias(t *testing.T) {
+	state := newTestSessionState()
+	state.handleLine("go north")
+
+	event := state.handleLine("examine lianximujian")
+
+	observation, ok := event.(presentation.ItemObservationEvent)
+	if !ok {
+		t.Fatalf("expected item observation, got %T", event)
+	}
+	if observation.Item != "item.tutorial.practice_sword" {
+		t.Fatalf("expected practice sword id, got %q", observation.Item)
+	}
+}
+
 func TestSessionExamine_returnsNotHereForInvisibleItem(t *testing.T) {
 	state := newTestSessionState()
 

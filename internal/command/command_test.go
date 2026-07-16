@@ -18,6 +18,8 @@ func TestParseClientInput_mapsCommandAliases(t *testing.T) {
 		{name: "inventory", input: "inventory", want: InventoryCommand{}},
 		{name: "look alias", input: "l", want: LookCommand{}},
 		{name: "look", input: "look", want: LookCommand{}},
+		{name: "look item", input: "look practice-sword", want: ItemCommand{Verb: ItemVerbLook, Target: "practice-sword"}},
+		{name: "look alias item", input: "l practice-sword", want: ItemCommand{Verb: ItemVerbLook, Target: "practice-sword"}},
 		{name: "quest", input: "quest", want: QuestCommand{}},
 		{name: "help", input: "help", want: HelpCommand{}},
 	}
@@ -43,6 +45,7 @@ func TestParseClientInput_mapsCommandAliasesCaseInsensitively(t *testing.T) {
 		{name: "examine mixed case", input: "Examine Old_Lantern", want: ItemCommand{Verb: ItemVerbExamine, Target: "Old_Lantern"}},
 		{name: "inventory uppercase", input: "I", want: InventoryCommand{}},
 		{name: "look uppercase", input: "L", want: LookCommand{}},
+		{name: "look item mixed case", input: "Look Practice-Sword", want: ItemCommand{Verb: ItemVerbLook, Target: "Practice-Sword"}},
 		{name: "quest uppercase", input: "QUEST", want: QuestCommand{}},
 		{name: "help uppercase", input: "HELP", want: HelpCommand{}},
 	}
@@ -201,6 +204,7 @@ func TestParseServerInput_mapsCanonicalCommands(t *testing.T) {
 		want  ServerCommand
 	}{
 		{name: "look", input: "look", want: LookCommand{}},
+		{name: "look item", input: "look practice-sword", want: ItemCommand{Verb: ItemVerbLook, Target: "practice-sword"}},
 		{name: "help", input: "help", want: HelpCommand{}},
 		{name: "inventory", input: "inventory", want: InventoryCommand{}},
 		{name: "quest", input: "quest", want: QuestCommand{}},
@@ -229,6 +233,7 @@ func TestParseServerInput_mapsCanonicalCommandsCaseInsensitively(t *testing.T) {
 		want  ServerCommand
 	}{
 		{name: "look uppercase", input: "LOOK", want: LookCommand{}},
+		{name: "look item mixed case", input: "LOOK Practice-Sword", want: ItemCommand{Verb: ItemVerbLook, Target: "Practice-Sword"}},
 		{name: "inventory mixed case", input: "Inventory", want: InventoryCommand{}},
 		{name: "quest uppercase", input: "QUEST", want: QuestCommand{}},
 		{name: "go uppercase alias", input: "GO NW", want: MoveCommand{Direction: "northwest"}},

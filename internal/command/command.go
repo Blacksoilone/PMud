@@ -16,6 +16,7 @@ const (
 	ItemVerbGet     ItemVerb = "get"
 	ItemVerbDrop    ItemVerb = "drop"
 	ItemVerbExamine ItemVerb = "examine"
+	ItemVerbLook    ItemVerb = "look"
 )
 
 type ItemCommand struct {
@@ -108,6 +109,9 @@ func ParseClientInput(input string) ClientCommand {
 		return EmptyCommand{}
 	}
 	if verb == "look" || verb == "l" {
+		if target != "" {
+			return clientItemCommand(input, target, ItemVerbLook)
+		}
 		return LookCommand{}
 	}
 	if verb == "inventory" || verb == "i" {
@@ -153,6 +157,9 @@ func ParseServerInput(input string) ServerCommand {
 	trimmed := strings.TrimSpace(input)
 	verb, target := splitVerbTarget(trimmed)
 	if verb == "look" {
+		if target != "" {
+			return serverItemCommand(input, target, ItemVerbLook)
+		}
 		return LookCommand{}
 	}
 	if verb == "inventory" {

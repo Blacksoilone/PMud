@@ -45,6 +45,7 @@ func New() *World {
 				DescriptionKey: "item.tutorial.practice_sword.description",
 				Name:           "练习木剑",
 				Description:    "一把被许多人握过的木剑，剑柄已经磨得发亮。",
+				Aliases:        []string{"lianximujian"},
 			},
 		},
 		itemLocations: map[ItemID]ItemLocation{

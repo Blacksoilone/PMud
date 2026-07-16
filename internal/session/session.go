@@ -144,6 +144,19 @@ func (s *sessionState) handleItemCommand(itemCommand command.ItemCommand) presen
 		}
 		s.applyProgression(progression.Trigger{Kind: progression.TriggerExaminedItem, ItemID: string(item.Item)})
 		return itemObservationEvent(item)
+	case command.ItemVerbLook:
+		resolution := s.game.ResolveVisibleItemPhrase(s.currentRoom, s.playerID, itemCommand.Target)
+		if len(resolution.AmbiguousItemIDs) > 0 {
+			return ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs)
+		}
+		if !resolution.Found {
+			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
+		}
+		item, ok := s.game.ExamineItem(s.currentRoom, resolution.ItemID, s.playerID)
+		if !ok {
+			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
+		}
+		return itemObservationEvent(item)
 	default:
 		return presentation.SystemMessageEvent{MessageKey: "system.unknown_command"}
 	}
