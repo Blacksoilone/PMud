@@ -40,6 +40,10 @@ func (f *fakeController) Restore(fd int, state *rawterm.State) error {
 	return f.restoreError
 }
 
+func (f *fakeController) Size(int) (int, int, error) {
+	return 0, 0, nil
+}
+
 func TestStartFailsWhenFileDescriptorIsNotTerminal(t *testing.T) {
 	controller := &fakeController{}
 

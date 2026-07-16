@@ -16,6 +16,7 @@ type Controller interface {
 	IsTerminal(fd int) bool
 	MakeRaw(fd int) (*State, error)
 	Restore(fd int, state *State) error
+	Size(fd int) (int, int, error)
 }
 
 type Session struct {
@@ -64,4 +65,8 @@ func (realController) MakeRaw(fd int) (*State, error) {
 
 func (realController) Restore(fd int, state *State) error {
 	return term.Restore(fd, state.termState)
+}
+
+func (realController) Size(fd int) (int, int, error) {
+	return term.GetSize(fd)
 }

@@ -33,6 +33,22 @@ func TestRendererDrawWritesFullRedraw(t *testing.T) {
 	}
 }
 
+func TestEnterAndExitAlternateScreen(t *testing.T) {
+	var output strings.Builder
+
+	if err := screen.EnterAlternateScreen(&output); err != nil {
+		t.Fatalf("EnterAlternateScreen: %v", err)
+	}
+	if err := screen.ExitAlternateScreen(&output); err != nil {
+		t.Fatalf("ExitAlternateScreen: %v", err)
+	}
+
+	want := "\x1b[?1049h\x1b[?25l\x1b[?25h\x1b[?1049l"
+	if output.String() != want {
+		t.Fatalf("output = %q, want %q", output.String(), want)
+	}
+}
+
 func TestRendererDrawPropagatesWriteError(t *testing.T) {
 	renderer := screen.NewRenderer(failingWriter{})
 	block := layout.NewBlock([]string{"hello"})
