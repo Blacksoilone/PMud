@@ -1,9 +1,10 @@
 package render
 
 import (
+	"strings"
+
 	"PMud/internal/content"
 	"PMud/internal/protocol"
-	"strings"
 )
 
 func Render(event protocol.Event, catalog content.ClientCatalog) string {
@@ -14,6 +15,8 @@ func Render(event protocol.Event, catalog content.ClientCatalog) string {
 		return renderItem(event, catalog)
 	case "inventory":
 		return renderInventory(event, catalog)
+	case "quest":
+		return renderQuest(event)
 	case "system":
 		return renderSystem(event, catalog)
 	default:
@@ -59,6 +62,29 @@ func renderInventory(event protocol.Event, catalog content.ClientCatalog) string
 		return "你什么也没有带。\n"
 	}
 	return "你带着: " + strings.Join(items, ", ") + "\n"
+}
+
+func renderQuest(event protocol.Event) string {
+	var builder strings.Builder
+	builder.WriteString("任务: ")
+	builder.WriteString(event.Fields["quest_name"])
+	builder.WriteString("\n")
+	builder.WriteString("阶段: ")
+	builder.WriteString(event.Fields["stage_text"])
+	builder.WriteString("\n")
+	builder.WriteString("状态: ")
+	builder.WriteString(event.Fields["state"])
+	builder.WriteString("\n")
+	conditions := event.Fields["conditions"]
+	if conditions != "" {
+		builder.WriteString("条件:\n")
+		for condition := range strings.SplitSeq(conditions, ",") {
+			builder.WriteString("- ")
+			builder.WriteString(condition)
+			builder.WriteString("\n")
+		}
+	}
+	return builder.String()
 }
 
 func renderSystem(event protocol.Event, catalog content.ClientCatalog) string {

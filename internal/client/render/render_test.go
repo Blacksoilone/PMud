@@ -1,9 +1,10 @@
 package render
 
 import (
+	"testing"
+
 	"PMud/internal/content"
 	"PMud/internal/protocol"
-	"testing"
 )
 
 func TestRender_roomEventUsesClientCatalog(t *testing.T) {
@@ -86,7 +87,7 @@ func TestRender_systemEventUsesMessageKey(t *testing.T) {
 	got := Render(event, catalog)
 
 	// Then
-	want := "可用命令: look, go <direction>, get <item>, drop <item>, inventory, help\n"
+	want := "可用命令: look, go <direction>, get <item>, drop <item>, inventory, quest, help\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
@@ -134,6 +135,31 @@ func TestRender_systemEventReplacesInputParameter(t *testing.T) {
 	}
 }
 
+func TestRender_questStatusEvent(t *testing.T) {
+	// Given
+	catalog := testCatalog()
+	event := protocol.Event{
+		Name: "quest",
+		Fields: map[string]string{
+			"quest_id":   "quest.tutorial.first_steps",
+			"quest_name": "教程任务",
+			"stage_id":   "quest.tutorial.first_steps.stage.get_lantern",
+			"stage_text": "拿起旧油灯。",
+			"conditions": "获取旧油灯",
+			"state":      "active",
+		},
+	}
+
+	// When
+	got := Render(event, catalog)
+
+	// Then
+	want := "任务: 教程任务\n阶段: 拿起旧油灯。\n状态: active\n条件:\n- 获取旧油灯\n"
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
 func TestRender_missingResourceFallsBackToKey(t *testing.T) {
 	// Given
 	catalog := testCatalog()
@@ -176,7 +202,7 @@ func testCatalog() content.ClientCatalog {
 			"item.tutorial.old_lantern.description":   "灯罩上蒙着一层灰，里面还剩一点灯油。",
 			"item.tutorial.practice_sword.name":       "练习木剑",
 			"item.tutorial.practice_sword.inner_name": "practice sword",
-			"system.help":            "可用命令: look, go <direction>, get <item>, drop <item>, inventory, help",
+			"system.help":            "可用命令: look, go <direction>, get <item>, drop <item>, inventory, quest, help",
 			"system.item.taken":      "你拿起了{item}。",
 			"system.unknown_command": "未知命令: {input}",
 		},
