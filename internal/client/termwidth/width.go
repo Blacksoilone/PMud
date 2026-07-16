@@ -4,10 +4,37 @@ import "strings"
 
 func Width(text string) int {
 	width := 0
-	for _, char := range text {
+	for _, char := range StripANSI(text) {
 		width += runeWidth(char)
 	}
 	return width
+}
+
+func StripANSI(text string) string {
+	var builder strings.Builder
+	escapeState := 0
+	for _, char := range text {
+		switch escapeState {
+		case 1:
+			if char == '[' {
+				escapeState = 2
+				continue
+			}
+			escapeState = 0
+			continue
+		case 2:
+			if char >= '@' && char <= '~' {
+				escapeState = 0
+			}
+			continue
+		}
+		if char == '\x1b' {
+			escapeState = 1
+			continue
+		}
+		builder.WriteRune(char)
+	}
+	return builder.String()
 }
 
 func LineWidth(text string) int {
