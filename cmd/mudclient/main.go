@@ -1,18 +1,23 @@
 package main
 
 import (
-	"PMud/internal/client"
-	"PMud/internal/client/rawterm"
-	"PMud/internal/content"
 	"fmt"
 	"net"
 	"os"
+
+	"PMud/internal/client"
+	"PMud/internal/client/rawterm"
+	"PMud/internal/client/screen"
+	"PMud/internal/content"
 )
 
-const defaultAddress = "127.0.0.1:4000"
-const defaultContentPath = "data/tutorial/source.json"
-const defaultTUIWidth = 80
-const defaultTUIHistoryLimit = 20
+const (
+	defaultAddress         = "127.0.0.1:4000"
+	defaultContentPath     = "data/tutorial/source.json"
+	defaultTUIWidth        = 80
+	defaultTUIHeight       = 26
+	defaultTUIHistoryLimit = 20
+)
 
 type config struct {
 	address string
@@ -37,18 +42,34 @@ func main() {
 	state := client.NewState(catalog)
 	var runtime *client.TUIRuntime
 	if config.tui {
-		runtime = client.NewTUIRuntime(client.TUIRuntimeConfig{
-			State:        state,
-			Output:       os.Stdout,
-			Width:        defaultTUIWidth,
-			HistoryLimit: defaultTUIHistoryLimit,
-		})
-		session, err := rawterm.Start(int(os.Stdin.Fd()), rawterm.RealController())
+		controller := rawterm.RealController()
+		session, err := rawterm.Start(int(os.Stdin.Fd()), controller)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		defer session.Close()
+
+		width, height, err := controller.Size(int(os.Stdout.Fd()))
+		if err != nil {
+			width = defaultTUIWidth
+			height = defaultTUIHeight
+		}
+		if err := screen.EnterAlternateScreen(os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		defer func() {
+			_ = screen.ExitAlternateScreen(os.Stdout)
+		}()
+
+		runtime = client.NewTUIRuntime(client.TUIRuntimeConfig{
+			State:        state,
+			Output:       os.Stdout,
+			Width:        width,
+			Height:       height,
+			HistoryLimit: defaultTUIHistoryLimit,
+		})
 	}
 
 	serverDone := make(chan error, 1)
@@ -95,10 +116,14 @@ func main() {
 }
 
 func parseArgs(args []string) config {
-	config := config{address: defaultAddress}
+	config := config{address: defaultAddress, tui: true}
 	for _, arg := range args[1:] {
 		if arg == "--tui" {
 			config.tui = true
+			continue
+		}
+		if arg == "--line" {
+			config.tui = false
 			continue
 		}
 		config.address = arg

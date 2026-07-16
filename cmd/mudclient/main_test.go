@@ -2,14 +2,14 @@ package main
 
 import "testing"
 
-func TestParseArgsUsesDefaultLineMode(t *testing.T) {
+func TestParseArgsUsesDefaultTUI(t *testing.T) {
 	config := parseArgs([]string{"mudclient"})
 
 	if config.address != defaultAddress {
 		t.Fatalf("address = %q, want %q", config.address, defaultAddress)
 	}
-	if config.tui {
-		t.Fatalf("tui = true, want false")
+	if !config.tui {
+		t.Fatalf("tui = false, want true")
 	}
 }
 
@@ -18,6 +18,17 @@ func TestParseArgsUsesAddressOverride(t *testing.T) {
 
 	if config.address != "127.0.0.1:5000" {
 		t.Fatalf("address = %q, want override", config.address)
+	}
+	if !config.tui {
+		t.Fatalf("tui = false, want true")
+	}
+}
+
+func TestParseArgsDisablesTUIWithLineMode(t *testing.T) {
+	config := parseArgs([]string{"mudclient", "--line"})
+
+	if config.address != defaultAddress {
+		t.Fatalf("address = %q, want %q", config.address, defaultAddress)
 	}
 	if config.tui {
 		t.Fatalf("tui = true, want false")
