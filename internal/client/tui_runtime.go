@@ -1,17 +1,19 @@
 package client
 
 import (
+	"io"
+	"sync"
+
 	"PMud/internal/client/screen"
 	"PMud/internal/client/tui"
 	"PMud/internal/protocol"
-	"io"
-	"sync"
 )
 
 type TUIRuntimeConfig struct {
 	State        *State
 	Output       io.Writer
 	Width        int
+	Height       int
 	HistoryLimit int
 }
 
@@ -20,8 +22,11 @@ type TUIRuntime struct {
 	model    tui.Model
 	renderer screen.Renderer
 	width    int
+	height   int
 	mu       sync.Mutex
 }
+
+const defaultTUIHeight = 26
 
 func NewTUIRuntime(config TUIRuntimeConfig) *TUIRuntime {
 	return &TUIRuntime{
@@ -29,7 +34,15 @@ func NewTUIRuntime(config TUIRuntimeConfig) *TUIRuntime {
 		model:    tui.NewModel(config.HistoryLimit),
 		renderer: screen.NewRenderer(config.Output),
 		width:    config.Width,
+		height:   normalizeTUIHeight(config.Height),
 	}
+}
+
+func normalizeTUIHeight(height int) int {
+	if height <= 0 {
+		return defaultTUIHeight
+	}
+	return height
 }
 
 func (r *TUIRuntime) RenderEvent(event protocol.Event) error {
@@ -75,6 +88,22 @@ func (r *TUIRuntime) ApplyInput(input tui.Input, server io.Writer) error {
 	return r.draw()
 }
 
+func (r *TUIRuntime) ForceRedraw() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.draw()
+}
+
+func (r *TUIRuntime) Resize(width int, height int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.width = width
+	r.height = normalizeTUIHeight(height)
+	return r.draw()
+}
+
 func (r *TUIRuntime) draw() error {
-	return r.renderer.Draw(tui.View(r.model, r.state.catalog, r.width))
+	return r.renderer.Draw(tui.ViewWithSize(r.model, r.state.catalog, r.width, r.height))
 }

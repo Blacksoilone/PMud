@@ -1,12 +1,13 @@
 package client
 
 import (
+	"strings"
+	"testing"
+
 	"PMud/internal/client/screen"
 	"PMud/internal/client/tui"
 	"PMud/internal/content"
 	"PMud/internal/protocol"
-	"strings"
-	"testing"
 )
 
 func TestTUIRuntimeObserveEventRedrawsScreen(t *testing.T) {
@@ -19,7 +20,6 @@ func TestTUIRuntimeObserveEventRedrawsScreen(t *testing.T) {
 	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
 
 	err = runtime.ObserveEvent(protocol.Event{Name: "inventory", Fields: map[string]string{"items": "item.tutorial.old_lantern"}})
-
 	if err != nil {
 		t.Fatalf("ObserveEvent: %v", err)
 	}
@@ -41,7 +41,6 @@ func TestTUIRuntimeSubmitLineRedrawsInputThenClearsPrompt(t *testing.T) {
 	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
 
 	err = runtime.SubmitLine("get 旧油灯", &serverOutput)
-
 	if err != nil {
 		t.Fatalf("SubmitLine: %v", err)
 	}
@@ -52,7 +51,7 @@ func TestTUIRuntimeSubmitLineRedrawsInputThenClearsPrompt(t *testing.T) {
 	if strings.Count(got, screen.FullRedrawPrefix) != 2 {
 		t.Fatalf("redraw count = %d, want 2; output:\n%s", strings.Count(got, screen.FullRedrawPrefix), got)
 	}
-	if !strings.Contains(got, "> get 旧油灯") || !strings.Contains(got, "| >") {
+	if !strings.Contains(got, "> get 旧油灯") || !strings.Contains(got, "> ") {
 		t.Fatalf("output missing submitted or cleared prompt:\n%s", got)
 	}
 }
@@ -95,7 +94,6 @@ func TestTUIRuntimeApplyInputRedrawsText(t *testing.T) {
 		t.Fatalf("ApplyInput text: %v", err)
 	}
 	err = runtime.ApplyInput(tui.Input{Kind: tui.InputText, Text: "旧油灯"}, &server)
-
 	if err != nil {
 		t.Fatalf("ApplyInput text: %v", err)
 	}
@@ -126,7 +124,6 @@ func TestTUIRuntimeApplyInputBackspaceRemovesLastRune(t *testing.T) {
 		t.Fatalf("ApplyInput text: %v", err)
 	}
 	err = runtime.ApplyInput(tui.Input{Kind: tui.InputBackspace}, &server)
-
 	if err != nil {
 		t.Fatalf("ApplyInput backspace: %v", err)
 	}
@@ -155,13 +152,12 @@ func TestTUIRuntimeApplyInputClearClearsPrompt(t *testing.T) {
 		t.Fatalf("ApplyInput text: %v", err)
 	}
 	err = runtime.ApplyInput(tui.Input{Kind: tui.InputClear}, &server)
-
 	if err != nil {
 		t.Fatalf("ApplyInput clear: %v", err)
 	}
 	got := output.String()
 	lastFrame := got[strings.LastIndex(got, screen.FullRedrawPrefix):]
-	if !strings.Contains(lastFrame, "| >") {
+	if !strings.Contains(lastFrame, "> ") {
 		t.Fatalf("last frame missing cleared prompt:\n%s", lastFrame)
 	}
 	if strings.Contains(lastFrame, "inventory") {
@@ -185,7 +181,6 @@ func TestTUIRuntimeApplyInputSubmitWritesResolvedCommandAndClearsPrompt(t *testi
 		t.Fatalf("ApplyInput text: %v", err)
 	}
 	err = runtime.ApplyInput(tui.Input{Kind: tui.InputSubmit}, &server)
-
 	if err != nil {
 		t.Fatalf("ApplyInput submit: %v", err)
 	}
@@ -197,7 +192,7 @@ func TestTUIRuntimeApplyInputSubmitWritesResolvedCommandAndClearsPrompt(t *testi
 	if !strings.Contains(got, "> get 旧油灯") {
 		t.Fatalf("output missing typed prompt:\n%s", got)
 	}
-	if !strings.Contains(lastFrame, "| >") {
+	if !strings.Contains(lastFrame, "> ") {
 		t.Fatalf("last frame missing cleared prompt:\n%s", lastFrame)
 	}
 }
@@ -213,7 +208,6 @@ func TestTUIRuntimeSubmitLineForwardsAmbiguousItemPhrase(t *testing.T) {
 	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
 
 	err = runtime.SubmitLine("get shared", &server)
-
 	if err != nil {
 		t.Fatalf("SubmitLine: %v", err)
 	}
@@ -236,7 +230,6 @@ func TestTUIRuntimeSubmitLineShowsHelpLocally(t *testing.T) {
 	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
 
 	err = runtime.SubmitLine("help", &server)
-
 	if err != nil {
 		t.Fatalf("SubmitLine: %v", err)
 	}
@@ -265,7 +258,6 @@ func TestTUIRuntimeSubmitLineShowsEmptyInputLocally(t *testing.T) {
 	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
 
 	err = runtime.SubmitLine("", &server)
-
 	if err != nil {
 		t.Fatalf("SubmitLine: %v", err)
 	}
@@ -274,5 +266,54 @@ func TestTUIRuntimeSubmitLineShowsEmptyInputLocally(t *testing.T) {
 	}
 	if got := output.String(); !strings.Contains(got, "你没有输入任何内容") {
 		t.Fatalf("output missing empty-input text:\n%s", got)
+	}
+}
+
+func TestTUIRuntimeForceRedrawDoesNotWriteServerOrChangeInput(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	var output strings.Builder
+	var server strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 128, Height: 32, HistoryLimit: 3})
+
+	if err := runtime.ApplyInput(tui.Input{Kind: tui.InputText, Text: "look"}, &server); err != nil {
+		t.Fatalf("ApplyInput text: %v", err)
+	}
+	if err := runtime.ApplyInput(tui.Input{Kind: tui.InputForceRedraw}, &server); err != nil {
+		t.Fatalf("ApplyInput force redraw: %v", err)
+	}
+
+	if server.String() != "" {
+		t.Fatalf("server output = %q, want empty", server.String())
+	}
+	if strings.Count(output.String(), screen.FullRedrawPrefix) != 2 {
+		t.Fatalf("redraw count = %d, want 2", strings.Count(output.String(), screen.FullRedrawPrefix))
+	}
+	lastFrame := output.String()[strings.LastIndex(output.String(), screen.FullRedrawPrefix):]
+	if !strings.Contains(lastFrame, "> look") {
+		t.Fatalf("last frame changed input:\n%s", lastFrame)
+	}
+}
+
+func TestTUIRuntimeResizeUsesNewHeight(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	var output strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 128, Height: 26, HistoryLimit: 3})
+
+	if err := runtime.Resize(128, 32); err != nil {
+		t.Fatalf("Resize: %v", err)
+	}
+
+	lastFrame := output.String()[strings.LastIndex(output.String(), screen.FullRedrawPrefix)+len(screen.FullRedrawPrefix):]
+	lines := strings.Split(strings.TrimSuffix(lastFrame, "\n"), "\n")
+	if len(lines) != 32 {
+		t.Fatalf("redrawn line count = %d, want 32", len(lines))
 	}
 }

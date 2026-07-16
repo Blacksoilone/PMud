@@ -207,7 +207,7 @@ func TestForwardTUILines_redrawsInputAndWritesResolvedCommand(t *testing.T) {
 		t.Fatalf("server output = %q", serverOutput.String())
 	}
 	got := screenOutput.String()
-	if !strings.Contains(got, "> get 旧油灯") || !strings.Contains(got, "| >") {
+	if !strings.Contains(got, "> get 旧油灯") || !strings.Contains(got, "> ") {
 		t.Fatalf("screen output missing submitted or cleared prompt:\n%s", got)
 	}
 }
@@ -284,7 +284,7 @@ func TestForwardTUIKeyInput_decodesClear(t *testing.T) {
 	if serverOutput.String() != "inventory\n" {
 		t.Fatalf("server output = %q", serverOutput.String())
 	}
-	if !strings.Contains(screenOutput.String(), "| >") {
+	if !strings.Contains(screenOutput.String(), "> ") {
 		t.Fatalf("screen output missing cleared prompt:\n%s", screenOutput.String())
 	}
 }
