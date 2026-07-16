@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	"PMud/internal/client/termwidth"
@@ -35,13 +36,17 @@ func TestRenderMinimapGrid_centersLabelsInFixedSlots(t *testing.T) {
 		t.Fatalf("line count = %d, want %d: %#v", len(lines), len(want), lines)
 	}
 	for index := range want {
-		if lines[index] != want[index] {
-			t.Fatalf("line %d = %q, want %q", index, lines[index], want[index])
+		plain := termwidth.StripANSI(lines[index])
+		if plain != want[index] {
+			t.Fatalf("line %d = %q, want %q", index, plain, want[index])
 		}
 		if termwidth.Width(lines[index]) != minimapGridWidth {
 			t.Fatalf("line %d width = %d, want %d", index, termwidth.Width(lines[index]), minimapGridWidth)
 		}
 	}
+	assertMinimapCellsHaveGrayBackground(t, lines[0], 3)
+	assertMinimapCellsHaveGrayBackground(t, lines[2], 3)
+	assertMinimapCellsHaveGrayBackground(t, lines[4], 3)
 }
 
 func TestRenderMinimapGrid_omitsMissingNeighborsAndConnectors(t *testing.T) {
@@ -64,13 +69,17 @@ func TestRenderMinimapGrid_omitsMissingNeighborsAndConnectors(t *testing.T) {
 		"                            ",
 	}
 	for index := range want {
-		if lines[index] != want[index] {
-			t.Fatalf("line %d = %q, want %q", index, lines[index], want[index])
+		plain := termwidth.StripANSI(lines[index])
+		if plain != want[index] {
+			t.Fatalf("line %d = %q, want %q", index, plain, want[index])
 		}
 		if termwidth.Width(lines[index]) != minimapGridWidth {
 			t.Fatalf("line %d width = %d, want %d", index, termwidth.Width(lines[index]), minimapGridWidth)
 		}
 	}
+	assertMinimapCellsHaveGrayBackground(t, lines[0], 2)
+	assertMinimapCellsHaveGrayBackground(t, lines[2], 1)
+	assertMinimapCellsHaveGrayBackground(t, lines[4], 0)
 }
 
 func TestRenderMinimapGrid_truncatesLongLabelsToFixedCell(t *testing.T) {
@@ -88,10 +97,18 @@ func TestRenderMinimapGrid_truncatesLongLabelsToFixedCell(t *testing.T) {
 			t.Fatalf("line %d width = %d, want %d: %q", index, termwidth.Width(line), minimapGridWidth, line)
 		}
 	}
-	if lines[0] != "          很长很长          " {
+	if termwidth.StripANSI(lines[0]) != "          很长很长          " {
 		t.Fatalf("top row = %q, want long label truncated into center cell", lines[0])
 	}
-	if lines[2] != "          练习场入          " {
+	if termwidth.StripANSI(lines[2]) != "          练习场入          " {
 		t.Fatalf("middle row = %q, want current label truncated into center cell", lines[2])
+	}
+}
+
+func assertMinimapCellsHaveGrayBackground(t *testing.T, line string, wantCount int) {
+	t.Helper()
+	gotCount := strings.Count(line, minimapCellBackground)
+	if gotCount != wantCount {
+		t.Fatalf("gray background count = %d, want %d in %q", gotCount, wantCount, line)
 	}
 }

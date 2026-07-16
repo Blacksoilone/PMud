@@ -7,9 +7,12 @@ import (
 )
 
 const (
-	minimapCellWidth = 8
-	minimapGapWidth  = 2
-	minimapGridWidth = minimapCellWidth*3 + minimapGapWidth*2
+	minimapCellWidth      = 8
+	minimapGapWidth       = 2
+	minimapGridWidth      = minimapCellWidth*3 + minimapGapWidth*2
+	minimapCellGray       = "\x1b[48;5;240m"
+	minimapStyleReset     = "\x1b[0m"
+	minimapCellBackground = minimapCellGray
 )
 
 type MapDirection string
@@ -72,12 +75,18 @@ func middleRow(region MinimapRegion) string {
 func cell(label string) string {
 	label = normalizeMinimapLabel(label)
 	width := termwidth.Width(label)
+	if label == "" {
+		return strings.Repeat(" ", minimapCellWidth)
+	}
+	var padded string
 	if width >= minimapCellWidth {
-		return termwidth.RightPad(label, minimapCellWidth)
+		padded = termwidth.RightPad(label, minimapCellWidth)
+		return minimapCellGray + padded + minimapStyleReset
 	}
 	left := (minimapCellWidth - width) / 2
 	right := minimapCellWidth - width - left
-	return strings.Repeat(" ", left) + label + strings.Repeat(" ", right)
+	padded = strings.Repeat(" ", left) + label + strings.Repeat(" ", right)
+	return minimapCellGray + padded + minimapStyleReset
 }
 
 func normalizeMinimapLabel(label string) string {
