@@ -98,6 +98,49 @@ func TestEngine_ignoresUnmatchedTriggers(t *testing.T) {
 	}
 }
 
+func TestEngine_resolvesPendingRewardsToCompleted(t *testing.T) {
+	// Given
+	engine := NewEngine(tutorialDefinitions())
+	playerID := "player.local"
+	engine.Apply(playerID, Trigger{Kind: TriggerGotItem, ItemID: "item.tutorial.old_lantern"})
+	engine.Apply(playerID, Trigger{Kind: TriggerMovedRoom, RoomID: "room.tutorial.yard"})
+	status, _ := engine.Apply(playerID, Trigger{Kind: TriggerExaminedItem, ItemID: "item.tutorial.practice_sword"})
+	if status.State != QuestStateRewardPending {
+		t.Fatalf("state before reward resolution = %q", status.State)
+	}
+
+	// When
+	status, resolved := engine.ResolveRewards(playerID)
+
+	// Then
+	if !resolved {
+		t.Fatal("expected pending rewards to resolve")
+	}
+	if status.State != QuestStateCompleted {
+		t.Fatalf("state after reward resolution = %q", status.State)
+	}
+	if status.StageID != "quest.tutorial.first_steps.stage.examine_sword" {
+		t.Fatalf("stage after reward resolution = %q", status.StageID)
+	}
+}
+
+func TestEngine_doesNotResolveRewardsBeforeRewardPending(t *testing.T) {
+	// Given
+	engine := NewEngine(tutorialDefinitions())
+	playerID := "player.local"
+
+	// When
+	status, resolved := engine.ResolveRewards(playerID)
+
+	// Then
+	if resolved {
+		t.Fatal("expected active quest rewards not to resolve")
+	}
+	if status.State != QuestStateActive {
+		t.Fatalf("state = %q", status.State)
+	}
+}
+
 func tutorialDefinitions() Definitions {
 	return Definitions{
 		Quest: QuestDefinition{

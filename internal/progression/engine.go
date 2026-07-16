@@ -37,6 +37,16 @@ func (e *Engine) Status(playerID string) (Status, bool) {
 	return e.status(e.runtimeFor(playerID)), true
 }
 
+func (e *Engine) ResolveRewards(playerID string) (Status, bool) {
+	runtime := e.runtimeFor(playerID)
+	if runtime.state != QuestStateRewardPending {
+		return e.status(runtime), false
+	}
+	runtime.state = QuestStateCompleted
+	e.runtime[playerID] = runtime
+	return e.status(runtime), true
+}
+
 func (e *Engine) runtimeFor(playerID string) questRuntime {
 	if runtime, ok := e.runtime[playerID]; ok {
 		return runtime

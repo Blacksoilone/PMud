@@ -170,7 +170,10 @@ func (s *sessionState) progressionEngine() *progression.Engine {
 }
 
 func (s *sessionState) applyProgression(trigger progression.Trigger) {
-	s.progressionEngine().Apply(string(s.playerID), trigger)
+	status, advanced := s.progressionEngine().Apply(string(s.playerID), trigger)
+	if advanced && status.State == progression.QuestStateRewardPending {
+		s.progressionEngine().ResolveRewards(string(s.playerID))
+	}
 }
 
 func (s *sessionState) questStatusEvent() presentation.Event {

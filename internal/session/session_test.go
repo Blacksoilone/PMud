@@ -63,7 +63,7 @@ func TestSessionActions_advanceTutorialQuest(t *testing.T) {
 	if afterExamine.StageID != "quest.tutorial.first_steps.stage.examine_sword" {
 		t.Fatalf("stage after examine = %q", afterExamine.StageID)
 	}
-	if afterExamine.State != "reward_pending" {
+	if afterExamine.State != "completed" {
 		t.Fatalf("state after examine = %q", afterExamine.State)
 	}
 }
