@@ -1,12 +1,13 @@
 package client
 
 import (
-	"PMud/internal/client/screen"
-	"PMud/internal/content"
-	"PMud/internal/protocol"
 	"errors"
 	"strings"
 	"testing"
+
+	"PMud/internal/client/screen"
+	"PMud/internal/content"
+	"PMud/internal/protocol"
 )
 
 func TestRenderProtocolLines_rendersServerEvents(t *testing.T) {
@@ -18,13 +19,34 @@ func TestRenderProtocolLines_rendersServerEvents(t *testing.T) {
 	var output strings.Builder
 
 	err = RenderProtocolLines(input, &output, compiled.Client)
-
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := "练习场入口\n这里是练习场的入口。北边传来木剑碰撞的声音。\n出口: north\n你看到: 旧油灯（old lantern）\n"
 	if got := output.String(); got != want {
 		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestRenderProtocolLines_rendersQuestProgressAfterCommandResult(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := strings.NewReader("event=system\tmessage_key=system.item.taken\titem=item.tutorial.old_lantern\n" +
+		"event=system\tmessage_key=system.quest.progress\tquest_id=quest.tutorial.first_steps\tstage_id=quest.tutorial.first_steps.stage.enter_yard\tstate=active\n")
+	var output strings.Builder
+
+	err = RenderProtocolLines(input, &output, compiled.Client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := output.String()
+	if !strings.Contains(got, "你拿起了旧油灯（old lantern）。") {
+		t.Fatalf("output missing item result:\n%s", got)
+	}
+	if !strings.Contains(got, "任务更新: active") {
+		t.Fatalf("output missing quest progress:\n%s", got)
 	}
 }
 
@@ -53,7 +75,6 @@ func TestRenderTUIProtocolLines_rendersObservedEvents(t *testing.T) {
 	var output strings.Builder
 
 	err = RenderTUIProtocolLines(input, &output, state, 48, 3)
-
 	if err != nil {
 		t.Fatalf("RenderTUIProtocolLines: %v", err)
 	}
@@ -76,7 +97,6 @@ func TestRenderTUIObservedProtocolLines_updatesCommandResolution(t *testing.T) {
 	var output strings.Builder
 
 	err = RenderTUIObservedProtocolLines(input, &output, state, 48, 3)
-
 	if err != nil {
 		t.Fatalf("RenderTUIObservedProtocolLines: %v", err)
 	}
@@ -97,7 +117,6 @@ func TestRenderTUIObservedProtocolLines_redrawsPerEvent(t *testing.T) {
 	var output strings.Builder
 
 	err = RenderTUIObservedProtocolLines(input, &output, state, 48, 3)
-
 	if err != nil {
 		t.Fatalf("RenderTUIObservedProtocolLines: %v", err)
 	}
@@ -116,7 +135,6 @@ func TestForwardCommands_writesInputLinesToServer(t *testing.T) {
 	var output strings.Builder
 
 	err := ForwardCommands(input, &output)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +154,6 @@ func TestForwardResolvedCommands_forwardsUnresolvedItemPhrasesToServer(t *testin
 	var output strings.Builder
 
 	err = ForwardResolvedCommands(input, &output, state)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +173,6 @@ func TestForwardResolvedCommands_forwardsAmbiguousItemPhraseToServer(t *testing.
 	var output strings.Builder
 
 	err = ForwardResolvedCommands(input, &output, state)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +200,6 @@ func TestForwardTUILines_redrawsInputAndWritesResolvedCommand(t *testing.T) {
 	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
 
 	err = ForwardTUILines(input, &serverOutput, runtime)
-
 	if err != nil {
 		t.Fatalf("ForwardTUILines: %v", err)
 	}
@@ -214,7 +229,6 @@ func TestRenderTUIObservedProtocolLinesWithRuntime_sharesModelWithForwardTUILine
 		t.Fatalf("RenderTUIObservedProtocolLinesWithRuntime: %v", err)
 	}
 	err = ForwardTUILines(input, &serverOutput, runtime)
-
 	if err != nil {
 		t.Fatalf("ForwardTUILines: %v", err)
 	}
@@ -240,7 +254,6 @@ func TestForwardTUIKeyInput_decodesTextBackspaceAndSubmit(t *testing.T) {
 	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
 
 	err = ForwardTUIKeyInput(input, &serverOutput, runtime)
-
 	if err != nil {
 		t.Fatalf("ForwardTUIKeyInput: %v", err)
 	}
@@ -265,7 +278,6 @@ func TestForwardTUIKeyInput_decodesClear(t *testing.T) {
 	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
 
 	err = ForwardTUIKeyInput(input, &serverOutput, runtime)
-
 	if err != nil {
 		t.Fatalf("ForwardTUIKeyInput: %v", err)
 	}
@@ -289,7 +301,6 @@ func TestForwardTUIKeyInput_quitStopsWithoutSubmittingLaterInput(t *testing.T) {
 	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
 
 	err = ForwardTUIKeyInput(input, &serverOutput, runtime)
-
 	if err != nil {
 		t.Fatalf("ForwardTUIKeyInput: %v", err)
 	}
