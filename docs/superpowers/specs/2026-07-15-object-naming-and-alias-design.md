@@ -201,16 +201,28 @@ Object ambiguity is contextual.
 
 For example, `get shizi` should only consider objects that can be directly obtained from the current command domain. An identically named object elsewhere in the world must not create ambiguity.
 
+Each command defines its own target domain before object phrase matching happens. The resolver must first choose the command-specific domain, then match names and aliases only inside that domain.
+
+Examples:
+
+- `get <object>` resolves only objects that can be directly obtained from the current room domain.
+- `drop <object>` resolves only objects carried by the player.
+- `look/examine <object>` resolves only visible objects for that action.
+- Future `ask <actor>` resolves only askable actors in the current interaction domain. A same-named item such as a sword must not be returned as an ambiguity candidate for `ask` because it cannot satisfy the action.
+- Future `give <object> to <actor>` resolves the left phrase in the player's giveable inventory domain and the right phrase in the current receivable actor/object domain.
+
+Objects outside the command's target domain are invisible to ambiguity reporting. If an object name matches textually but cannot be used by the action, it must not appear in candidate lists.
+
 The server should not recursively inspect arbitrary object internals to produce smart difference summaries. If multiple candidates need player selection, the server should provide short handles and normal display names. Players can examine candidates by handle if they need more information.
 
 ## Current Implementation Gap
 
-The current codebase still uses `NameKey` and `Aliases` in content data, and the client currently resolves item names and aliases locally. That behavior is temporary and conflicts with this design.
+The current codebase has begun migrating toward this design. The client no longer resolves item phrases for current item commands, and the server resolves `get`, `drop`, `look`, and `examine` item phrases by action domain. Remaining gaps include short handles, broader object kinds, and richer command domains such as askable actors or give targets.
 
 Future implementation should migrate toward:
 
-- Content fields equivalent to `display_name`, `inner_name`, and `input_aliases`.
-- Server-side object phrase resolution.
+- Content fields fully aligned with `display_name`, `inner_name`, and `input_aliases`.
+- Server-side object phrase resolution for every object-bearing command.
 - Client-side command aliasing only.
 - Rendering that displays `display_name（inner_name）`.
 
