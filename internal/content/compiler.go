@@ -8,6 +8,8 @@ func Compile(source ContentSource) (CompiledContent, error) {
 		Rooms:         make(map[RoomID]ServerRoom, len(source.Rooms)),
 		Items:         make(map[ItemID]ServerItem, len(source.Items)),
 		ItemLocations: make(map[ItemID]RoomID, len(source.Items)),
+		Quests:        make(map[QuestID]ServerQuest, len(source.Quests)),
+		QuestStages:   make(map[QuestStageID]ServerQuestStage, len(source.QuestStages)),
 	}
 	client := ClientCatalog{
 		RoomNames:        make(map[RoomID]TextKey, len(source.Rooms)),
@@ -40,6 +42,25 @@ func Compile(source ContentSource) (CompiledContent, error) {
 		client.ItemDescriptions[item.ID] = item.DescriptionKey
 		if len(item.Aliases) > 0 {
 			client.ItemAliases[item.ID] = append([]TextKey(nil), item.Aliases...)
+		}
+	}
+
+	for _, quest := range source.Quests {
+		server.Quests[quest.ID] = ServerQuest{
+			NameKey:  quest.NameKey,
+			StageIDs: append([]QuestStageID(nil), quest.StageIDs...),
+		}
+	}
+
+	for _, stage := range source.QuestStages {
+		conditions := make([]ServerQuestCondition, 0, len(stage.FinishConditions))
+		for _, condition := range stage.FinishConditions {
+			conditions = append(conditions, ServerQuestCondition(condition))
+		}
+		server.QuestStages[stage.ID] = ServerQuestStage{
+			TextKey:          stage.TextKey,
+			FinishConditions: conditions,
+			NextStageID:      stage.NextStageID,
 		}
 	}
 

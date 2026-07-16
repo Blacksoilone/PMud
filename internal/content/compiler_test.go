@@ -8,7 +8,6 @@ func TestCompile_projectsServerSnapshot(t *testing.T) {
 
 	// When
 	compiled, err := Compile(source)
-
 	// Then
 	if err != nil {
 		t.Fatal(err)
@@ -39,7 +38,6 @@ func TestCompile_projectsClientCatalog(t *testing.T) {
 
 	// When
 	compiled, err := Compile(source)
-
 	// Then
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +80,6 @@ func TestCompile_projectsClientItemAliases(t *testing.T) {
 
 	// When
 	compiled, err := Compile(source)
-
 	// Then
 	if err != nil {
 		t.Fatal(err)
@@ -102,13 +99,54 @@ func TestCompile_projectsClientItemAliases(t *testing.T) {
 	}
 }
 
+func TestCompile_projectsTutorialQuest(t *testing.T) {
+	// Given
+	source := testContentSource()
+
+	// When
+	compiled, err := Compile(source)
+	// Then
+	if err != nil {
+		t.Fatal(err)
+	}
+	quest, ok := compiled.Server.Quests["quest.tutorial.first_steps"]
+	if !ok {
+		t.Fatal("missing tutorial quest")
+	}
+	if quest.NameKey != "quest.tutorial.first_steps.name" {
+		t.Fatalf("quest name key = %q", quest.NameKey)
+	}
+	if len(quest.StageIDs) != 3 {
+		t.Fatalf("stage count = %d, want 3", len(quest.StageIDs))
+	}
+	if quest.StageIDs[0] != "quest.tutorial.first_steps.stage.get_lantern" {
+		t.Fatalf("stage 0 = %q", quest.StageIDs[0])
+	}
+	stage := compiled.Server.QuestStages[quest.StageIDs[0]]
+	if stage.TextKey != "quest.tutorial.first_steps.stage.get_lantern.text" {
+		t.Fatalf("stage text key = %q", stage.TextKey)
+	}
+	if len(stage.FinishConditions) != 1 {
+		t.Fatalf("condition count = %d, want 1", len(stage.FinishConditions))
+	}
+	condition := stage.FinishConditions[0]
+	if condition.Kind != "got_item" || condition.ItemID != "item.tutorial.old_lantern" {
+		t.Fatalf("condition = %#v, want got old lantern", condition)
+	}
+	if got := compiled.Client.Text[quest.NameKey]; got != "教程任务" {
+		t.Fatalf("quest name text = %q", got)
+	}
+	if got := compiled.Client.Text[stage.TextKey]; got != "拿起旧油灯。" {
+		t.Fatalf("stage text = %q", got)
+	}
+}
+
 func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
 	// Given
 	source := TutorialSource()
 
 	// When
 	compiled, err := Compile(source)
-
 	// Then
 	if err != nil {
 		t.Fatal(err)
@@ -173,17 +211,57 @@ func testContentSource() ContentSource {
 				InitialRoom:    "room.tutorial.yard",
 			},
 		},
+		Quests: []QuestSource{
+			{
+				ID:      "quest.tutorial.first_steps",
+				NameKey: "quest.tutorial.first_steps.name",
+				StageIDs: []QuestStageID{
+					"quest.tutorial.first_steps.stage.get_lantern",
+					"quest.tutorial.first_steps.stage.enter_yard",
+					"quest.tutorial.first_steps.stage.examine_sword",
+				},
+			},
+		},
+		QuestStages: []QuestStageSource{
+			{
+				ID:      "quest.tutorial.first_steps.stage.get_lantern",
+				TextKey: "quest.tutorial.first_steps.stage.get_lantern.text",
+				FinishConditions: []QuestConditionSource{
+					{Kind: "got_item", ItemID: "item.tutorial.old_lantern"},
+				},
+				NextStageID: "quest.tutorial.first_steps.stage.enter_yard",
+			},
+			{
+				ID:      "quest.tutorial.first_steps.stage.enter_yard",
+				TextKey: "quest.tutorial.first_steps.stage.enter_yard.text",
+				FinishConditions: []QuestConditionSource{
+					{Kind: "moved_room", RoomID: "room.tutorial.yard"},
+				},
+				NextStageID: "quest.tutorial.first_steps.stage.examine_sword",
+			},
+			{
+				ID:      "quest.tutorial.first_steps.stage.examine_sword",
+				TextKey: "quest.tutorial.first_steps.stage.examine_sword.text",
+				FinishConditions: []QuestConditionSource{
+					{Kind: "examined_item", ItemID: "item.tutorial.practice_sword"},
+				},
+			},
+		},
 		Text: map[TextKey]string{
-			"room.tutorial.start.name":                 "练习场入口",
-			"room.tutorial.start.description":          "这里是练习场的入口。北边传来木剑碰撞的声音。",
-			"room.tutorial.yard.name":                  "练习场",
-			"room.tutorial.yard.description":           "几根木桩立在泥地上，地面满是被踩出的脚印。",
-			"item.tutorial.old_lantern.name":           "旧油灯",
-			"item.tutorial.old_lantern.inner_name":     "old lantern",
-			"item.tutorial.old_lantern.description":    "灯罩上蒙着一层灰，里面还剩一点灯油。",
-			"item.tutorial.practice_sword.name":        "练习木剑",
-			"item.tutorial.practice_sword.inner_name":  "practice sword",
-			"item.tutorial.practice_sword.description": "一把被许多人握过的木剑，剑柄已经磨得发亮。",
+			"room.tutorial.start.name":                            "练习场入口",
+			"room.tutorial.start.description":                     "这里是练习场的入口。北边传来木剑碰撞的声音。",
+			"room.tutorial.yard.name":                             "练习场",
+			"room.tutorial.yard.description":                      "几根木桩立在泥地上，地面满是被踩出的脚印。",
+			"item.tutorial.old_lantern.name":                      "旧油灯",
+			"item.tutorial.old_lantern.inner_name":                "old lantern",
+			"item.tutorial.old_lantern.description":               "灯罩上蒙着一层灰，里面还剩一点灯油。",
+			"item.tutorial.practice_sword.name":                   "练习木剑",
+			"item.tutorial.practice_sword.inner_name":             "practice sword",
+			"item.tutorial.practice_sword.description":            "一把被许多人握过的木剑，剑柄已经磨得发亮。",
+			"quest.tutorial.first_steps.name":                     "教程任务",
+			"quest.tutorial.first_steps.stage.get_lantern.text":   "拿起旧油灯。",
+			"quest.tutorial.first_steps.stage.enter_yard.text":    "前往练习场。",
+			"quest.tutorial.first_steps.stage.examine_sword.text": "查看练习木剑。",
 		},
 	}
 }

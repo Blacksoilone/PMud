@@ -38,6 +38,51 @@
       "InitialRoom": "room.tutorial.yard"
     }
   ],
+  "Quests": [
+    {
+      "ID": "quest.tutorial.first_steps",
+      "NameKey": "quest.tutorial.first_steps.name",
+      "StageIDs": [
+        "quest.tutorial.first_steps.stage.get_lantern",
+        "quest.tutorial.first_steps.stage.enter_yard",
+        "quest.tutorial.first_steps.stage.examine_sword"
+      ]
+    }
+  ],
+  "QuestStages": [
+    {
+      "ID": "quest.tutorial.first_steps.stage.get_lantern",
+      "TextKey": "quest.tutorial.first_steps.stage.get_lantern.text",
+      "FinishConditions": [
+        {
+          "Kind": "got_item",
+          "ItemID": "item.tutorial.old_lantern"
+        }
+      ],
+      "NextStageID": "quest.tutorial.first_steps.stage.enter_yard"
+    },
+    {
+      "ID": "quest.tutorial.first_steps.stage.enter_yard",
+      "TextKey": "quest.tutorial.first_steps.stage.enter_yard.text",
+      "FinishConditions": [
+        {
+          "Kind": "moved_room",
+          "RoomID": "room.tutorial.yard"
+        }
+      ],
+      "NextStageID": "quest.tutorial.first_steps.stage.examine_sword"
+    },
+    {
+      "ID": "quest.tutorial.first_steps.stage.examine_sword",
+      "TextKey": "quest.tutorial.first_steps.stage.examine_sword.text",
+      "FinishConditions": [
+        {
+          "Kind": "examined_item",
+          "ItemID": "item.tutorial.practice_sword"
+        }
+      ]
+    }
+  ],
   "Text": {
     "room.tutorial.start.name": "练习场入口",
     "room.tutorial.start.description": "这里是练习场的入口。北边传来木剑碰撞的声音。",
@@ -51,8 +96,12 @@
     "item.tutorial.practice_sword.name": "练习木剑",
     "item.tutorial.practice_sword.inner_name": "practice sword",
     "item.tutorial.practice_sword.description": "一把被许多人握过的木剑，剑柄已经磨得发亮。",
+    "quest.tutorial.first_steps.name": "教程任务",
+    "quest.tutorial.first_steps.stage.get_lantern.text": "拿起旧油灯。",
+    "quest.tutorial.first_steps.stage.enter_yard.text": "前往练习场。",
+    "quest.tutorial.first_steps.stage.examine_sword.text": "查看练习木剑。",
     "system.empty_input": "你没有输入任何内容",
-    "system.help": "可用命令: look/l, go <direction>, north/n, south/s, east/e, west/w, up/u, down/d, northeast/ne, northwest/nw, southeast/se, southwest/sw, get/take <item>, drop <item>, examine/x/inspect <item>, inventory/i, help\n方向: north/n/北, south/s/南, east/e, west/w, up/u, down/d, northeast/ne, northwest/nw, southeast/se, southwest/sw",
+    "system.help": "可用命令: look/l, go <direction>, north/n, south/s, east/e, west/w, up/u, down/d, northeast/ne, northwest/nw, southeast/se, southwest/sw, get/take <item>, drop <item>, examine/x/inspect <item>, inventory/i, quest, help\n方向: north/n/北, south/s/南, east/e, west/w, up/u, down/d, northeast/ne, northwest/nw, southeast/se, southwest/sw",
     "system.move.blocked": "你不能往那个方向走。",
     "system.item.not_here": "这里没有那个东西。",
     "system.item.taken": "你拿起了{item}。",

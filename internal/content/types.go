@@ -1,14 +1,27 @@
 package content
 
-type RoomID string
-type ItemID string
-type TextKey string
-type Direction string
+type (
+	RoomID             string
+	ItemID             string
+	TextKey            string
+	Direction          string
+	QuestID            string
+	QuestStageID       string
+	QuestConditionKind string
+)
+
+const (
+	QuestConditionGotItem      QuestConditionKind = "got_item"
+	QuestConditionMovedRoom    QuestConditionKind = "moved_room"
+	QuestConditionExaminedItem QuestConditionKind = "examined_item"
+)
 
 type ContentSource struct {
 	StartRoomID RoomID
 	Rooms       []RoomSource
 	Items       []ItemSource
+	Quests      []QuestSource
+	QuestStages []QuestStageSource
 	Text        map[TextKey]string
 }
 
@@ -28,6 +41,25 @@ type ItemSource struct {
 	InitialRoom    RoomID
 }
 
+type QuestSource struct {
+	ID       QuestID
+	NameKey  TextKey
+	StageIDs []QuestStageID
+}
+
+type QuestStageSource struct {
+	ID               QuestStageID
+	TextKey          TextKey
+	FinishConditions []QuestConditionSource
+	NextStageID      QuestStageID
+}
+
+type QuestConditionSource struct {
+	Kind   QuestConditionKind
+	ItemID ItemID
+	RoomID RoomID
+}
+
 type CompiledContent struct {
 	Server ServerSnapshot
 	Client ClientCatalog
@@ -38,6 +70,8 @@ type ServerSnapshot struct {
 	Rooms         map[RoomID]ServerRoom
 	Items         map[ItemID]ServerItem
 	ItemLocations map[ItemID]RoomID
+	Quests        map[QuestID]ServerQuest
+	QuestStages   map[QuestStageID]ServerQuestStage
 }
 
 type ServerRoom struct {
@@ -49,6 +83,23 @@ type ServerItem struct {
 	InnerNameKey   TextKey
 	DescriptionKey TextKey
 	Aliases        []TextKey
+}
+
+type ServerQuest struct {
+	NameKey  TextKey
+	StageIDs []QuestStageID
+}
+
+type ServerQuestStage struct {
+	TextKey          TextKey
+	FinishConditions []ServerQuestCondition
+	NextStageID      QuestStageID
+}
+
+type ServerQuestCondition struct {
+	Kind   QuestConditionKind
+	ItemID ItemID
+	RoomID RoomID
 }
 
 type ClientCatalog struct {
