@@ -9,33 +9,66 @@ import (
 
 const rightHUDWidth = 36
 
-const rightHUDMinWidth = 96
+const defaultViewHeight = 26
+
+const (
+	roomPaneHeight    = 7
+	minimapPaneHeight = 10
+	statusPaneHeight  = 4
+	inputPaneHeight   = 3
+)
 
 func View(model Model, catalog content.ClientCatalog, width int) layout.Block {
-	if width < rightHUDMinWidth {
-		return legacyView(model, catalog, width)
+	return ViewWithSize(model, catalog, width, defaultViewHeight)
+}
+
+func ViewWithSize(model Model, catalog content.ClientCatalog, width int, height int) layout.Block {
+	minHeight := inputPaneHeight + roomPaneHeight + minimapPaneHeight + statusPaneHeight + 2
+	if height < minHeight {
+		height = minHeight
+	}
+	if width <= rightHUDWidth+4 {
+		width = rightHUDWidth + 4
 	}
 	mainWidth := width - rightHUDWidth
-	mainColumn := layout.VBox(
-		paneBlock("房间 / 可见物", roomPaneBlock(model, catalog)),
-		paneBlock("日志", eventHistoryBlock(model, catalog)),
-	)
-	rightHUD := layout.VBox(
-		paneBlock("小地图", minimapPaneBlock(model, catalog)),
-		paneBlock("状态", statusPaneBlock()),
-		paneBlock("当前任务", questPaneBlock(model)),
-	)
+	contentHeight := height - inputPaneHeight
+	contentInnerHeight := contentHeight - 2
+	questPaneHeight := contentInnerHeight - minimapPaneHeight - statusPaneHeight
+	if questPaneHeight < 1 {
+		questPaneHeight = 1
+	}
+	logPaneHeight := contentInnerHeight - roomPaneHeight
+	if logPaneHeight < 1 {
+		logPaneHeight = 1
+	}
+
+	mainColumn := fixedHeightBlock(layout.VBox(
+		fixedHeightBlock(paneBlock("房间 / 可见物", roomPaneBlock(model, catalog)), roomPaneHeight),
+		fixedHeightBlock(paneBlock("日志", eventHistoryBlock(model, catalog)), logPaneHeight),
+	), contentInnerHeight)
+	rightHUD := fixedHeightBlock(layout.VBox(
+		fixedHeightBlock(paneBlock("小地图", minimapPaneBlock(model, catalog)), minimapPaneHeight),
+		fixedHeightBlock(paneBlock("状态", statusPaneBlock()), statusPaneHeight),
+		fixedHeightBlock(paneBlock("当前任务", questPaneBlock(model)), questPaneHeight),
+	), contentInnerHeight)
 	return layout.VBox(
 		layout.HBox(0, layout.Box(mainColumn, mainWidth), layout.Box(rightHUD, rightHUDWidth)),
-		layout.Box(promptBlock(model), width),
+		fixedHeightBlock(layout.Box(promptBlock(model), width), inputPaneHeight),
 	)
 }
 
-func legacyView(model Model, catalog content.ClientCatalog, width int) layout.Block {
-	return layout.VBox(
-		layout.Box(eventHistoryBlock(model, catalog), width),
-		layout.Box(promptBlock(model), width),
-	)
+func fixedHeightBlock(block layout.Block, height int) layout.Block {
+	if height < 1 {
+		height = 1
+	}
+	lines := append([]string(nil), block.Lines...)
+	if len(lines) > height {
+		return layout.NewBlock(lines[:height])
+	}
+	for len(lines) < height {
+		lines = append(lines, "")
+	}
+	return layout.NewBlock(lines)
 }
 
 func paneBlock(title string, body layout.Block) layout.Block {
@@ -103,6 +136,9 @@ func questPaneBlock(model Model) layout.Block {
 func eventHistoryBlock(model Model, catalog content.ClientCatalog) layout.Block {
 	blocks := make([]layout.Block, 0, len(model.Events))
 	for _, event := range model.Events {
+		if event.Name == "room" || event.Name == "quest" {
+			continue
+		}
 		blocks = append(blocks, render.RenderBlock(event, catalog))
 	}
 	return layout.VBox(blocks...)

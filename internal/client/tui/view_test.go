@@ -16,6 +16,7 @@ func TestViewIncludesRoomEventAndPrompt(t *testing.T) {
 
 	got := View(model, catalog, 48).String()
 
+	assertContains(t, got, "小地图")
 	assertContains(t, got, "练习场入口")
 	assertContains(t, got, "这里是练习场的入口。北边传来木剑碰撞的声音。")
 	assertContains(t, got, "你看到: 旧油灯")
@@ -97,6 +98,50 @@ func TestViewRendersRightHUDPermanentPanes(t *testing.T) {
 	} {
 		assertContains(t, got, want)
 	}
+}
+
+func TestViewWithSizeUsesRequestedHeight(t *testing.T) {
+	catalog := testClientCatalog(t)
+	model := NewModel(5)
+	model = ApplyEvent(model, tutorialRoomEvent())
+
+	got := ViewWithSize(model, catalog, 128, 32)
+
+	if len(got.Lines) != 32 {
+		t.Fatalf("view height = %d, want 32", len(got.Lines))
+	}
+}
+
+func TestViewLogOmitsPermanentRoomAndQuestEvents(t *testing.T) {
+	catalog := testClientCatalog(t)
+	model := NewModel(5)
+	model = ApplyEvent(model, tutorialRoomEvent())
+	model = ApplyEvent(model, protocol.Event{
+		Name: "system",
+		Fields: map[string]string{
+			"message_key": "system.item.taken",
+			"item":        "item.tutorial.old_lantern",
+		},
+	})
+	model = ApplyEvent(model, protocol.Event{
+		Name: "quest",
+		Fields: map[string]string{
+			"quest_id":   "quest.tutorial.first_steps",
+			"quest_name": "初入练习场",
+			"stage_text": "走进院子",
+			"conditions": "查看练习木剑",
+		},
+	})
+
+	got := ViewWithSize(model, catalog, 128, 26).String()
+
+	if strings.Count(got, "练习场入口") != 1 {
+		t.Fatalf("room event should only appear in room pane:\n%s", got)
+	}
+	if strings.Count(got, "初入练习场") != 1 {
+		t.Fatalf("quest event should only appear in quest pane:\n%s", got)
+	}
+	assertContains(t, got, "你拿起了旧油灯")
 }
 
 func testClientCatalog(t *testing.T) content.ClientCatalog {
