@@ -1,0 +1,166 @@
+package tui
+
+import (
+	"strings"
+
+	"PMud/internal/client/termwidth"
+)
+
+const (
+	minimapCellWidth = 8
+	minimapGapWidth  = 2
+	minimapGridWidth = minimapCellWidth*3 + minimapGapWidth*2
+)
+
+type MapDirection string
+
+const (
+	MapNorthwest MapDirection = "northwest"
+	MapNorth     MapDirection = "north"
+	MapNortheast MapDirection = "northeast"
+	MapWest      MapDirection = "west"
+	MapEast      MapDirection = "east"
+	MapSouthwest MapDirection = "southwest"
+	MapSouth     MapDirection = "south"
+	MapSoutheast MapDirection = "southeast"
+)
+
+type MinimapRegion struct {
+	AreaName  string
+	Current   MinimapRoom
+	Neighbors map[MapDirection]MinimapRoom
+}
+
+type MinimapRoom struct {
+	Label string
+}
+
+func renderMinimapGrid(region MinimapRegion) []string {
+	return []string{
+		gridRow(
+			region.Neighbors[MapNorthwest].Label,
+			region.Neighbors[MapNorth].Label,
+			region.Neighbors[MapNortheast].Label,
+		),
+		connectorRow(region, upperConnectors),
+		middleRow(region),
+		connectorRow(region, lowerConnectors),
+		gridRow(
+			region.Neighbors[MapSouthwest].Label,
+			region.Neighbors[MapSouth].Label,
+			region.Neighbors[MapSoutheast].Label,
+		),
+	}
+}
+
+func gridRow(left string, center string, right string) string {
+	return cell(left) + gap("") + cell(center) + gap("") + cell(right)
+}
+
+func middleRow(region MinimapRegion) string {
+	westGap := ""
+	if region.Neighbors[MapWest].Label != "" {
+		westGap = "--"
+	}
+	eastGap := ""
+	if region.Neighbors[MapEast].Label != "" {
+		eastGap = "--"
+	}
+	return cell(region.Neighbors[MapWest].Label) + gap(westGap) + cell(region.Current.Label) + gap(eastGap) + cell(region.Neighbors[MapEast].Label)
+}
+
+func cell(label string) string {
+	label = normalizeMinimapLabel(label)
+	width := termwidth.Width(label)
+	if width >= minimapCellWidth {
+		return termwidth.RightPad(label, minimapCellWidth)
+	}
+	left := (minimapCellWidth - width) / 2
+	right := minimapCellWidth - width - left
+	return strings.Repeat(" ", left) + label + strings.Repeat(" ", right)
+}
+
+func normalizeMinimapLabel(label string) string {
+	label = truncateMinimapLabel(label)
+	if termwidth.Width(label)%2 == 1 {
+		return label + " "
+	}
+	return label
+}
+
+func truncateMinimapLabel(label string) string {
+	width := 0
+	var builder strings.Builder
+	for _, char := range label {
+		charWidth := termwidth.Width(string(char))
+		if width+charWidth > minimapCellWidth {
+			break
+		}
+		builder.WriteRune(char)
+		width += charWidth
+	}
+	return builder.String()
+}
+
+func gap(connector string) string {
+	if connector == "" {
+		return strings.Repeat(" ", minimapGapWidth)
+	}
+	return termwidth.RightPad(connector, minimapGapWidth)
+}
+
+type connectorSet struct {
+	left   string
+	middle string
+	right  string
+}
+
+var (
+	upperConnectors = connectorSet{left: "\\", middle: "｜", right: "/"}
+	lowerConnectors = connectorSet{left: "/", middle: "｜", right: "\\"}
+)
+
+func connectorRow(region MinimapRegion, connectors connectorSet) string {
+	left := ""
+	middle := ""
+	right := ""
+	if connectors == upperConnectors {
+		if region.Neighbors[MapNorthwest].Label != "" {
+			left = connectors.left
+		}
+		if region.Neighbors[MapNorth].Label != "" {
+			middle = connectors.middle
+		}
+		if region.Neighbors[MapNortheast].Label != "" {
+			right = connectors.right
+		}
+	} else {
+		if region.Neighbors[MapSouthwest].Label != "" {
+			left = connectors.left
+		}
+		if region.Neighbors[MapSouth].Label != "" {
+			middle = connectors.middle
+		}
+		if region.Neighbors[MapSoutheast].Label != "" {
+			right = connectors.right
+		}
+	}
+	return diagonalConnector(left, true) + strings.Repeat(" ", 3) + verticalConnector(middle) + strings.Repeat(" ", 3) + diagonalConnector(right, false)
+}
+
+func diagonalConnector(connector string, rightPad bool) string {
+	if connector == "" {
+		return strings.Repeat(" ", 10)
+	}
+	if rightPad {
+		return strings.Repeat(" ", 9) + connector
+	}
+	return connector + strings.Repeat(" ", 9)
+}
+
+func verticalConnector(connector string) string {
+	if connector == "" {
+		return "  "
+	}
+	return connector
+}

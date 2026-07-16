@@ -63,6 +63,42 @@ func TestViewKeepsCJKPromptVisible(t *testing.T) {
 	assertContains(t, got, "> drop 旧油灯")
 }
 
+func TestViewRendersRightHUDPermanentPanes(t *testing.T) {
+	catalog := testClientCatalog(t)
+	model := NewModel(5)
+	model.Input = "look"
+	model = ApplyEvent(model, tutorialRoomEvent())
+	model = ApplyEvent(model, protocol.Event{
+		Name: "quest",
+		Fields: map[string]string{
+			"quest_id":   "quest.tutorial.first_steps",
+			"quest_name": "初入练习场",
+			"stage_id":   "quest.tutorial.first_steps.stage.enter_yard",
+			"stage_text": "走进院子",
+			"conditions": "查看练习木剑",
+			"state":      "active",
+		},
+	})
+
+	got := View(model, catalog, 128).String()
+
+	for _, want := range []string{
+		"房间 / 可见物",
+		"日志",
+		"小地图",
+		"状态",
+		"当前任务",
+		"状态系统未开放",
+		"初入练习场",
+		"阶段: 走进院子",
+		"目标: 查看练习木剑",
+		"练习场入口",
+		"> look",
+	} {
+		assertContains(t, got, want)
+	}
+}
+
 func testClientCatalog(t *testing.T) content.ClientCatalog {
 	t.Helper()
 	compiled, err := content.Compile(content.TutorialSource())

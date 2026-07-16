@@ -30,32 +30,55 @@ First version resizing rules:
 
 Default layout: right vertical HUD.
 
+### Reference Ruler
+
+This spec uses full-width units for layout discussion. The following ruler is the width reference used for the first visual draft.
+
 ```text
-┌─ 房间 / 可见物 ───────────────────────────────┬─ 小地图 ─────────────┐
-│ 练习场入口                                    │        北             │
-│ 这里是一处安静的练习场入口……                  │        │              │
-│ 可见物: 旧油灯（old lantern）                 │ 西 ─ 当前 ─ 东        │
-│ 出口: 北                                      │        │              │
-├─ 日志 ────────────────────────────────────────┤        南             │
-│ 你拿起了旧油灯（old lantern）。               ├─ 状态 ───────────────┤
-│ 任务更新: 走进院子                            │ 状态系统未开放        │
-│ 你向北走去。                                  │                      │
-│                                               ├─ 当前任务 ───────────┤
-│                                               │ 初入练习场            │
-│                                               │ 阶段: 走进院子        │
-│                                               │ 目标: 查看练习木剑    │
-├───────────────────────────────────────────────┴──────────────────────┤
-│ > examine practice-sword                                              │
-└───────────────────────────────────────────────────────────────────────┘
+一二三四五六七八九10一二三四五六七八九20一二三四五六七八九30一二三四五六七八九40一二三四五六七八九50一二三四五六七八九60一二三四
 ```
 
+### Fixed-Size Draft
+
+The first approved画面稿 is designed against the comfortable default frame: `64 x 32` full-width units. The following draft is the canonical baseline for implementation and styling discussion.
+
+```text
+一二三四五六七八九10一二三四五六七八九20一二三四五六七八九30一二三四五六七八九40一二三四五六七八九50一二三四五六七八九60一二三四
+┌── 房间 / 可见物 ─────────────────────────────────────────────────────────────────────────┬── 小地图 ─────────────────────────┐
+│ 练习场入口                                                                               │ 教程-练习场                       │
+│ 一处安静的练习场入口。北边传来木剑击打木桩的声音。                                       │   民兵营房  武器库房  精锐营房    │
+│ 墙边挂着一盏旧油灯，火光很弱。                                                           │            \   ｜   /             │
+│ 可见物: 旧油灯（old lantern）                                                            │      井   -- 练功场 -- 将军府     │
+│ 出口: 北                                                                                 │            /   ｜   \             │
+├── 日志 底部 ─────────────────────────────────────────────────────────────────────────────┤    塔楼a      大门     塔楼b      │
+│ 你拿起了旧油灯（old lantern）。                                                          │                                   │
+│ 任务更新: 走进院子                                                                       ├── 状态 ───────────────────────────┤
+│ 你向北走去。                                                                             │ 状态系统未开放                    │
+│ 你来到练习场。                                                                           │ RPG 属性稍后设计                  │
+│ 院子里摆着几个木桩，一把练习木剑靠在架子上。                                             │                                   │
+│ 系统: 按 ? 打开帮助，按 i 查看背包。                                                     ├── 当前任务 ───────────────────────┤
+│                                                                                          │ 初入练习场                        │
+│                                                                                          │                                   │
+│                                                                                          │ 阶段: 走进院子                    │
+│                                                                                          │                                   │
+│                                                                                          │ 目标: 查看练习木剑                │
+│                                                                                          │                                   │
+│                                                                                          │                                   │
+│                                                                                          │ [详情进入弹窗]                    │
+│                                                                                          │                                   │
+├── 输入 ──────────────────────────────────────────────────────────────────────────────────┴───────────────────────────────────┤
+│ > examine practice-sword                                                                                                     │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+This draft is not a topology sketch. Every character placement is part of the visual contract. Do not resize it casually during implementation discussion; use it to reason about proportional fit, border density, and pane balance.
 Layout constants for first implementation:
 
 - Input pane: fixed bottom row with border, one line of visible input.
 - Right HUD width: fixed. Recommended first value: `18` full-width units (`36` terminal cells) including borders.
 - Room pane height: fixed. Recommended first value: `7` rows including border.
-- Minimap pane height: fixed. Recommended first value: `7` rows including border.
-- Status placeholder height: fixed. Recommended first value: `5` rows including border.
+- Minimap pane height: fixed. Recommended first value: `10` rows including border.
+- Status placeholder height: fixed. Recommended first value: `4` rows including border.
 - Log pane height: fills left-column remainder above input.
 - Tracked quest pane height: fills right-column remainder above input.
 
@@ -123,12 +146,28 @@ Appearance:
 
 - Title: `小地图`, bold.
 - Border: muted single-line border.
-- Content: centered small ASCII/CJK-safe direction map.
-- Current room marker: highlighted `当前位置` or `◎` if width is tight.
-- Exits: accent colored direction labels or lines.
+- First content line: `大地区-小地区`, left-aligned. It must come from the current room's actual area metadata. `大宋-扬州城` is only an example, not hard-coded content.
+- Map body is a fixed 3x3 grid. The current room occupies the center cell; the eight ordinary directions map to the eight surrounding cells: northwest, north, northeast, west, east, southwest, south, southeast.
+- Current room is centered and wrapped in square brackets, e.g. `[入口]`.
+- Rooms may have both a full room display name and a minimap label. The room pane uses the full display name; the minimap uses the short minimap label.
+- Minimap labels should be author-provided when the full room display name is too long. The full room display name may be longer, but the minimap label is limited to 4 full-width units, equal to 8 terminal cells.
+- If a minimap label has odd terminal-cell display width, append one half-width space on the right for layout. Example: `塔楼a` is treated as `塔楼a `, then laid out as `(n+1)/2` full-width units. The padding space is not part of the room name.
+- If no minimap label exists, the renderer may derive a fallback by CJK-aware truncating the full room display name to 4 full-width units, but authored labels are preferred.
+- Each minimap cell is exactly 8 terminal cells wide. The horizontal gap between adjacent cells is exactly 2 terminal cells. A full row is therefore `8 + 2 + 8 + 2 + 8 = 28` terminal cells wide.
+- Labels are centered inside their own 8-cell slot. Labels do not change the grid, connector positions, or neighboring label placement.
+- Each occupied minimap cell should render a fixed background color across the full 4-full-width-unit cell. This first-version background is constant and only exists to make room labels stand out from connector lines. It does not yet encode room type, danger, terrain, or other gameplay state.
+- `~` may be used in design discussion to visualize padding, but the actual TUI must render spaces, not `~`.
+- The formal rendered mockup below must use spaces for padding; it must not contain `~` anywhere.
+- Adjacent reachable room labels are placed only in their directional grid cells. Do not freely place labels based on available whitespace.
+- Connectors are drawn only from the center cell to occupied neighbor cells. Vertical exits use the full-width `｜`; horizontal exits use `--` inside the 2-cell gap; diagonal exits use half-width `/` and `\` because full-width backslash renders inconsistently in common editors.
+- Lines should point toward the visual center of the destination room label and the current-room label. This is easier to reason about because each label lives inside a fixed grid cell.
+- The minimap only shows where the current room can go. It must not draw edges between neighboring rooms, even if those rooms are connected to each other in the world graph.
+- Do not render meaningless compass labels such as `东/西/南/北` by themselves; labels must be actual reachable room names.
+- Missing directions leave empty space instead of fake direction markers.
+- Room names are CJK-aware truncated if necessary, but current room brackets must remain visible.
 - Fixed height; no scrolling.
 
-First version may use a simple direction sketch from known exits rather than a true graph map.
+The minimap should be implemented by a small renderer rather than by ad-hoc string concatenation. The renderer is responsible for placing current-room and neighbor labels, computing label centers, and drawing horizontal, vertical, and diagonal connectors from the current room to reachable rooms. First version uses only immediate room neighbors. Large-area map browsing belongs in a popup.
 
 ### Status Placeholder Pane
 
@@ -283,3 +322,12 @@ Force redraw behavior:
 - No hover interactions.
 - No popup stack.
 - No direct tracked-quest switching from the permanent quest pane.
+
+
+
+
+民兵营房  武器库房  精锐营房
+         \   ｜   /
+~~~井~~~--~练功场~--~将军府~
+         /   ｜   \
+~塔楼a ~  ~~大门~~  ~塔楼b ~
