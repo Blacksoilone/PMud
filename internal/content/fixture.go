@@ -103,6 +103,7 @@ func TutorialSource() ContentSource {
 			"system.item.taken":                                   "你拿起了{item}。",
 			"system.item.not_carried":                             "你没有那个东西。",
 			"system.item.dropped":                                 "你放下了{item}。",
+			"system.quest.progress":                               "任务更新: {state}",
 			"system.unknown_command":                              "未知命令: {input}",
 			"system.room.missing":                                 "你迷失在不存在的地方。",
 		},
