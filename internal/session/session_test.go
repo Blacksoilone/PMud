@@ -1,14 +1,72 @@
 package session
 
 import (
-	"PMud/internal/presentation"
-	"PMud/internal/world"
 	"io"
 	"net"
 	"strings"
 	"testing"
 	"time"
+
+	"PMud/internal/presentation"
+	"PMud/internal/world"
 )
+
+func TestSessionQuest_reportsTutorialStatus(t *testing.T) {
+	state := newTestSessionState()
+
+	event := state.handleLine("quest")
+
+	quest, ok := event.(presentation.QuestStatusEvent)
+	if !ok {
+		t.Fatalf("expected quest status, got %T", event)
+	}
+	if quest.QuestID != "quest.tutorial.first_steps" {
+		t.Fatalf("quest id = %q", quest.QuestID)
+	}
+	if quest.QuestName != "教程任务" {
+		t.Fatalf("quest name = %q", quest.QuestName)
+	}
+	if quest.StageID != "quest.tutorial.first_steps.stage.get_lantern" {
+		t.Fatalf("stage id = %q", quest.StageID)
+	}
+	if quest.StageText != "拿起旧油灯。" {
+		t.Fatalf("stage text = %q", quest.StageText)
+	}
+	if len(quest.Conditions) != 1 || quest.Conditions[0] != "获取旧油灯" {
+		t.Fatalf("conditions = %#v", quest.Conditions)
+	}
+	if quest.State != "active" {
+		t.Fatalf("state = %q", quest.State)
+	}
+}
+
+func TestSessionActions_advanceTutorialQuest(t *testing.T) {
+	state := newTestSessionState()
+
+	state.handleLine("get 旧油灯")
+	afterGet := state.handleLine("quest").(presentation.QuestStatusEvent)
+	if afterGet.StageID != "quest.tutorial.first_steps.stage.enter_yard" {
+		t.Fatalf("stage after get = %q", afterGet.StageID)
+	}
+
+	state.handleLine("go north")
+	afterMove := state.handleLine("quest").(presentation.QuestStatusEvent)
+	if afterMove.StageID != "quest.tutorial.first_steps.stage.examine_sword" {
+		t.Fatalf("stage after move = %q", afterMove.StageID)
+	}
+	if afterMove.State != "active" {
+		t.Fatalf("state after move = %q", afterMove.State)
+	}
+
+	state.handleLine("examine 练习木剑")
+	afterExamine := state.handleLine("quest").(presentation.QuestStatusEvent)
+	if afterExamine.StageID != "quest.tutorial.first_steps.stage.examine_sword" {
+		t.Fatalf("stage after examine = %q", afterExamine.StageID)
+	}
+	if afterExamine.State != "reward_pending" {
+		t.Fatalf("state after examine = %q", afterExamine.State)
+	}
+}
 
 func TestSessionHelp_returnsCommandSummary(t *testing.T) {
 	state := newTestSessionState()
@@ -222,7 +280,6 @@ func TestHandleConn_writesInitialRoomObservation(t *testing.T) {
 	}
 	buffer := make([]byte, 512)
 	n, err := clientConn.Read(buffer)
-
 	if err != nil {
 		t.Fatalf("expected initial room output, got %v", err)
 	}
@@ -274,7 +331,6 @@ func TestHandleConn_acceptsExistingCommandsAndWritesStructuredResponses(t *testi
 		t.Fatal(err)
 	}
 	n, err := clientConn.Read(buffer)
-
 	if err != nil {
 		t.Fatalf("expected inventory output, got %v", err)
 	}

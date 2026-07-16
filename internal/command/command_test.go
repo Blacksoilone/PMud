@@ -18,6 +18,7 @@ func TestParseClientInput_mapsCommandAliases(t *testing.T) {
 		{name: "inventory", input: "inventory", want: InventoryCommand{}},
 		{name: "look alias", input: "l", want: LookCommand{}},
 		{name: "look", input: "look", want: LookCommand{}},
+		{name: "quest", input: "quest", want: QuestCommand{}},
 		{name: "help", input: "help", want: HelpCommand{}},
 	}
 
@@ -42,6 +43,7 @@ func TestParseClientInput_mapsCommandAliasesCaseInsensitively(t *testing.T) {
 		{name: "examine mixed case", input: "Examine Old_Lantern", want: ItemCommand{Verb: ItemVerbExamine, Target: "Old_Lantern"}},
 		{name: "inventory uppercase", input: "I", want: InventoryCommand{}},
 		{name: "look uppercase", input: "L", want: LookCommand{}},
+		{name: "quest uppercase", input: "QUEST", want: QuestCommand{}},
 		{name: "help uppercase", input: "HELP", want: HelpCommand{}},
 	}
 
@@ -201,6 +203,7 @@ func TestParseServerInput_mapsCanonicalCommands(t *testing.T) {
 		{name: "look", input: "look", want: LookCommand{}},
 		{name: "help", input: "help", want: HelpCommand{}},
 		{name: "inventory", input: "inventory", want: InventoryCommand{}},
+		{name: "quest", input: "quest", want: QuestCommand{}},
 		{name: "go direction", input: "go north", want: MoveCommand{Direction: "north"}},
 		{name: "go direction alias", input: "go nw", want: MoveCommand{Direction: "northwest"}},
 		{name: "get item id", input: "get item.tutorial.old_lantern", want: ItemCommand{Verb: ItemVerbGet, Target: "item.tutorial.old_lantern"}},
@@ -227,6 +230,7 @@ func TestParseServerInput_mapsCanonicalCommandsCaseInsensitively(t *testing.T) {
 	}{
 		{name: "look uppercase", input: "LOOK", want: LookCommand{}},
 		{name: "inventory mixed case", input: "Inventory", want: InventoryCommand{}},
+		{name: "quest uppercase", input: "QUEST", want: QuestCommand{}},
 		{name: "go uppercase alias", input: "GO NW", want: MoveCommand{Direction: "northwest"}},
 		{name: "get uppercase verb preserves target", input: "GET Item.Tutorial.Old_Lantern", want: ItemCommand{Verb: ItemVerbGet, Target: "Item.Tutorial.Old_Lantern"}},
 	}

@@ -1,5 +1,7 @@
 package world
 
+import "PMud/internal/progression"
+
 type RoomObservation struct {
 	Room           RoomID
 	NameKey        string
@@ -19,9 +21,11 @@ type ItemObservation struct {
 	Description    string
 }
 
-type RoomID string
-type ItemID string
-type PlayerID string
+type (
+	RoomID   string
+	ItemID   string
+	PlayerID string
+)
 
 type Room struct {
 	NameKey        string
@@ -63,8 +67,9 @@ type InventoryItemLocation struct {
 func (InventoryItemLocation) itemLocation() {}
 
 type World struct {
-	startRoom     RoomID
-	rooms         map[RoomID]Room
-	items         map[ItemID]Item
-	itemLocations map[ItemID]ItemLocation
+	startRoom              RoomID
+	rooms                  map[RoomID]Room
+	items                  map[ItemID]Item
+	itemLocations          map[ItemID]ItemLocation
+	progressionDefinitions progression.Definitions
 }

@@ -36,6 +36,19 @@ func (e InventoryEvent) EventKind() string {
 	return "InventoryEvent"
 }
 
+type QuestStatusEvent struct {
+	QuestID    string
+	QuestName  string
+	StageID    string
+	StageText  string
+	Conditions []string
+	State      string
+}
+
+func (e QuestStatusEvent) EventKind() string {
+	return "QuestStatusEvent"
+}
+
 type ItemObservationEvent struct {
 	Item           string
 	NameKey        string

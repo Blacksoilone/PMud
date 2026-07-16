@@ -1,18 +1,20 @@
 package session
 
 import (
-	"PMud/internal/command"
-	"PMud/internal/presentation"
-	"PMud/internal/world"
 	"bufio"
 	"io"
 	"net"
 	"strings"
+
+	"PMud/internal/command"
+	"PMud/internal/presentation"
+	"PMud/internal/progression"
+	"PMud/internal/world"
 )
 
 func handleConn(conn net.Conn, game *world.World) error {
 	defer conn.Close()
-	renderer := presentation.TextRenderer{} //复用renderer
+	renderer := presentation.TextRenderer{} // 复用renderer
 	state := sessionState{
 		game:        game,
 		currentRoom: game.StartRoom(),
@@ -43,6 +45,7 @@ type sessionState struct {
 	game        *world.World
 	currentRoom world.RoomID
 	playerID    world.PlayerID
+	progression *progression.Engine
 }
 
 func (s *sessionState) handleLine(line string) presentation.Event {
@@ -57,12 +60,15 @@ func (s *sessionState) handleLine(line string) presentation.Event {
 		return roomObservationEvent(s.game, s.currentRoom)
 	case command.HelpCommand:
 		return presentation.SystemMessageEvent{MessageKey: "system.help"}
+	case command.QuestCommand:
+		return s.questStatusEvent()
 	case command.MoveCommand:
 		nextRoom, ok := s.game.Move(s.currentRoom, command.Direction)
 		if !ok {
 			return presentation.SystemMessageEvent{MessageKey: "system.move.blocked"}
 		}
 		s.currentRoom = nextRoom
+		s.applyProgression(progression.Trigger{Kind: progression.TriggerMovedRoom, RoomID: string(nextRoom)})
 		return roomObservationEvent(s.game, s.currentRoom)
 	case command.InventoryCommand:
 		return presentation.InventoryEvent{Items: itemIDStrings(s.game.InventoryItemIDs(s.playerID))}
@@ -99,6 +105,7 @@ func (s *sessionState) handleItemCommand(itemCommand command.ItemCommand) presen
 		if !ok {
 			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
 		}
+		s.applyProgression(progression.Trigger{Kind: progression.TriggerGotItem, ItemID: string(itemID)})
 		return presentation.SystemMessageEvent{
 			MessageKey: "system.item.taken",
 			Fields: map[string]string{
@@ -135,9 +142,36 @@ func (s *sessionState) handleItemCommand(itemCommand command.ItemCommand) presen
 		if !ok {
 			return presentation.SystemMessageEvent{MessageKey: "system.item.not_here"}
 		}
+		s.applyProgression(progression.Trigger{Kind: progression.TriggerExaminedItem, ItemID: string(item.Item)})
 		return itemObservationEvent(item)
 	default:
 		return presentation.SystemMessageEvent{MessageKey: "system.unknown_command"}
+	}
+}
+
+func (s *sessionState) progressionEngine() *progression.Engine {
+	if s.progression == nil {
+		s.progression = progression.NewEngine(s.game.ProgressionDefinitions())
+	}
+	return s.progression
+}
+
+func (s *sessionState) applyProgression(trigger progression.Trigger) {
+	s.progressionEngine().Apply(string(s.playerID), trigger)
+}
+
+func (s *sessionState) questStatusEvent() presentation.Event {
+	status, ok := s.progressionEngine().Status(string(s.playerID))
+	if !ok {
+		return presentation.SystemMessageEvent{MessageKey: "system.quest.none"}
+	}
+	return presentation.QuestStatusEvent{
+		QuestID:    status.QuestID,
+		QuestName:  status.QuestName,
+		StageID:    status.StageID,
+		StageText:  status.StageText,
+		Conditions: status.Conditions,
+		State:      string(status.State),
 	}
 }
 

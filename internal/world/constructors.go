@@ -1,6 +1,11 @@
 package world
 
-import "PMud/internal/content"
+import (
+	"slices"
+
+	"PMud/internal/content"
+	"PMud/internal/progression"
+)
 
 func New() *World {
 	return &World{
@@ -50,6 +55,7 @@ func New() *World {
 				RoomID: "room.tutorial.yard",
 			},
 		},
+		progressionDefinitions: tutorialProgressionDefinitions(),
 	}
 }
 
@@ -93,10 +99,118 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 	}
 
 	return &World{
-		startRoom:     RoomID(snapshot.StartRoomID),
-		rooms:         rooms,
-		items:         items,
-		itemLocations: itemLocations,
+		startRoom:              RoomID(snapshot.StartRoomID),
+		rooms:                  rooms,
+		items:                  items,
+		itemLocations:          itemLocations,
+		progressionDefinitions: progressionDefinitionsFromSnapshot(snapshot, catalog),
+	}
+}
+
+func (w *World) ProgressionDefinitions() progression.Definitions {
+	return w.progressionDefinitions
+}
+
+func progressionDefinitionsFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCatalog) progression.Definitions {
+	questIDs := make([]content.QuestID, 0, len(snapshot.Quests))
+	for questID := range snapshot.Quests {
+		questIDs = append(questIDs, questID)
+	}
+	slices.Sort(questIDs)
+	if len(questIDs) == 0 {
+		return progression.Definitions{}
+	}
+	questID := questIDs[0]
+	quest := snapshot.Quests[questID]
+	definitions := progression.Definitions{
+		Quest: progression.QuestDefinition{
+			ID:       string(questID),
+			Name:     catalog.Text[quest.NameKey],
+			StageIDs: questStageIDsToStrings(quest.StageIDs),
+		},
+		Stages: make(map[string]progression.StageDefinition, len(snapshot.QuestStages)),
+	}
+	for stageID, stage := range snapshot.QuestStages {
+		definitions.Stages[string(stageID)] = progression.StageDefinition{
+			ID:         string(stageID),
+			Text:       catalog.Text[stage.TextKey],
+			Conditions: progressionConditions(stage.FinishConditions),
+			NextID:     string(stage.NextStageID),
+		}
+	}
+	return definitions
+}
+
+func questStageIDsToStrings(ids []content.QuestStageID) []string {
+	values := make([]string, 0, len(ids))
+	for _, id := range ids {
+		values = append(values, string(id))
+	}
+	return values
+}
+
+func progressionConditions(conditions []content.ServerQuestCondition) []progression.ConditionDefinition {
+	values := make([]progression.ConditionDefinition, 0, len(conditions))
+	for _, condition := range conditions {
+		values = append(values, progression.ConditionDefinition{
+			Kind:   progression.TriggerKind(condition.Kind),
+			ItemID: string(condition.ItemID),
+			RoomID: string(condition.RoomID),
+			Text:   conditionText(condition),
+		})
+	}
+	return values
+}
+
+func conditionText(condition content.ServerQuestCondition) string {
+	switch condition.Kind {
+	case content.QuestConditionGotItem:
+		return "获取旧油灯"
+	case content.QuestConditionMovedRoom:
+		return "到达练习场"
+	case content.QuestConditionExaminedItem:
+		return "查看练习木剑"
+	default:
+		return string(condition.Kind)
+	}
+}
+
+func tutorialProgressionDefinitions() progression.Definitions {
+	return progression.Definitions{
+		Quest: progression.QuestDefinition{
+			ID:   "quest.tutorial.first_steps",
+			Name: "教程任务",
+			StageIDs: []string{
+				"quest.tutorial.first_steps.stage.get_lantern",
+				"quest.tutorial.first_steps.stage.enter_yard",
+				"quest.tutorial.first_steps.stage.examine_sword",
+			},
+		},
+		Stages: map[string]progression.StageDefinition{
+			"quest.tutorial.first_steps.stage.get_lantern": {
+				ID:     "quest.tutorial.first_steps.stage.get_lantern",
+				Text:   "拿起旧油灯。",
+				NextID: "quest.tutorial.first_steps.stage.enter_yard",
+				Conditions: []progression.ConditionDefinition{
+					{Kind: progression.TriggerGotItem, ItemID: "item.tutorial.old_lantern", Text: "获取旧油灯"},
+				},
+			},
+			"quest.tutorial.first_steps.stage.enter_yard": {
+				ID:     "quest.tutorial.first_steps.stage.enter_yard",
+				Text:   "前往练习场。",
+				NextID: "quest.tutorial.first_steps.stage.examine_sword",
+				Conditions: []progression.ConditionDefinition{
+					{Kind: progression.TriggerMovedRoom, RoomID: "room.tutorial.yard", Text: "到达练习场"},
+				},
+			},
+			"quest.tutorial.first_steps.stage.examine_sword": {
+				ID:   "quest.tutorial.first_steps.stage.examine_sword",
+				Text: "查看练习木剑。",
+				Conditions: []progression.ConditionDefinition{
+					{Kind: progression.TriggerExaminedItem, ItemID: "item.tutorial.practice_sword", Text: "查看练习木剑"},
+				},
+			},
+		},
 	}
 }
 

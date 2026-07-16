@@ -47,6 +47,12 @@ func (InventoryCommand) clientCommand() {}
 
 func (InventoryCommand) serverCommand() {}
 
+type QuestCommand struct{}
+
+func (QuestCommand) clientCommand() {}
+
+func (QuestCommand) serverCommand() {}
+
 type HelpCommand struct{}
 
 func (HelpCommand) clientCommand() {}
@@ -107,6 +113,9 @@ func ParseClientInput(input string) ClientCommand {
 	if verb == "inventory" || verb == "i" {
 		return InventoryCommand{}
 	}
+	if verb == "quest" {
+		return QuestCommand{}
+	}
 	if verb == "help" {
 		return HelpCommand{}
 	}
@@ -148,6 +157,9 @@ func ParseServerInput(input string) ServerCommand {
 	}
 	if verb == "inventory" {
 		return InventoryCommand{}
+	}
+	if verb == "quest" {
+		return QuestCommand{}
 	}
 	if verb == "help" {
 		return HelpCommand{}
