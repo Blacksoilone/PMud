@@ -13,13 +13,14 @@ func BoxLines(lines []string, contentWidth int) []string {
 		}
 	}
 
-	border := "+" + strings.Repeat("-", innerWidth+2) + "+"
+	top := "┌" + strings.Repeat("─", innerWidth+2) + "┐"
+	bottom := "└" + strings.Repeat("─", innerWidth+2) + "┘"
 	boxed := make([]string, 0, len(lines)+2)
-	boxed = append(boxed, border)
+	boxed = append(boxed, top)
 	for _, line := range lines {
-		boxed = append(boxed, "| "+termwidth.RightPad(line, innerWidth)+" |")
+		boxed = append(boxed, "│ "+termwidth.RightPad(line, innerWidth)+" │")
 	}
-	boxed = append(boxed, border)
+	boxed = append(boxed, bottom)
 	return boxed
 }
 

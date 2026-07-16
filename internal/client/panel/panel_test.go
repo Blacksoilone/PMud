@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-func TestBoxLines_drawsASCIIBox(t *testing.T) {
+func TestBoxLines_drawsBoxDrawingBorder(t *testing.T) {
 	got := BoxLines([]string{"HP: 10", "旧油灯"}, 8)
 	want := []string{
-		"+----------+",
-		"| HP: 10   |",
-		"| 旧油灯   |",
-		"+----------+",
+		"┌──────────┐",
+		"│ HP: 10   │",
+		"│ 旧油灯   │",
+		"└──────────┘",
 	}
 	assertLines(t, got, want)
 }
@@ -29,9 +29,9 @@ func TestBoxLines_returnsEqualCellWidthLines(t *testing.T) {
 func TestBoxLines_usesLongestLineWhenWidthIsSmaller(t *testing.T) {
 	got := BoxLines([]string{"旧油灯"}, 2)
 	want := []string{
-		"+--------+",
-		"| 旧油灯 |",
-		"+--------+",
+		"┌────────┐",
+		"│ 旧油灯 │",
+		"└────────┘",
 	}
 	assertLines(t, got, want)
 }

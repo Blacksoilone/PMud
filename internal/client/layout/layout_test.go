@@ -16,7 +16,7 @@ func TestBox_wrapsBlockInPanel(t *testing.T) {
 	block := NewBlock([]string{"旧油灯"})
 
 	got := Box(block, 6).String()
-	want := "+--------+\n| 旧油灯 |\n+--------+\n"
+	want := "┌────────┐\n│ 旧油灯 │\n└────────┘\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
@@ -38,7 +38,7 @@ func TestHBox_joinsBlocksHorizontally(t *testing.T) {
 	right := Box(NewBlock([]string{"HP"}), 4)
 
 	got := HBox(2, left, right).String()
-	want := "+--------+  +------+\n| 旧油灯 |  | HP   |\n+--------+  +------+\n"
+	want := "┌────────┐  ┌──────┐\n│ 旧油灯 │  │ HP   │\n└────────┘  └──────┘\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
