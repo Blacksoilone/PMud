@@ -85,3 +85,47 @@ func TestApplyInputForceRedrawDoesNotChangeInputOrSubmitCommand(t *testing.T) {
 		t.Fatalf("Input = %q, want look", model.Input)
 	}
 }
+
+func TestApplyInputQuitRequestsConfirmation(t *testing.T) {
+	model := NewModel(3)
+	model.Input = "quit"
+
+	model, command := ApplyInput(model, Input{Kind: InputSubmit})
+
+	if command.Submitted || command.ExitRequested {
+		t.Fatalf("command = %#v, want confirmation without submission", command)
+	}
+	if !model.ExitConfirmation {
+		t.Fatal("ExitConfirmation = false, want true")
+	}
+	if model.Input != "" {
+		t.Fatalf("Input = %q, want empty", model.Input)
+	}
+}
+
+func TestApplyInputExitConfirmationAcceptsYes(t *testing.T) {
+	model := NewModel(3)
+	model.ExitConfirmation = true
+	model.Input = "yes"
+
+	model, command := ApplyInput(model, Input{Kind: InputSubmit})
+
+	if !command.ExitRequested {
+		t.Fatalf("command = %#v, want exit request", command)
+	}
+	if model.ExitConfirmation {
+		t.Fatal("ExitConfirmation = true, want false")
+	}
+}
+
+func TestApplyInputExitConfirmationCancelsWithEscape(t *testing.T) {
+	model := NewModel(3)
+	model.ExitConfirmation = true
+	model.Input = "maybe"
+
+	model, command := ApplyInput(model, Input{Kind: InputCancel})
+
+	if command.ExitRequested || model.ExitConfirmation || model.Input != "" {
+		t.Fatalf("model = %#v command = %#v, want cancelled confirmation", model, command)
+	}
+}

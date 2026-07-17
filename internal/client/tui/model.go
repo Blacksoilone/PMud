@@ -3,10 +3,12 @@ package tui
 import "PMud/internal/protocol"
 
 type Model struct {
-	Events       []protocol.Event
-	Regions      RegionState
-	Input        string
-	HistoryLimit int
+	Events           []protocol.Event
+	Regions          RegionState
+	Input            string
+	Editor           LineEditor
+	HistoryLimit     int
+	ExitConfirmation bool
 }
 
 type RegionState struct {
@@ -53,12 +55,14 @@ type QuestNoticeRegion struct {
 }
 
 type Command struct {
-	Line      string
-	Submitted bool
+	Line          string
+	Submitted     bool
+	ExitRequested bool
 }
 
 func NewModel(historyLimit int) Model {
-	return Model{HistoryLimit: normalizeHistoryLimit(historyLimit)}
+	limit := normalizeHistoryLimit(historyLimit)
+	return Model{Editor: NewLineEditor(defaultHistoryLimit), HistoryLimit: limit}
 }
 
 func ApplyEvent(model Model, event protocol.Event) Model {
