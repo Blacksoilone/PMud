@@ -84,14 +84,25 @@ func (r *TUIRuntime) ApplyInput(input tui.Input, server io.Writer) error {
 	if command.Submitted {
 		resolution := r.state.ResolveCommandInput(command.Line)
 		if !resolution.Send {
-			r.model = tui.ApplyEvent(r.model, resolution.LocalEvent)
+			r.model = r.applyLocalResolution(resolution.LocalEvent)
 			return r.draw()
 		}
 		if _, err := io.WriteString(server, resolution.Command+"\n"); err != nil {
 			return err
 		}
+		if resolution.Command == "inventory" {
+			r.model = tui.OpenPopup(r.model, tui.InventoryPopupContent())
+		}
 	}
 	return r.draw()
+}
+
+func (r *TUIRuntime) applyLocalResolution(event protocol.Event) tui.Model {
+	model := tui.ApplyEvent(r.model, event)
+	if event.Name == "system" && event.Fields["message_key"] == "system.help" {
+		model = tui.OpenPopup(model, tui.HelpPopupContent())
+	}
+	return model
 }
 
 func (r *TUIRuntime) ForceRedraw() error {

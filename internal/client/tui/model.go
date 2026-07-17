@@ -9,6 +9,7 @@ type Model struct {
 	Editor           LineEditor
 	HistoryLimit     int
 	ExitConfirmation bool
+	Popup            PopupState
 }
 
 type RegionState struct {
@@ -25,6 +26,7 @@ type RoomRegion struct {
 	NameKey        string
 	DescriptionKey string
 	Exits          string
+	Neighbors      string
 	Items          string
 }
 
@@ -60,6 +62,26 @@ type Command struct {
 	ExitRequested bool
 }
 
+type PopupContent struct {
+	Kind  PopupKind
+	Title string
+	Lines []string
+}
+
+type PopupKind int
+
+const (
+	PopupNone PopupKind = iota
+	PopupHelp
+	PopupInventory
+)
+
+type PopupState struct {
+	Active       bool
+	Content      PopupContent
+	ScrollOffset int
+}
+
 func NewModel(historyLimit int) Model {
 	limit := normalizeHistoryLimit(historyLimit)
 	return Model{Editor: NewLineEditor(defaultHistoryLimit), HistoryLimit: limit}
@@ -87,6 +109,7 @@ func applyRegionEvent(regions RegionState, event protocol.Event) RegionState {
 			NameKey:        event.Fields["name_key"],
 			DescriptionKey: event.Fields["description_key"],
 			Exits:          event.Fields["exits"],
+			Neighbors:      event.Fields["neighbors"],
 			Items:          event.Fields["items"],
 		}
 	case "inventory":

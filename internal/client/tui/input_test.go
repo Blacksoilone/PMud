@@ -129,3 +129,39 @@ func TestApplyInputExitConfirmationCancelsWithEscape(t *testing.T) {
 		t.Fatalf("model = %#v command = %#v, want cancelled confirmation", model, command)
 	}
 }
+
+func TestApplyInputPopupActionsTakePriorityOverEditor(t *testing.T) {
+	model := NewModel(5)
+	model.Input = "draft"
+	model = OpenPopup(model, PopupContent{Kind: PopupHelp, Title: "帮助", Lines: []string{"一", "二", "三"}})
+
+	model, command := ApplyInput(model, Input{Kind: InputScrollDown})
+	if model.Popup.ScrollOffset != 1 {
+		t.Fatalf("popup scroll offset = %d, want 1", model.Popup.ScrollOffset)
+	}
+	if model.Input != "draft" || command.Submitted {
+		t.Fatalf("popup scroll changed editor or submitted command: %#v, %#v", model, command)
+	}
+
+	model, _ = ApplyInput(model, Input{Kind: InputCancel})
+	if model.Popup.Active {
+		t.Fatal("cancel did not close active popup")
+	}
+	if model.Input != "draft" {
+		t.Fatalf("closing popup changed draft input to %q", model.Input)
+	}
+}
+
+func TestApplyInputOpenHelpDoesNotChangeEditor(t *testing.T) {
+	model := NewModel(5)
+	model.Input = "draft"
+
+	model, command := ApplyInput(model, Input{Kind: InputOpenHelp})
+
+	if !model.Popup.Active || model.Popup.Content.Kind != PopupHelp {
+		t.Fatalf("help popup not active: %#v", model.Popup)
+	}
+	if model.Input != "draft" || command.Submitted {
+		t.Fatalf("opening help changed editor or submitted command: %#v, %#v", model, command)
+	}
+}

@@ -75,7 +75,122 @@ func renderMainFrame(model Model, catalog content.ClientCatalog, width int, heig
 			out[y] = contentRow(leftRows[y], rightRows[y], leftContentWidth, rightContentWidth)
 		}
 	}
+	if model.Popup.Active {
+		applyPopupOverlay(out, model, catalog, width, inputSeparator)
+	}
 	return layout.NewBlock(out)
+}
+
+func applyPopupOverlay(rows []string, model Model, catalog content.ClientCatalog, width int, inputSeparator int) {
+	contentHeight := inputSeparator - 1
+	if contentHeight < 3 {
+		return
+	}
+	for y := 0; y < inputSeparator; y++ {
+		rows[y] = dimLine(rows[y])
+	}
+	content := popupContentForView(model, catalog)
+	popupWidth := clampInt(width*70/100, 64, 110)
+	popupWidth = min(popupWidth, width-2)
+	popupHeight := clampInt(contentHeight*70/100, 10, 28)
+	popupHeight = min(popupHeight, contentHeight)
+	if popupWidth < 4 || popupHeight < 4 {
+		return
+	}
+	popupRows := popupRows(content, model.Popup.ScrollOffset, popupWidth, popupHeight)
+	startX := (width - popupWidth) / 2
+	startY := 1 + (contentHeight-popupHeight)/2
+	for index, popupRow := range popupRows {
+		y := startY + index
+		if y >= 1 && y < inputSeparator {
+			rows[y] = overlayRow(rows[y], popupRow, startX, popupWidth)
+		}
+	}
+}
+
+func popupContentForView(model Model, catalog content.ClientCatalog) PopupContent {
+	content := model.Popup.Content
+	if content.Kind != PopupInventory {
+		return content
+	}
+	if model.Regions.Inventory.Items == "" {
+		content.Lines = []string{"背包为空"}
+		return content
+	}
+	block := render.RenderBlock(protocol.Event{
+		Name:   "inventory",
+		Fields: map[string]string{"items": model.Regions.Inventory.Items},
+	}, catalog)
+	content.Lines = block.Lines
+	return content
+}
+
+func popupRows(content PopupContent, offset int, width int, height int) []string {
+	innerWidth := width - 4
+	body := make([]string, 0, len(content.Lines))
+	for _, line := range content.Lines {
+		body = append(body, wrapVisible(line, innerWidth)...)
+	}
+	bodyHeight := max(0, height-5)
+	offset = clampPopupScrollOffset(offset, len(body), bodyHeight)
+	rows := make([]string, height)
+	rows[0] = "╔" + strings.Repeat("═", width-2) + "╗"
+	rows[1] = popupContentRow(content.Title, innerWidth)
+	rows[2] = popupContentRow("", innerWidth)
+	for index := range bodyHeight {
+		line := ""
+		lineIndex := offset + index
+		if lineIndex < len(body) {
+			line = body[lineIndex]
+		}
+		rows[index+3] = popupContentRow(line, innerWidth)
+	}
+	rows[height-2] = popupContentRow("[Esc] 关闭  [↑↓/滚轮] 滚动", innerWidth)
+	rows[height-1] = "╚" + strings.Repeat("═", width-2) + "╝"
+	return rows
+}
+
+func popupContentRow(line string, innerWidth int) string {
+	return "║ " + termwidth.RightPad(line, innerWidth) + " ║"
+}
+
+func overlayRow(base string, overlay string, startX int, width int) string {
+	left := visibleSlice(base, 0, startX)
+	right := visibleSlice(base, startX+width, termwidth.Width(base))
+	return dimLine(left) + overlay + dimLine(right)
+}
+
+func visibleSlice(text string, start int, end int) string {
+	if start < 0 {
+		start = 0
+	}
+	if end < start {
+		end = start
+	}
+	var builder strings.Builder
+	position := 0
+	for _, char := range termwidth.StripANSI(text) {
+		charWidth := termwidth.Width(string(char))
+		if position >= start && position+charWidth <= end {
+			builder.WriteRune(char)
+		}
+		position += charWidth
+	}
+	return builder.String()
+}
+
+func dimLine(line string) string {
+	return "\x1b[2m" + line + "\x1b[0m"
+}
+
+func clampInt(value int, lower int, upper int) int {
+	if value < lower {
+		return lower
+	}
+	if value > upper {
+		return upper
+	}
+	return value
 }
 
 func borderRow(left rune, middle rune, right rune, leftWidth int, rightWidth int) string {
@@ -221,12 +336,52 @@ func roomPaneBlock(model Model, catalog content.ClientCatalog) layout.Block {
 
 func minimapPaneBlock(model Model, catalog content.ClientCatalog) layout.Block {
 	region := MinimapRegion{
-		AreaName: "当前区域",
-		Current:  MinimapRoom{Label: minimapLabel(model, catalog)},
+		AreaName:  "当前区域",
+		Current:   MinimapRoom{Label: minimapLabel(model, catalog)},
+		Neighbors: minimapNeighbors(model, catalog),
 	}
 	lines := []string{region.AreaName}
 	lines = append(lines, renderMinimapGrid(region)...)
 	return layout.NewBlock(lines)
+}
+
+func minimapNeighbors(model Model, catalog content.ClientCatalog) map[MapDirection]MinimapRoom {
+	neighbors := make(map[MapDirection]MinimapRoom)
+	for direction, roomID := range parseNeighbors(model.Regions.Room.Neighbors) {
+		mapDirection, ok := planarMapDirection(direction)
+		if !ok {
+			continue
+		}
+		nameKey, ok := catalog.RoomNames[content.RoomID(roomID)]
+		if !ok {
+			continue
+		}
+		name := catalog.Text[nameKey]
+		if name != "" {
+			neighbors[mapDirection] = MinimapRoom{Label: name}
+		}
+	}
+	return neighbors
+}
+
+func planarMapDirection(direction string) (MapDirection, bool) {
+	switch MapDirection(direction) {
+	case MapNorth, MapNortheast, MapEast, MapSoutheast, MapSouth, MapSouthwest, MapWest, MapNorthwest:
+		return MapDirection(direction), true
+	default:
+		return "", false
+	}
+}
+
+func parseNeighbors(value string) map[string]string {
+	result := make(map[string]string)
+	for _, entry := range strings.Split(value, ",") {
+		parts := strings.SplitN(entry, "=", 2)
+		if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+			result[parts[0]] = parts[1]
+		}
+	}
+	return result
 }
 
 func minimapLabel(model Model, catalog content.ClientCatalog) string {

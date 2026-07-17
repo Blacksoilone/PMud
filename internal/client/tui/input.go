@@ -20,6 +20,11 @@ const (
 	InputEnd
 	InputHistoryPrevious
 	InputHistoryNext
+	InputOpenHelp
+	InputPageUp
+	InputPageDown
+	InputScrollUp
+	InputScrollDown
 )
 
 type Input struct {
@@ -29,6 +34,27 @@ type Input struct {
 
 func ApplyInput(model Model, input Input) (Model, Command) {
 	model = syncEditorFromInput(model)
+	if input.Kind == InputOpenHelp {
+		return OpenPopup(model, HelpPopupContent()), Command{}
+	}
+	if model.Popup.Active {
+		switch input.Kind {
+		case InputCancel:
+			return ClosePopup(model), Command{}
+		case InputHistoryPrevious, InputScrollUp:
+			return ScrollPopup(model, -1, 1), Command{}
+		case InputHistoryNext, InputScrollDown:
+			return ScrollPopup(model, 1, 1), Command{}
+		case InputPageUp:
+			return ScrollPopup(model, -8, 1), Command{}
+		case InputPageDown:
+			return ScrollPopup(model, 8, 1), Command{}
+		case InputForceRedraw:
+			return model, Command{}
+		default:
+			return model, Command{}
+		}
+	}
 	switch input.Kind {
 	case InputText:
 		model.Editor = model.Editor.Insert(input.Text)
@@ -57,6 +83,8 @@ func ApplyInput(model Model, input Input) (Model, Command) {
 		model.Editor = model.Editor.HistoryPrevious()
 	case InputHistoryNext:
 		model.Editor = model.Editor.HistoryNext()
+	case InputPageUp, InputPageDown, InputScrollUp, InputScrollDown:
+		return model, Command{}
 	}
 	model.Input = model.Editor.String()
 	return model, Command{}

@@ -1,6 +1,7 @@
 package keyinput
 
 import (
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -14,6 +15,10 @@ type Action struct {
 
 type Decoder struct {
 	pending []byte
+}
+
+func (d *Decoder) HasStandaloneEscape() bool {
+	return len(d.pending) == 1 && d.pending[0] == 0x1b
 }
 
 func (d *Decoder) Feed(data []byte) []Action {
@@ -81,6 +86,15 @@ func decodeEscape(data []byte) (int, *Action, bool) {
 	if len(data) == 1 {
 		return 0, nil, false
 	}
+	if data[1] == 'O' {
+		if len(data) < 3 {
+			return 0, nil, false
+		}
+		if data[2] == 'P' {
+			return 3, &Action{Input: tui.Input{Kind: tui.InputOpenHelp}}, true
+		}
+		return 3, nil, true
+	}
 	if data[1] != '[' {
 		return 1, &Action{Input: tui.Input{Kind: tui.InputCancel}}, true
 	}
@@ -109,8 +123,22 @@ func decodeCSI(sequence []byte) *Action {
 		input.Kind = tui.InputEnd
 	case "3~":
 		input.Kind = tui.InputDelete
+	case "5~":
+		input.Kind = tui.InputPageUp
+	case "6~":
+		input.Kind = tui.InputPageDown
+	case "11~":
+		input.Kind = tui.InputOpenHelp
 	default:
-		return nil
+		sequenceText := string(sequence)
+		switch {
+		case strings.HasPrefix(sequenceText, "<64;") && strings.HasSuffix(sequenceText, "M"):
+			input.Kind = tui.InputScrollUp
+		case strings.HasPrefix(sequenceText, "<65;") && strings.HasSuffix(sequenceText, "M"):
+			input.Kind = tui.InputScrollDown
+		default:
+			return nil
+		}
 	}
 	return &Action{Input: input}
 }
@@ -127,6 +155,8 @@ func decodeRune(r rune) (Action, bool) {
 		return Action{Input: tui.Input{Kind: tui.InputForceRedraw}}, true
 	case '\x03':
 		return Action{}, false
+	case '?':
+		return Action{Input: tui.Input{Kind: tui.InputOpenHelp}}, true
 	}
 	if !unicode.IsPrint(r) {
 		return Action{}, false

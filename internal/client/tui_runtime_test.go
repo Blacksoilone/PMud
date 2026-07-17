@@ -245,6 +245,35 @@ func TestTUIRuntimeSubmitLineShowsHelpLocally(t *testing.T) {
 	if got := output.String(); !strings.Contains(got, "northeast/ne") || !strings.Contains(got, "northwest/nw") || !strings.Contains(got, "southeast/se") || !strings.Contains(got, "southwest/sw") {
 		t.Fatalf("output missing diagonal direction aliases:\n%s", got)
 	}
+	if got := output.String(); !strings.Contains(got, "╔") || !strings.Contains(got, "[Esc] 关闭") {
+		t.Fatalf("output missing help popup frame:\n%s", got)
+	}
+}
+
+func TestTUIRuntimeInventoryUsesServerDataInPopup(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	var output strings.Builder
+	var server strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 128, Height: 26, HistoryLimit: 3})
+
+	if err := runtime.SubmitLine("i", &server); err != nil {
+		t.Fatalf("SubmitLine inventory: %v", err)
+	}
+	if got := server.String(); got != "inventory\n" {
+		t.Fatalf("server output = %q, want inventory", got)
+	}
+	if err := runtime.ObserveEvent(protocol.Event{Name: "inventory", Fields: map[string]string{"items": "item.tutorial.old_lantern"}}); err != nil {
+		t.Fatalf("ObserveEvent inventory: %v", err)
+	}
+
+	lastFrame := output.String()[strings.LastIndex(output.String(), screen.OverwriteRedrawPrefix):]
+	if !strings.Contains(lastFrame, "背包") || !strings.Contains(lastFrame, "你带着: 旧油灯") {
+		t.Fatalf("inventory popup does not show authoritative event data:\n%s", lastFrame)
+	}
 }
 
 func TestTUIRuntimeSubmitLineShowsEmptyInputLocally(t *testing.T) {

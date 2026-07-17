@@ -24,6 +24,21 @@ func TestViewIncludesRoomEventAndPrompt(t *testing.T) {
 	assertContains(t, got, "> get 旧油灯")
 }
 
+func TestMinimapNeighborsUsesPlanarRoomProjection(t *testing.T) {
+	catalog := testClientCatalog(t)
+	model := NewModel(3)
+	model.Regions.Room.Neighbors = "north=room.tutorial.yard,up=room.tutorial.yard"
+
+	neighbors := minimapNeighbors(model, catalog)
+
+	if got := neighbors[MapNorth].Label; got != "练习场" {
+		t.Fatalf("north label = %q, want 练习场", got)
+	}
+	if _, exists := neighbors[MapDirection("up")]; exists {
+		t.Fatal("height-changing direction entered planar minimap")
+	}
+}
+
 func TestViewIncludesMultipleEventsInOrder(t *testing.T) {
 	catalog := testClientCatalog(t)
 	model := NewModel(3)
@@ -209,6 +224,7 @@ func tutorialRoomEvent() protocol.Event {
 			"name_key":        "room.tutorial.start.name",
 			"description_key": "room.tutorial.start.description",
 			"exits":           "north",
+			"neighbors":       "north=room.tutorial.yard",
 			"items":           "item.tutorial.old_lantern",
 		},
 	}

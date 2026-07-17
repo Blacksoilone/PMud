@@ -76,8 +76,8 @@ func TestDecodeCtrlCIgnoresInterrupt(t *testing.T) {
 func TestDecodeEscapeSequencesDoNotEnterInput(t *testing.T) {
 	data := []byte("\x1b[<64;12;4M")
 
-	if actions := keyinput.Decode(data); len(actions) != 0 {
-		t.Fatalf("actions = %#v, want none for arrow and mouse CSI", actions)
+	if actions := keyinput.Decode(data); len(actions) != 1 || actions[0].Input.Kind != tui.InputScrollUp {
+		t.Fatalf("actions = %#v, want one mouse-scroll action", actions)
 	}
 }
 
@@ -100,6 +100,30 @@ func TestDecodeEditingKeys(t *testing.T) {
 			actions := keyinput.Decode([]byte(tt.data))
 			if len(actions) != 1 || actions[0].Input.Kind != tt.want {
 				t.Fatalf("actions = %#v, want one input kind %v", actions, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecodePopupControlKeys(t *testing.T) {
+	tests := []struct {
+		name string
+		data string
+		kind tui.InputKind
+	}{
+		{name: "question mark", data: "?", kind: tui.InputOpenHelp},
+		{name: "F1 CSI", data: "\x1b[11~", kind: tui.InputOpenHelp},
+		{name: "F1 SS3", data: "\x1bOP", kind: tui.InputOpenHelp},
+		{name: "page up", data: "\x1b[5~", kind: tui.InputPageUp},
+		{name: "page down", data: "\x1b[6~", kind: tui.InputPageDown},
+		{name: "wheel up", data: "\x1b[<64;10;4M", kind: tui.InputScrollUp},
+		{name: "wheel down", data: "\x1b[<65;10;4M", kind: tui.InputScrollDown},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actions := keyinput.Decode([]byte(test.data))
+			if len(actions) != 1 || actions[0].Input.Kind != test.kind {
+				t.Fatalf("Decode(%q) = %#v, want one action kind %v", test.data, actions, test.kind)
 			}
 		})
 	}

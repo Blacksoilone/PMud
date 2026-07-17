@@ -93,6 +93,7 @@ func TestApplyEventUpdatesRoomRegion(t *testing.T) {
 			"name_key":        "room.tutorial.start.name",
 			"description_key": "room.tutorial.start.description",
 			"exits":           "north",
+			"neighbors":       "north=room.tutorial.yard",
 			"items":           "item.tutorial.old_lantern",
 		},
 	})
@@ -108,6 +109,9 @@ func TestApplyEventUpdatesRoomRegion(t *testing.T) {
 	}
 	if model.Regions.Room.Exits != "north" {
 		t.Fatalf("Regions.Room.Exits = %q", model.Regions.Room.Exits)
+	}
+	if model.Regions.Room.Neighbors != "north=room.tutorial.yard" {
+		t.Fatalf("Regions.Room.Neighbors = %q", model.Regions.Room.Neighbors)
 	}
 	if model.Regions.Room.Items != "item.tutorial.old_lantern" {
 		t.Fatalf("Regions.Room.Items = %q", model.Regions.Room.Items)

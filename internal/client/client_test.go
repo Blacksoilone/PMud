@@ -2,13 +2,64 @@ package client
 
 import (
 	"errors"
+	"io"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"PMud/internal/client/screen"
 	"PMud/internal/content"
 	"PMud/internal/protocol"
 )
+
+type signaledWriter struct {
+	mu     sync.Mutex
+	output strings.Builder
+	writes chan struct{}
+}
+
+func (w *signaledWriter) Write(data []byte) (int, error) {
+	w.mu.Lock()
+	w.output.Write(data)
+	w.mu.Unlock()
+	if string(data) == screen.OverwriteRedrawPrefix {
+		select {
+		case w.writes <- struct{}{}:
+		default:
+		}
+	}
+	return len(data), nil
+}
+
+func (w *signaledWriter) String() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.output.String()
+}
+
+type gatedReader struct {
+	chunks       [][]byte
+	index        int
+	firstRead    chan struct{}
+	continueRead chan struct{}
+	release      chan struct{}
+	once         sync.Once
+}
+
+func (r *gatedReader) Read(data []byte) (int, error) {
+	if r.index < len(r.chunks) {
+		chunk := r.chunks[r.index]
+		r.index++
+		if r.index == 1 && r.firstRead != nil {
+			r.once.Do(func() { close(r.firstRead) })
+			<-r.continueRead
+		}
+		return copy(data, chunk), nil
+	}
+	<-r.release
+	return 0, io.EOF
+}
 
 func TestRenderProtocolLines_rendersServerEvents(t *testing.T) {
 	compiled, err := content.Compile(content.TutorialSource())
@@ -330,5 +381,90 @@ func TestForwardTUIKeyInput_confirmedQuitReturnsExitSignal(t *testing.T) {
 	}
 	if serverOutput.String() != "" {
 		t.Fatalf("server output = %q, want empty", serverOutput.String())
+	}
+}
+
+func TestForwardTUIKeyInput_closesPopupAfterLoneEscapeTimeout(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	input := &gatedReader{
+		chunks:  [][]byte{{'?'}, {0x1b}},
+		release: make(chan struct{}),
+	}
+	output := &signaledWriter{writes: make(chan struct{}, 4)}
+	var serverOutput strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: output, Width: 128, HistoryLimit: 3})
+
+	done := make(chan error, 1)
+	go func() { done <- ForwardTUIKeyInput(input, &serverOutput, runtime) }()
+
+	for range 2 {
+		select {
+		case <-output.writes:
+		case <-time.After(200 * time.Millisecond):
+			t.Fatal("timed out waiting for popup open and escape timeout redraws")
+		}
+	}
+	close(input.release)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("ForwardTUIKeyInput: %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("ForwardTUIKeyInput did not finish")
+	}
+	got := output.String()
+	if strings.Count(got, "帮助") == 0 {
+		t.Fatalf("output never rendered help popup:\n%s", got)
+	}
+	if strings.Contains(got[strings.LastIndex(got, screen.OverwriteRedrawPrefix):], "帮助") {
+		t.Fatalf("lone escape did not close popup in latest frame:\n%s", got)
+	}
+}
+
+func TestForwardTUIKeyInput_keepsSplitFunctionKeyTogetherWithinEscapeTimeout(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	input := &gatedReader{
+		chunks:       [][]byte{{0x1b}, []byte("[11~")},
+		firstRead:    make(chan struct{}),
+		continueRead: make(chan struct{}),
+		release:      make(chan struct{}),
+	}
+	output := &signaledWriter{writes: make(chan struct{}, 4)}
+	var serverOutput strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: output, Width: 128, HistoryLimit: 3})
+
+	done := make(chan error, 1)
+	go func() { done <- ForwardTUIKeyInput(input, &serverOutput, runtime) }()
+	select {
+	case <-input.firstRead:
+		close(input.continueRead)
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("timed out waiting for split escape prefix")
+	}
+	select {
+	case <-output.writes:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("timed out waiting for F1 redraw")
+	}
+	close(input.release)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("ForwardTUIKeyInput: %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("ForwardTUIKeyInput did not finish")
+	}
+	if got := output.String(); !strings.Contains(got, "帮助") {
+		t.Fatalf("split F1 sequence did not open help popup:\n%s", got)
 	}
 }

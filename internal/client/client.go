@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"PMud/internal/client/keyinput"
 	"PMud/internal/client/render"
@@ -13,6 +14,13 @@ import (
 )
 
 var ErrProtocolLine = errors.New("protocol line")
+
+const escapeSequenceTimeout = 40 * time.Millisecond
+
+type tuiInputRead struct {
+	data []byte
+	err  error
+}
 
 func RenderProtocolLines(input io.Reader, output io.Writer, catalog content.ClientCatalog) error {
 	return renderProtocolLines(input, output, catalog, nil)
@@ -113,23 +121,74 @@ func ForwardTUILines(input io.Reader, server io.Writer, runtime *TUIRuntime) err
 }
 
 func ForwardTUIKeyInput(input io.Reader, server io.Writer, runtime *TUIRuntime) error {
-	buffer := make([]byte, 256)
 	var decoder keyinput.Decoder
+	reads := readTUIInput(input)
+	timer := time.NewTimer(escapeSequenceTimeout)
+	if !timer.Stop() {
+		<-timer.C
+	}
+	defer timer.Stop()
+	var escapeTimeout <-chan time.Time
 	for {
-		count, err := input.Read(buffer)
-		if count > 0 {
-			if err := forwardTUIKeyActions(decoder.Feed(buffer[:count]), server, runtime); err != nil {
-				return err
+		select {
+		case read := <-reads:
+			if len(read.data) > 0 {
+				if err := forwardTUIKeyActions(decoder.Feed(read.data), server, runtime); err != nil {
+					return err
+				}
 			}
-		}
-		if err == io.EOF {
+			if decoder.HasStandaloneEscape() {
+				resetTimer(timer, escapeSequenceTimeout)
+				escapeTimeout = timer.C
+			} else {
+				stopTimer(timer)
+				escapeTimeout = nil
+			}
+			if read.err == io.EOF {
+				if err := forwardTUIKeyActions(decoder.Flush(), server, runtime); err != nil {
+					return err
+				}
+				return nil
+			}
+			if read.err != nil {
+				return read.err
+			}
+		case <-escapeTimeout:
+			escapeTimeout = nil
 			if err := forwardTUIKeyActions(decoder.Flush(), server, runtime); err != nil {
 				return err
 			}
-			return nil
 		}
-		if err != nil {
-			return err
+	}
+}
+
+func readTUIInput(input io.Reader) <-chan tuiInputRead {
+	reads := make(chan tuiInputRead, 1)
+	go func() {
+		defer close(reads)
+		buffer := make([]byte, 256)
+		for {
+			count, err := input.Read(buffer)
+			data := append([]byte(nil), buffer[:count]...)
+			reads <- tuiInputRead{data: data, err: err}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	return reads
+}
+
+func resetTimer(timer *time.Timer, timeout time.Duration) {
+	stopTimer(timer)
+	timer.Reset(timeout)
+}
+
+func stopTimer(timer *time.Timer) {
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
 		}
 	}
 }
