@@ -1,8 +1,11 @@
 package tui
 
 import (
+	"strings"
+
 	"PMud/internal/client/layout"
 	"PMud/internal/client/render"
+	"PMud/internal/client/termwidth"
 	"PMud/internal/content"
 	"PMud/internal/protocol"
 )
@@ -23,52 +26,173 @@ func View(model Model, catalog content.ClientCatalog, width int) layout.Block {
 }
 
 func ViewWithSize(model Model, catalog content.ClientCatalog, width int, height int) layout.Block {
-	minHeight := inputPaneHeight + roomPaneHeight + minimapPaneHeight + statusPaneHeight + 2
+	minHeight := inputPaneHeight + roomPaneHeight + minimapPaneHeight + statusPaneHeight
 	if height < minHeight {
 		height = minHeight
 	}
-	if width <= rightHUDWidth+4 {
-		width = rightHUDWidth + 4
+	if width <= rightHUDWidth+8 {
+		width = rightHUDWidth + 8
 	}
-	mainWidth := width - rightHUDWidth
-	contentHeight := height - inputPaneHeight
-	contentInnerHeight := contentHeight - 2
-	questPaneHeight := contentInnerHeight - minimapPaneHeight - statusPaneHeight
-	if questPaneHeight < 1 {
-		questPaneHeight = 1
-	}
-	logPaneHeight := contentInnerHeight - roomPaneHeight
-	if logPaneHeight < 1 {
-		logPaneHeight = 1
-	}
-
-	mainColumn := fixedHeightBlock(layout.VBox(
-		fixedHeightBlock(paneBlock("房间 / 可见物", roomPaneBlock(model, catalog)), roomPaneHeight),
-		fixedHeightBlock(paneBlock("日志", eventHistoryBlock(model, catalog)), logPaneHeight),
-	), contentInnerHeight)
-	rightHUD := fixedHeightBlock(layout.VBox(
-		fixedHeightBlock(paneBlock("小地图", minimapPaneBlock(model, catalog)), minimapPaneHeight),
-		fixedHeightBlock(paneBlock("状态", statusPaneBlock()), statusPaneHeight),
-		fixedHeightBlock(paneBlock("当前任务", questPaneBlock(model)), questPaneHeight),
-	), contentInnerHeight)
-	return layout.VBox(
-		layout.HBox(0, layout.Box(mainColumn, mainWidth), layout.Box(rightHUD, rightHUDWidth)),
-		fixedHeightBlock(layout.Box(promptBlock(model), width), inputPaneHeight),
-	)
+	return renderMainFrame(model, catalog, width, height)
 }
 
-func fixedHeightBlock(block layout.Block, height int) layout.Block {
-	if height < 1 {
-		height = 1
+func renderMainFrame(model Model, catalog content.ClientCatalog, width int, height int) layout.Block {
+	rightWidth := rightHUDWidth - 2
+	leftWidth := width - rightWidth - 3
+	if leftWidth < 1 {
+		leftWidth = 1
 	}
-	lines := append([]string(nil), block.Lines...)
-	if len(lines) > height {
-		return layout.NewBlock(lines[:height])
+	roomSeparator := roomPaneHeight - 1
+	minimapSeparator := minimapPaneHeight - 1
+	statusSeparator := minimapSeparator + statusPaneHeight
+	inputSeparator := height - inputPaneHeight
+	leftContentWidth := leftWidth - 2
+	rightContentWidth := rightWidth - 2
+	leftRows := map[int]string{}
+	rightRows := map[int]string{}
+	putPane(leftRows, 1, leftContentWidth, paneBlock("房间 / 可见物", roomPaneBlock(model, catalog)).Lines)
+	putPane(leftRows, roomSeparator+1, leftContentWidth, paneBlock("日志", eventHistoryBlock(model, catalog)).Lines)
+	putPane(rightRows, 1, rightContentWidth, paneBlock("小地图", minimapPaneBlock(model, catalog)).Lines)
+	putPane(rightRows, minimapSeparator+1, rightContentWidth, paneBlock("状态", statusPaneBlock()).Lines)
+	putPane(rightRows, statusSeparator+1, rightContentWidth, paneBlock("当前任务", questPaneBlock(model)).Lines)
+
+	out := make([]string, height)
+	for y := range height {
+		switch {
+		case y == 0:
+			out[y] = borderRow('┌', '┬', '┐', leftWidth, rightWidth)
+		case y == height-1:
+			out[y] = fullBorderRow('└', '┘', width)
+		case y == inputSeparator:
+			out[y] = inputSeparatorRow(width, leftWidth+1)
+		case y > inputSeparator:
+			out[y] = fullContentRow(promptLine(model, y-inputSeparator-1), width)
+		case y == roomSeparator:
+			out[y] = leftSeparatorRow(rightRows[y], leftWidth, rightContentWidth)
+		case y == minimapSeparator || y == statusSeparator:
+			out[y] = rightSeparatorRow(leftRows[y], leftContentWidth, rightWidth)
+		default:
+			out[y] = contentRow(leftRows[y], rightRows[y], leftContentWidth, rightContentWidth)
+		}
 	}
-	for len(lines) < height {
-		lines = append(lines, "")
+	return layout.NewBlock(out)
+}
+
+func borderRow(left rune, middle rune, right rune, leftWidth int, rightWidth int) string {
+	return string(left) + strings.Repeat("─", leftWidth) + string(middle) + strings.Repeat("─", rightWidth) + string(right)
+}
+
+func fullBorderRow(left rune, right rune, width int) string {
+	return string(left) + strings.Repeat("─", width-2) + string(right)
+}
+
+func inputSeparatorRow(width int, divider int) string {
+	return "├" + strings.Repeat("─", divider-1) + "┴" + strings.Repeat("─", width-divider-2) + "┤"
+}
+
+func fullContentRow(content string, width int) string {
+	return "│ " + termwidth.RightPad(content, width-4) + " │"
+}
+
+func promptLine(model Model, row int) string {
+	if row == 0 {
+		model = syncEditorFromInput(model)
+		if model.ExitConfirmation {
+			return "确认退出游戏？[y/N] " + model.Editor.RenderWithCursor()
+		}
+		return "> " + model.Editor.RenderWithCursor()
 	}
-	return layout.NewBlock(lines)
+	return ""
+}
+
+func leftSeparatorRow(right string, leftWidth int, rightContentWidth int) string {
+	return "├" + strings.Repeat("─", leftWidth) + "┤ " + termwidth.RightPad(right, rightContentWidth) + " │"
+}
+
+func rightSeparatorRow(left string, leftContentWidth int, rightWidth int) string {
+	return "│ " + termwidth.RightPad(left, leftContentWidth) + " ├" + strings.Repeat("─", rightWidth) + "┤"
+}
+
+func contentRow(left string, right string, leftContentWidth int, rightContentWidth int) string {
+	return "│ " + termwidth.RightPad(left, leftContentWidth) + " │ " + termwidth.RightPad(right, rightContentWidth) + " │"
+}
+
+func putPane(rows map[int]string, startY int, width int, paneLines []string) {
+	row := startY
+	for _, line := range paneLines {
+		wrapped := wrapVisible(line, width)
+		for _, part := range wrapped {
+			rows[row] = part
+			row++
+		}
+	}
+}
+
+func wrapVisible(text string, width int) []string {
+	if width < 1 {
+		return []string{""}
+	}
+	if text == "" {
+		return []string{""}
+	}
+	if termwidth.Width(text) <= width {
+		return []string{text}
+	}
+	words := strings.Fields(text)
+	if len(words) > 1 {
+		return wrapWords(words, width)
+	}
+	return hardWrapVisible(text, width)
+}
+
+func wrapWords(words []string, width int) []string {
+	lines := make([]string, 0, 1)
+	var builder strings.Builder
+	for _, word := range words {
+		wordWidth := termwidth.Width(word)
+		if wordWidth > width {
+			if builder.Len() > 0 {
+				lines = append(lines, builder.String())
+				builder.Reset()
+			}
+			wrapped := hardWrapVisible(word, width)
+			lines = append(lines, wrapped[:len(wrapped)-1]...)
+			builder.WriteString(wrapped[len(wrapped)-1])
+			continue
+		}
+		separatorWidth := 0
+		if builder.Len() > 0 {
+			separatorWidth = 1
+		}
+		if termwidth.Width(builder.String())+separatorWidth+wordWidth > width {
+			lines = append(lines, builder.String())
+			builder.Reset()
+		}
+		if builder.Len() > 0 {
+			builder.WriteByte(' ')
+		}
+		builder.WriteString(word)
+	}
+	lines = append(lines, builder.String())
+	return lines
+}
+
+func hardWrapVisible(text string, width int) []string {
+	lines := make([]string, 0, 1)
+	var builder strings.Builder
+	visibleWidth := 0
+	for _, char := range text {
+		charWidth := termwidth.Width(string(char))
+		if visibleWidth+charWidth > width {
+			lines = append(lines, builder.String())
+			builder.Reset()
+			visibleWidth = 0
+		}
+		builder.WriteRune(char)
+		visibleWidth += charWidth
+	}
+	lines = append(lines, builder.String())
+	return lines
 }
 
 func paneBlock(title string, body layout.Block) layout.Block {
@@ -142,8 +266,4 @@ func eventHistoryBlock(model Model, catalog content.ClientCatalog) layout.Block 
 		blocks = append(blocks, render.RenderBlock(event, catalog))
 	}
 	return layout.VBox(blocks...)
-}
-
-func promptBlock(model Model) layout.Block {
-	return layout.NewBlock([]string{"> " + model.Input})
 }

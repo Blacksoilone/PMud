@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"PMud/internal/client/termwidth"
 	"PMud/internal/content"
 	"PMud/internal/protocol"
 )
@@ -14,7 +15,7 @@ func TestViewIncludesRoomEventAndPrompt(t *testing.T) {
 	model.Input = "get 旧油灯"
 	model = ApplyEvent(model, tutorialRoomEvent())
 
-	got := View(model, catalog, 48).String()
+	got := View(model, catalog, 128).String()
 
 	assertContains(t, got, "小地图")
 	assertContains(t, got, "练习场入口")
@@ -39,7 +40,7 @@ func TestViewIncludesMultipleEventsInOrder(t *testing.T) {
 		},
 	})
 
-	got := View(model, catalog, 54).String()
+	got := View(model, catalog, 128).String()
 	helpIndex := strings.Index(got, "可用命令")
 	inventoryIndex := strings.Index(got, "你带着: 旧油灯")
 
@@ -59,7 +60,7 @@ func TestViewKeepsCJKPromptVisible(t *testing.T) {
 	model := NewModel(1)
 	model.Input = "drop 旧油灯"
 
-	got := View(model, catalog, 32).String()
+	got := View(model, catalog, 128).String()
 
 	assertContains(t, got, "> drop 旧油灯")
 }
@@ -109,6 +110,53 @@ func TestViewWithSizeUsesRequestedHeight(t *testing.T) {
 
 	if len(got.Lines) != 32 {
 		t.Fatalf("view height = %d, want 32", len(got.Lines))
+	}
+}
+
+func TestViewWithSizeDoesNotExceedRequestedWidth(t *testing.T) {
+	catalog := testClientCatalog(t)
+	model := NewModel(5)
+	model = ApplyEvent(model, tutorialRoomEvent())
+
+	got := ViewWithSize(model, catalog, 166, 43)
+
+	for index, line := range got.Lines {
+		if width := termwidth.Width(line); width > 166 {
+			t.Fatalf("line %d width = %d, want <= 166:\n%s", index, width, line)
+		}
+	}
+}
+
+func TestViewWithSizeRendersSharedFrameSeparators(t *testing.T) {
+	catalog := testClientCatalog(t)
+	model := NewModel(5)
+	model = ApplyEvent(model, tutorialRoomEvent())
+
+	got := ViewWithSize(model, catalog, 166, 43).String()
+
+	assertContains(t, got, "房间 / 可见物")
+	assertContains(t, got, "小地图")
+	assertContains(t, got, "状态")
+	assertContains(t, got, "当前任务")
+	if strings.Count(got, "┌") != 1 || strings.Count(got, "┐") != 1 || strings.Count(got, "└") != 1 || strings.Count(got, "┘") != 1 {
+		t.Fatalf("frame should have one outer border:\n%s", got)
+	}
+	if strings.Count(got, "├") < 3 || strings.Count(got, "┤") < 3 {
+		t.Fatalf("frame should have shared internal separators:\n%s", got)
+	}
+}
+
+func TestViewWithSizeInputSeparatorJoinsMainDivider(t *testing.T) {
+	catalog := testClientCatalog(t)
+	model := NewModel(5)
+
+	got := ViewWithSize(model, catalog, 166, 43)
+	separator := got.Lines[len(got.Lines)-3]
+
+	byteIndex := strings.Index(separator, "┴")
+	divider := termwidth.Width(separator[:byteIndex])
+	if divider != 130 {
+		t.Fatalf("input junction column = %d, want 130: %q", divider, separator)
 	}
 }
 
