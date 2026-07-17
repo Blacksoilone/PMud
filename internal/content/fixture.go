@@ -14,6 +14,11 @@ func TutorialSource() ContentSource {
 				NameKey:        "room.tutorial.yard.name",
 				DescriptionKey: "room.tutorial.yard.description",
 			},
+			{
+				ID:             "room.tutorial.shed",
+				NameKey:        "room.tutorial.shed.name",
+				DescriptionKey: "room.tutorial.shed.description",
+			},
 		},
 		Items: []ItemSource{
 			{
@@ -23,6 +28,22 @@ func TutorialSource() ContentSource {
 			{
 				ID: "item.tutorial.south", DisplayNameKey: "item.tutorial.south.name", InnerNameKey: "item.tutorial.south.inner_name", DescriptionKey: "item.tutorial.south.description", InitialRoom: "room.tutorial.yard",
 				Tags: []SourceTag{{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.start"}}},
+			},
+			{
+				ID: "item.tutorial.northeast", DisplayNameKey: "item.tutorial.northeast.name", InnerNameKey: "item.tutorial.northeast.inner_name", DescriptionKey: "item.tutorial.northeast.description", InitialRoom: "room.tutorial.start",
+				Tags: []SourceTag{{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.shed"}}},
+			},
+			{
+				ID: "item.tutorial.southwest", DisplayNameKey: "item.tutorial.southwest.name", InnerNameKey: "item.tutorial.southwest.inner_name", DescriptionKey: "item.tutorial.southwest.description", InitialRoom: "room.tutorial.shed",
+				Tags: []SourceTag{{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.start"}}},
+			},
+			{
+				ID: "item.tutorial.east", DisplayNameKey: "item.tutorial.east.name", InnerNameKey: "item.tutorial.east.inner_name", DescriptionKey: "item.tutorial.east.description", InitialRoom: "room.tutorial.yard",
+				Tags: []SourceTag{{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.shed"}}},
+			},
+			{
+				ID: "item.tutorial.west", DisplayNameKey: "item.tutorial.west.name", InnerNameKey: "item.tutorial.west.inner_name", DescriptionKey: "item.tutorial.west.description", InitialRoom: "room.tutorial.shed",
+				Tags: []SourceTag{{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.yard"}}},
 			},
 			{
 				ID:             "item.tutorial.old_lantern",
@@ -85,10 +106,16 @@ func TutorialSource() ContentSource {
 		Text: map[TextKey]string{
 			"item.tutorial.north.name": "北方", "item.tutorial.north.inner_name": "north", "item.tutorial.north.description": "北方通向练习场。",
 			"item.tutorial.south.name": "南方", "item.tutorial.south.inner_name": "south", "item.tutorial.south.description": "南方通向练习场入口。",
+			"item.tutorial.northeast.name": "东北方", "item.tutorial.northeast.inner_name": "northeast", "item.tutorial.northeast.description": "东北方通向器械棚。",
+			"item.tutorial.southwest.name": "西南方", "item.tutorial.southwest.inner_name": "southwest", "item.tutorial.southwest.description": "西南方通向练习场入口。",
+			"item.tutorial.east.name": "东方", "item.tutorial.east.inner_name": "east", "item.tutorial.east.description": "东方通向器械棚。",
+			"item.tutorial.west.name": "西方", "item.tutorial.west.inner_name": "west", "item.tutorial.west.description": "西方通向练习场。",
 			"room.tutorial.start.name":                            "练习场入口",
 			"room.tutorial.start.description":                     "这里是练习场的入口。北边传来木剑碰撞的声音。",
 			"room.tutorial.yard.name":                             "练习场",
 			"room.tutorial.yard.description":                      "几根木桩立在泥地上，地面满是被踩出的脚印。",
+			"room.tutorial.shed.name":                             "器械棚",
+			"room.tutorial.shed.description":                      "木棚里整齐摆放着练习用的护具和兵器架。",
 			"item.tutorial.old_lantern.name":                      "旧油灯",
 			"item.tutorial.old_lantern.inner_name":                "old lantern",
 			"item.tutorial.old_lantern.description":               "灯罩上蒙着一层灰，里面还剩一点灯油。",

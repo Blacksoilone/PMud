@@ -201,11 +201,28 @@ func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
 	if compiled.Server.StartRoomID != "room.tutorial.start" {
 		t.Fatalf("expected tutorial start room, got %q", compiled.Server.StartRoomID)
 	}
-	if len(compiled.Server.Rooms) != 2 {
-		t.Fatalf("expected 2 rooms, got %d", len(compiled.Server.Rooms))
+	if len(compiled.Server.Rooms) != 3 {
+		t.Fatalf("expected 3 rooms, got %d", len(compiled.Server.Rooms))
 	}
-	if len(compiled.Server.Items) != 4 {
-		t.Fatalf("expected 4 items including exits, got %d", len(compiled.Server.Items))
+	if len(compiled.Server.Items) != 8 {
+		t.Fatalf("expected 8 items including six exits, got %d", len(compiled.Server.Items))
+	}
+	exitTargets := map[ItemID]RoomID{
+		"item.tutorial.north":     "room.tutorial.yard",
+		"item.tutorial.south":     "room.tutorial.start",
+		"item.tutorial.northeast": "room.tutorial.shed",
+		"item.tutorial.southwest": "room.tutorial.start",
+		"item.tutorial.east":      "room.tutorial.shed",
+		"item.tutorial.west":      "room.tutorial.yard",
+	}
+	for itemID, targetRoomID := range exitTargets {
+		item, ok := compiled.Server.Items[itemID]
+		if !ok || len(item.Tags) != 1 || item.Tags[0].Exit == nil {
+			t.Fatalf("expected %s to compile as one exit tag", itemID)
+		}
+		if got := item.Tags[0].Exit.TargetRoomID; got != targetRoomID {
+			t.Fatalf("%s target = %q, want %q", itemID, got, targetRoomID)
+		}
 	}
 	if got := compiled.Server.ItemLocations["item.tutorial.old_lantern"]; got != "room.tutorial.start" {
 		t.Fatalf("expected old lantern in start room, got %q", got)
