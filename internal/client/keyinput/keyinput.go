@@ -12,20 +12,107 @@ type Action struct {
 	Quit  bool
 }
 
-func Decode(data []byte) []Action {
-	actions := make([]Action, 0, len(data))
-	for len(data) > 0 {
-		r, size := utf8.DecodeRune(data)
-		if r == utf8.RuneError && size == 1 {
-			data = data[size:]
+type Decoder struct {
+	pending []byte
+}
+
+func (d *Decoder) Feed(data []byte) []Action {
+	d.pending = append(d.pending, data...)
+	actions := make([]Action, 0, len(d.pending))
+	for len(d.pending) > 0 {
+		if d.pending[0] == 0x1b {
+			consumed, action, complete := decodeEscape(d.pending)
+			if !complete {
+				break
+			}
+			d.pending = d.pending[consumed:]
+			if action != nil {
+				actions = append(actions, *action)
+			}
 			continue
 		}
-		if action, ok := decodeRune(r); ok {
-			actions = append(actions, action)
+		action, consumed, complete := decodeOne(d.pending)
+		if !complete {
+			break
 		}
-		data = data[size:]
+		d.pending = d.pending[consumed:]
+		if action != nil {
+			actions = append(actions, *action)
+		}
 	}
 	return actions
+}
+
+func (d *Decoder) Flush() []Action {
+	if len(d.pending) == 0 {
+		return nil
+	}
+	if d.pending[0] == 0x1b {
+		d.pending = nil
+		return []Action{{Input: tui.Input{Kind: tui.InputCancel}}}
+	}
+	actions := Decode(d.pending)
+	d.pending = nil
+	return actions
+}
+
+func Decode(data []byte) []Action {
+	var decoder Decoder
+	actions := decoder.Feed(data)
+	return append(actions, decoder.Flush()...)
+}
+
+func decodeOne(data []byte) (*Action, int, bool) {
+	if len(data) == 0 {
+		return nil, 0, false
+	}
+	r, size := utf8.DecodeRune(data)
+	if r == utf8.RuneError && size == 1 {
+		return nil, 1, true
+	}
+	action, ok := decodeRune(r)
+	if !ok {
+		return nil, size, true
+	}
+	return &action, size, true
+}
+
+func decodeEscape(data []byte) (int, *Action, bool) {
+	if len(data) == 1 {
+		return 0, nil, false
+	}
+	if data[1] != '[' {
+		return 1, &Action{Input: tui.Input{Kind: tui.InputCancel}}, true
+	}
+	for index := 2; index < len(data); index++ {
+		if data[index] >= 0x40 && data[index] <= 0x7e {
+			return index + 1, decodeCSI(data[2 : index+1]), true
+		}
+	}
+	return 0, nil, false
+}
+
+func decodeCSI(sequence []byte) *Action {
+	input := tui.Input{}
+	switch string(sequence) {
+	case "A":
+		input.Kind = tui.InputHistoryPrevious
+	case "B":
+		input.Kind = tui.InputHistoryNext
+	case "C":
+		input.Kind = tui.InputMoveRight
+	case "D":
+		input.Kind = tui.InputMoveLeft
+	case "H", "1~", "7~":
+		input.Kind = tui.InputHome
+	case "F", "4~", "8~":
+		input.Kind = tui.InputEnd
+	case "3~":
+		input.Kind = tui.InputDelete
+	default:
+		return nil
+	}
+	return &Action{Input: input}
 }
 
 func decodeRune(r rune) (Action, bool) {
@@ -39,7 +126,7 @@ func decodeRune(r rune) (Action, bool) {
 	case '\x12':
 		return Action{Input: tui.Input{Kind: tui.InputForceRedraw}}, true
 	case '\x03':
-		return Action{Quit: true}, true
+		return Action{}, false
 	}
 	if !unicode.IsPrint(r) {
 		return Action{}, false

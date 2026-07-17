@@ -67,14 +67,66 @@ func TestDecodeCtrlRForceRedraw(t *testing.T) {
 	}
 }
 
-func TestDecodeCtrlCQuit(t *testing.T) {
-	actions := keyinput.Decode([]byte{0x03})
-
-	if len(actions) != 1 {
-		t.Fatalf("actions length = %d, want 1", len(actions))
+func TestDecodeCtrlCIgnoresInterrupt(t *testing.T) {
+	if actions := keyinput.Decode([]byte{0x03}); len(actions) != 0 {
+		t.Fatalf("actions = %#v, want none", actions)
 	}
-	if !actions[0].Quit {
-		t.Fatalf("Quit = false, want true")
+}
+
+func TestDecodeEscapeSequencesDoNotEnterInput(t *testing.T) {
+	data := []byte("\x1b[<64;12;4M")
+
+	if actions := keyinput.Decode(data); len(actions) != 0 {
+		t.Fatalf("actions = %#v, want none for arrow and mouse CSI", actions)
+	}
+}
+
+func TestDecodeEditingKeys(t *testing.T) {
+	tests := []struct {
+		name string
+		data string
+		want tui.InputKind
+	}{
+		{name: "up history", data: "\x1b[A", want: tui.InputHistoryPrevious},
+		{name: "down history", data: "\x1b[B", want: tui.InputHistoryNext},
+		{name: "right", data: "\x1b[C", want: tui.InputMoveRight},
+		{name: "left", data: "\x1b[D", want: tui.InputMoveLeft},
+		{name: "home", data: "\x1b[H", want: tui.InputHome},
+		{name: "end", data: "\x1b[F", want: tui.InputEnd},
+		{name: "delete", data: "\x1b[3~", want: tui.InputDelete},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actions := keyinput.Decode([]byte(tt.data))
+			if len(actions) != 1 || actions[0].Input.Kind != tt.want {
+				t.Fatalf("actions = %#v, want one input kind %v", actions, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecodeStandaloneEscapeCancelsInput(t *testing.T) {
+	actions := keyinput.Decode([]byte{0x1b})
+
+	if len(actions) != 1 || actions[0].Input.Kind != tui.InputCancel {
+		t.Fatalf("actions = %#v, want one InputCancel", actions)
+	}
+}
+
+func TestDecoderBuffersSplitCSISequence(t *testing.T) {
+	var decoder keyinput.Decoder
+
+	if actions := decoder.Feed([]byte{0x1b}); len(actions) != 0 {
+		t.Fatalf("first actions = %#v, want none while sequence is incomplete", actions)
+	}
+	if actions := decoder.Feed([]byte("[A")); len(actions) != 1 || actions[0].Input.Kind != tui.InputHistoryPrevious {
+		t.Fatalf("second actions = %#v, want one history previous action", actions)
+	}
+}
+
+func TestDecodeCtrlCIgnoresInterruptWithoutQuitAction(t *testing.T) {
+	if actions := keyinput.Decode([]byte{0x03}); len(actions) != 0 {
+		t.Fatalf("actions = %#v, want none", actions)
 	}
 }
 
