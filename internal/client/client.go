@@ -1,14 +1,15 @@
 package client
 
 import (
-	"PMud/internal/client/keyinput"
-	"PMud/internal/client/render"
-	"PMud/internal/content"
-	"PMud/internal/protocol"
 	"bufio"
 	"errors"
 	"fmt"
 	"io"
+
+	"PMud/internal/client/keyinput"
+	"PMud/internal/client/render"
+	"PMud/internal/content"
+	"PMud/internal/protocol"
 )
 
 var ErrProtocolLine = errors.New("protocol line")
@@ -113,14 +114,18 @@ func ForwardTUILines(input io.Reader, server io.Writer, runtime *TUIRuntime) err
 
 func ForwardTUIKeyInput(input io.Reader, server io.Writer, runtime *TUIRuntime) error {
 	buffer := make([]byte, 256)
+	var decoder keyinput.Decoder
 	for {
 		count, err := input.Read(buffer)
 		if count > 0 {
-			if err := forwardTUIKeyActions(buffer[:count], server, runtime); err != nil {
+			if err := forwardTUIKeyActions(decoder.Feed(buffer[:count]), server, runtime); err != nil {
 				return err
 			}
 		}
 		if err == io.EOF {
+			if err := forwardTUIKeyActions(decoder.Flush(), server, runtime); err != nil {
+				return err
+			}
 			return nil
 		}
 		if err != nil {
@@ -129,11 +134,8 @@ func ForwardTUIKeyInput(input io.Reader, server io.Writer, runtime *TUIRuntime) 
 	}
 }
 
-func forwardTUIKeyActions(data []byte, server io.Writer, runtime *TUIRuntime) error {
-	for _, action := range keyinput.Decode(data) {
-		if action.Quit {
-			return nil
-		}
+func forwardTUIKeyActions(actions []keyinput.Action, server io.Writer, runtime *TUIRuntime) error {
+	for _, action := range actions {
 		if err := runtime.ApplyInput(action.Input, server); err != nil {
 			return err
 		}

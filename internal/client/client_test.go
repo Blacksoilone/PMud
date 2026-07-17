@@ -74,7 +74,7 @@ func TestRenderTUIProtocolLines_rendersObservedEvents(t *testing.T) {
 	input := strings.NewReader("event=room\troom=room.tutorial.start\tname_key=room.tutorial.start.name\tdescription_key=room.tutorial.start.description\texits=north\titems=item.tutorial.old_lantern\n")
 	var output strings.Builder
 
-	err = RenderTUIProtocolLines(input, &output, state, 48, 3)
+	err = RenderTUIProtocolLines(input, &output, state, 128, 3)
 	if err != nil {
 		t.Fatalf("RenderTUIProtocolLines: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestRenderTUIObservedProtocolLines_updatesCommandResolution(t *testing.T) {
 	input := strings.NewReader("event=room\troom=room.tutorial.start\tname_key=room.tutorial.start.name\tdescription_key=room.tutorial.start.description\texits=north\titems=item.tutorial.old_lantern\n")
 	var output strings.Builder
 
-	err = RenderTUIObservedProtocolLines(input, &output, state, 48, 3)
+	err = RenderTUIObservedProtocolLines(input, &output, state, 128, 3)
 	if err != nil {
 		t.Fatalf("RenderTUIObservedProtocolLines: %v", err)
 	}
@@ -116,12 +116,12 @@ func TestRenderTUIObservedProtocolLines_redrawsPerEvent(t *testing.T) {
 		"event=inventory\titems=item.tutorial.old_lantern\n")
 	var output strings.Builder
 
-	err = RenderTUIObservedProtocolLines(input, &output, state, 48, 3)
+	err = RenderTUIObservedProtocolLines(input, &output, state, 128, 3)
 	if err != nil {
 		t.Fatalf("RenderTUIObservedProtocolLines: %v", err)
 	}
 	got := output.String()
-	redrawCount := strings.Count(got, screen.FullRedrawPrefix)
+	redrawCount := strings.Count(got, screen.OverwriteRedrawPrefix)
 	if redrawCount != 2 {
 		t.Fatalf("redraw count = %d, want 2; output:\n%s", redrawCount, got)
 	}
@@ -197,7 +197,7 @@ func TestForwardTUILines_redrawsInputAndWritesResolvedCommand(t *testing.T) {
 	input := strings.NewReader("get 旧油灯\n")
 	var screenOutput strings.Builder
 	var serverOutput strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 128, HistoryLimit: 3})
 
 	err = ForwardTUILines(input, &serverOutput, runtime)
 	if err != nil {
@@ -222,7 +222,7 @@ func TestRenderTUIObservedProtocolLinesWithRuntime_sharesModelWithForwardTUILine
 	input := strings.NewReader("get 旧油灯\n")
 	var screenOutput strings.Builder
 	var serverOutput strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 128, HistoryLimit: 3})
 
 	err = RenderTUIObservedProtocolLinesWithRuntime(serverEvents, runtime)
 	if err != nil {
@@ -251,7 +251,7 @@ func TestForwardTUIKeyInput_decodesTextBackspaceAndSubmit(t *testing.T) {
 	input := strings.NewReader("get 旧油灯\x7f灯\n")
 	var screenOutput strings.Builder
 	var serverOutput strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 128, HistoryLimit: 3})
 
 	err = ForwardTUIKeyInput(input, &serverOutput, runtime)
 	if err != nil {
@@ -275,7 +275,7 @@ func TestForwardTUIKeyInput_decodesClear(t *testing.T) {
 	input := strings.NewReader("look\x15inventory\n")
 	var screenOutput strings.Builder
 	var serverOutput strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 128, HistoryLimit: 3})
 
 	err = ForwardTUIKeyInput(input, &serverOutput, runtime)
 	if err != nil {
@@ -289,7 +289,7 @@ func TestForwardTUIKeyInput_decodesClear(t *testing.T) {
 	}
 }
 
-func TestForwardTUIKeyInput_quitStopsWithoutSubmittingLaterInput(t *testing.T) {
+func TestForwardTUIKeyInput_ignoresCtrlCAndContinuesInput(t *testing.T) {
 	compiled, err := content.Compile(content.TutorialSource())
 	if err != nil {
 		t.Fatal(err)
@@ -298,16 +298,37 @@ func TestForwardTUIKeyInput_quitStopsWithoutSubmittingLaterInput(t *testing.T) {
 	input := strings.NewReader("look\x03inventory\n")
 	var screenOutput strings.Builder
 	var serverOutput strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 128, HistoryLimit: 3})
 
 	err = ForwardTUIKeyInput(input, &serverOutput, runtime)
 	if err != nil {
 		t.Fatalf("ForwardTUIKeyInput: %v", err)
 	}
+	if serverOutput.String() != "lookinventory\n" {
+		t.Fatalf("server output = %q, want lookinventory command", serverOutput.String())
+	}
+	if !strings.Contains(screenOutput.String(), "lookinventory") {
+		t.Fatalf("screen output missing input after ignored Ctrl+C:\n%s", screenOutput.String())
+	}
+}
+
+func TestForwardTUIKeyInput_confirmedQuitReturnsExitSignal(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := NewState(compiled.Client)
+	input := strings.NewReader("quit\ny\n")
+	var screenOutput strings.Builder
+	var serverOutput strings.Builder
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 128, HistoryLimit: 3})
+
+	err = ForwardTUIKeyInput(input, &serverOutput, runtime)
+
+	if !errors.Is(err, ErrTUIExit) {
+		t.Fatalf("error = %v, want ErrTUIExit", err)
+	}
 	if serverOutput.String() != "" {
 		t.Fatalf("server output = %q, want empty", serverOutput.String())
-	}
-	if strings.Contains(screenOutput.String(), "inventory") {
-		t.Fatalf("screen output includes input after quit:\n%s", screenOutput.String())
 	}
 }

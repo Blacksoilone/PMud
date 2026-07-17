@@ -17,14 +17,14 @@ func TestTUIRuntimeObserveEventRedrawsScreen(t *testing.T) {
 	}
 	state := NewState(compiled.Client)
 	var output strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 128, HistoryLimit: 3})
 
 	err = runtime.ObserveEvent(protocol.Event{Name: "inventory", Fields: map[string]string{"items": "item.tutorial.old_lantern"}})
 	if err != nil {
 		t.Fatalf("ObserveEvent: %v", err)
 	}
 	got := output.String()
-	if !strings.Contains(got, screen.FullRedrawPrefix) || !strings.Contains(got, "你带着: 旧油灯") {
+	if !strings.Contains(got, screen.OverwriteRedrawPrefix) || !strings.Contains(got, "你带着: 旧油灯") {
 		t.Fatalf("output missing redraw or event text:\n%s", got)
 	}
 }
@@ -38,7 +38,7 @@ func TestTUIRuntimeSubmitLineRedrawsInputThenClearsPrompt(t *testing.T) {
 	state.Observe(protocol.Event{Name: "room", Fields: map[string]string{"items": "item.tutorial.old_lantern"}})
 	var screenOutput strings.Builder
 	var serverOutput strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 128, HistoryLimit: 3})
 
 	err = runtime.SubmitLine("get 旧油灯", &serverOutput)
 	if err != nil {
@@ -48,8 +48,8 @@ func TestTUIRuntimeSubmitLineRedrawsInputThenClearsPrompt(t *testing.T) {
 		t.Fatalf("server output = %q", serverOutput.String())
 	}
 	got := screenOutput.String()
-	if strings.Count(got, screen.FullRedrawPrefix) != 2 {
-		t.Fatalf("redraw count = %d, want 2; output:\n%s", strings.Count(got, screen.FullRedrawPrefix), got)
+	if strings.Count(got, screen.OverwriteRedrawPrefix) != 2 {
+		t.Fatalf("redraw count = %d, want 2; output:\n%s", strings.Count(got, screen.OverwriteRedrawPrefix), got)
 	}
 	if !strings.Contains(got, "> get 旧油灯") || !strings.Contains(got, "> ") {
 		t.Fatalf("output missing submitted or cleared prompt:\n%s", got)
@@ -64,7 +64,7 @@ func TestTUIRuntimeSubmitLineWritesCaseInsensitiveAliases(t *testing.T) {
 	state := NewState(compiled.Client)
 	var screenOutput strings.Builder
 	var serverOutput strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &screenOutput, Width: 128, HistoryLimit: 3})
 
 	if err := runtime.SubmitLine("TAKE jiuyoudeng", &serverOutput); err != nil {
 		t.Fatalf("SubmitLine TAKE: %v", err)
@@ -87,7 +87,7 @@ func TestTUIRuntimeApplyInputRedrawsText(t *testing.T) {
 	state := NewState(compiled.Client)
 	var output strings.Builder
 	var server strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 128, HistoryLimit: 3})
 
 	err = runtime.ApplyInput(tui.Input{Kind: tui.InputText, Text: "get "}, &server)
 	if err != nil {
@@ -98,8 +98,8 @@ func TestTUIRuntimeApplyInputRedrawsText(t *testing.T) {
 		t.Fatalf("ApplyInput text: %v", err)
 	}
 	got := output.String()
-	if strings.Count(got, screen.FullRedrawPrefix) != 2 {
-		t.Fatalf("redraw count = %d, want 2; output:\n%s", strings.Count(got, screen.FullRedrawPrefix), got)
+	if strings.Count(got, screen.OverwriteRedrawPrefix) != 2 {
+		t.Fatalf("redraw count = %d, want 2; output:\n%s", strings.Count(got, screen.OverwriteRedrawPrefix), got)
 	}
 	if !strings.Contains(got, "> get 旧油灯") {
 		t.Fatalf("output missing typed prompt:\n%s", got)
@@ -117,7 +117,7 @@ func TestTUIRuntimeApplyInputBackspaceRemovesLastRune(t *testing.T) {
 	state := NewState(compiled.Client)
 	var output strings.Builder
 	var server strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 128, HistoryLimit: 3})
 
 	err = runtime.ApplyInput(tui.Input{Kind: tui.InputText, Text: "get 旧油灯"}, &server)
 	if err != nil {
@@ -128,7 +128,7 @@ func TestTUIRuntimeApplyInputBackspaceRemovesLastRune(t *testing.T) {
 		t.Fatalf("ApplyInput backspace: %v", err)
 	}
 	got := output.String()
-	lastFrame := got[strings.LastIndex(got, screen.FullRedrawPrefix):]
+	lastFrame := got[strings.LastIndex(got, screen.OverwriteRedrawPrefix):]
 	if !strings.Contains(lastFrame, "> get 旧油") {
 		t.Fatalf("last frame missing shortened prompt:\n%s", lastFrame)
 	}
@@ -145,7 +145,7 @@ func TestTUIRuntimeApplyInputClearClearsPrompt(t *testing.T) {
 	state := NewState(compiled.Client)
 	var output strings.Builder
 	var server strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 128, HistoryLimit: 3})
 
 	err = runtime.ApplyInput(tui.Input{Kind: tui.InputText, Text: "inventory"}, &server)
 	if err != nil {
@@ -156,7 +156,7 @@ func TestTUIRuntimeApplyInputClearClearsPrompt(t *testing.T) {
 		t.Fatalf("ApplyInput clear: %v", err)
 	}
 	got := output.String()
-	lastFrame := got[strings.LastIndex(got, screen.FullRedrawPrefix):]
+	lastFrame := got[strings.LastIndex(got, screen.OverwriteRedrawPrefix):]
 	if !strings.Contains(lastFrame, "> ") {
 		t.Fatalf("last frame missing cleared prompt:\n%s", lastFrame)
 	}
@@ -174,7 +174,7 @@ func TestTUIRuntimeApplyInputSubmitWritesResolvedCommandAndClearsPrompt(t *testi
 	state.Observe(protocol.Event{Name: "room", Fields: map[string]string{"items": "item.tutorial.old_lantern"}})
 	var output strings.Builder
 	var server strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 128, HistoryLimit: 3})
 
 	err = runtime.ApplyInput(tui.Input{Kind: tui.InputText, Text: "get 旧油灯"}, &server)
 	if err != nil {
@@ -188,7 +188,7 @@ func TestTUIRuntimeApplyInputSubmitWritesResolvedCommandAndClearsPrompt(t *testi
 		t.Fatalf("server output = %q", server.String())
 	}
 	got := output.String()
-	lastFrame := got[strings.LastIndex(got, screen.FullRedrawPrefix):]
+	lastFrame := got[strings.LastIndex(got, screen.OverwriteRedrawPrefix):]
 	if !strings.Contains(got, "> get 旧油灯") {
 		t.Fatalf("output missing typed prompt:\n%s", got)
 	}
@@ -205,7 +205,7 @@ func TestTUIRuntimeSubmitLineForwardsAmbiguousItemPhrase(t *testing.T) {
 	state := NewState(compiled.Client)
 	var output strings.Builder
 	var server strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 128, HistoryLimit: 3})
 
 	err = runtime.SubmitLine("get shared", &server)
 	if err != nil {
@@ -227,7 +227,7 @@ func TestTUIRuntimeSubmitLineShowsHelpLocally(t *testing.T) {
 	state := NewState(compiled.Client)
 	var output strings.Builder
 	var server strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 128, HistoryLimit: 3})
 
 	err = runtime.SubmitLine("help", &server)
 	if err != nil {
@@ -255,7 +255,7 @@ func TestTUIRuntimeSubmitLineShowsEmptyInputLocally(t *testing.T) {
 	state := NewState(compiled.Client)
 	var output strings.Builder
 	var server strings.Builder
-	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 48, HistoryLimit: 3})
+	runtime := NewTUIRuntime(TUIRuntimeConfig{State: state, Output: &output, Width: 128, HistoryLimit: 3})
 
 	err = runtime.SubmitLine("", &server)
 	if err != nil {
@@ -289,10 +289,10 @@ func TestTUIRuntimeForceRedrawDoesNotWriteServerOrChangeInput(t *testing.T) {
 	if server.String() != "" {
 		t.Fatalf("server output = %q, want empty", server.String())
 	}
-	if strings.Count(output.String(), screen.FullRedrawPrefix) != 2 {
-		t.Fatalf("redraw count = %d, want 2", strings.Count(output.String(), screen.FullRedrawPrefix))
+	if strings.Count(output.String(), screen.OverwriteRedrawPrefix) != 2 {
+		t.Fatalf("redraw count = %d, want 2", strings.Count(output.String(), screen.OverwriteRedrawPrefix))
 	}
-	lastFrame := output.String()[strings.LastIndex(output.String(), screen.FullRedrawPrefix):]
+	lastFrame := output.String()[strings.LastIndex(output.String(), screen.OverwriteRedrawPrefix):]
 	if !strings.Contains(lastFrame, "> look") {
 		t.Fatalf("last frame changed input:\n%s", lastFrame)
 	}
@@ -311,7 +311,7 @@ func TestTUIRuntimeResizeUsesNewHeight(t *testing.T) {
 		t.Fatalf("Resize: %v", err)
 	}
 
-	lastFrame := output.String()[strings.LastIndex(output.String(), screen.FullRedrawPrefix)+len(screen.FullRedrawPrefix):]
+	lastFrame := output.String()[strings.LastIndex(output.String(), screen.OverwriteRedrawPrefix)+len(screen.OverwriteRedrawPrefix):]
 	lines := strings.Split(strings.TrimSuffix(lastFrame, "\n"), "\n")
 	if len(lines) != 32 {
 		t.Fatalf("redrawn line count = %d, want 32", len(lines))

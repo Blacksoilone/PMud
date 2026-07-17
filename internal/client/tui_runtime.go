@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"io"
 	"sync"
 
@@ -8,6 +9,8 @@ import (
 	"PMud/internal/client/tui"
 	"PMud/internal/protocol"
 )
+
+var ErrTUIExit = errors.New("tui exit requested")
 
 type TUIRuntimeConfig struct {
 	State        *State
@@ -75,6 +78,9 @@ func (r *TUIRuntime) ApplyInput(input tui.Input, server io.Writer) error {
 
 	var command tui.Command
 	r.model, command = tui.ApplyInput(r.model, input)
+	if command.ExitRequested {
+		return ErrTUIExit
+	}
 	if command.Submitted {
 		resolution := r.state.ResolveCommandInput(command.Line)
 		if !resolution.Send {
