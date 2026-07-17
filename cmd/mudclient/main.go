@@ -1,9 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"PMud/internal/client"
 	"PMud/internal/client/rawterm"
@@ -41,6 +44,7 @@ func main() {
 	}
 	state := client.NewState(catalog)
 	var runtime *client.TUIRuntime
+	var resizeDone chan struct{}
 	if config.tui {
 		controller := rawterm.RealController()
 		session, err := rawterm.Start(int(os.Stdin.Fd()), controller)
@@ -70,6 +74,26 @@ func main() {
 			Height:       height,
 			HistoryLimit: defaultTUIHistoryLimit,
 		})
+		resizeSignals := make(chan os.Signal, 1)
+		resizeDone = make(chan struct{})
+		signal.Notify(resizeSignals, syscall.SIGWINCH)
+		defer func() {
+			signal.Stop(resizeSignals)
+			close(resizeDone)
+		}()
+		go func() {
+			for {
+				select {
+				case <-resizeSignals:
+					width, height, sizeErr := controller.Size(int(os.Stdout.Fd()))
+					if sizeErr == nil {
+						_ = runtime.Resize(width, height)
+					}
+				case <-resizeDone:
+					return
+				}
+			}
+		}()
 	}
 
 	serverDone := make(chan error, 1)
@@ -104,6 +128,9 @@ func main() {
 			os.Exit(1)
 		}
 	case err := <-inputDone:
+		if errors.Is(err, client.ErrTUIExit) {
+			return
+		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
