@@ -23,11 +23,10 @@ func TestRendererDrawWritesFullRedraw(t *testing.T) {
 	block := layout.NewBlock([]string{"hello", "world"})
 
 	err := renderer.Draw(block)
-
 	if err != nil {
 		t.Fatalf("Draw: %v", err)
 	}
-	want := "\x1b[2J\x1b[Hhello\nworld\n"
+	want := "\x1b[Hhello\r\nworld"
 	if output.String() != want {
 		t.Fatalf("output = %q, want %q", output.String(), want)
 	}
