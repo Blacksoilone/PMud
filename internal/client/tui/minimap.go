@@ -63,11 +63,11 @@ func gridRow(left string, center string, right string) string {
 func middleRow(region MinimapRegion) string {
 	westGap := ""
 	if region.Neighbors[MapWest].Label != "" {
-		westGap = "--"
+		westGap = "──"
 	}
 	eastGap := ""
 	if region.Neighbors[MapEast].Label != "" {
-		eastGap = "--"
+		eastGap = "──"
 	}
 	return cell(region.Neighbors[MapWest].Label) + gap(westGap) + cell(region.Current.Label) + gap(eastGap) + cell(region.Neighbors[MapEast].Label)
 }
@@ -119,57 +119,44 @@ func gap(connector string) string {
 }
 
 type connectorSet struct {
-	left   string
-	middle string
-	right  string
+	left  string
+	right string
 }
 
 var (
-	upperConnectors = connectorSet{left: "\\", middle: "｜", right: "/"}
-	lowerConnectors = connectorSet{left: "/", middle: "｜", right: "\\"}
+	upperConnectors = connectorSet{left: "└──┐", right: "┌──┘"}
+	lowerConnectors = connectorSet{left: "┌──┘", right: "└──┐"}
 )
 
 func connectorRow(region MinimapRegion, connectors connectorSet) string {
-	left := ""
-	middle := ""
-	right := ""
+	left := false
+	right := false
 	if connectors == upperConnectors {
 		if region.Neighbors[MapNorthwest].Label != "" {
-			left = connectors.left
-		}
-		if region.Neighbors[MapNorth].Label != "" {
-			middle = connectors.middle
+			left = true
 		}
 		if region.Neighbors[MapNortheast].Label != "" {
-			right = connectors.right
+			right = true
 		}
 	} else {
 		if region.Neighbors[MapSouthwest].Label != "" {
-			left = connectors.left
-		}
-		if region.Neighbors[MapSouth].Label != "" {
-			middle = connectors.middle
+			left = true
 		}
 		if region.Neighbors[MapSoutheast].Label != "" {
-			right = connectors.right
+			right = true
 		}
 	}
-	return diagonalConnector(left, true) + strings.Repeat(" ", 3) + verticalConnector(middle) + strings.Repeat(" ", 3) + diagonalConnector(right, false)
-}
-
-func diagonalConnector(connector string, rightPad bool) string {
-	if connector == "" {
-		return strings.Repeat(" ", 10)
+	leftSegment := strings.Repeat(" ", 13)
+	if left {
+		leftSegment = strings.Repeat(" ", 7) + connectors.left + strings.Repeat(" ", 2)
 	}
-	if rightPad {
-		return strings.Repeat(" ", 9) + connector
+	middleSegment := strings.Repeat(" ", 2)
+	if (connectors == upperConnectors && region.Neighbors[MapNorth].Label != "") || (connectors == lowerConnectors && region.Neighbors[MapSouth].Label != "") {
+		middleSegment = "｜"
 	}
-	return connector + strings.Repeat(" ", 9)
-}
-
-func verticalConnector(connector string) string {
-	if connector == "" {
-		return "  "
+	rightSegment := strings.Repeat(" ", 13)
+	if right {
+		rightSegment = strings.Repeat(" ", 2) + connectors.right + strings.Repeat(" ", 7)
 	}
-	return connector
+	return leftSegment + middleSegment + rightSegment
 }

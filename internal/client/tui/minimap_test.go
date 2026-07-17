@@ -27,9 +27,9 @@ func TestRenderMinimapGrid_centersLabelsInFixedSlots(t *testing.T) {
 
 	want := []string{
 		"民兵营房  武器库房  精锐营房",
-		"         \\   ｜   /         ",
-		"   井   -- 练功场 -- 将军府 ",
-		"         /   ｜   \\         ",
+		"       └──┐  ｜  ┌──┘       ",
+		"   井   ── 练功场 ── 将军府 ",
+		"       ┌──┘  ｜  └──┐       ",
 		" 塔楼a      大门     塔楼b  ",
 	}
 	if len(lines) != len(want) {
@@ -63,7 +63,7 @@ func TestRenderMinimapGrid_omitsMissingNeighborsAndConnectors(t *testing.T) {
 
 	want := []string{
 		"           练习院    器械房 ",
-		"             ｜   /         ",
+		"             ｜  ┌──┘       ",
 		"            入口            ",
 		"                            ",
 		"                            ",
