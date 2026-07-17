@@ -10,11 +10,18 @@ func (w *World) Look(roomID RoomID) (RoomObservation, bool) {
 		return RoomObservation{}, false
 	}
 
-	exits := make([]string, 0, len(room.Exits))
-	for direction := range room.Exits {
-		exits = append(exits, direction)
+	exits := make([]string, 0)
+	neighbors := make(map[string]RoomID)
+	for _, itemID := range w.exitItemIDs(roomID) {
+		exit, ok := w.itemExit(itemID)
+		if ok && exit.Direction != "" {
+			exits = append(exits, exit.Direction)
+			if isPlanarDirection(exit.Direction) {
+				neighbors[exit.Direction] = exit.TargetRoomID
+			}
+		}
 	}
-	itemIDs := w.itemsInRoom(roomID)
+	itemIDs := w.ordinaryItemsInRoom(roomID)
 	items := w.itemNames(itemIDs)
 
 	return RoomObservation{
@@ -24,21 +31,32 @@ func (w *World) Look(roomID RoomID) (RoomObservation, bool) {
 		Name:           room.Name,
 		Description:    room.Description,
 		Exits:          exits,
+		Neighbors:      neighbors,
 		ItemIDs:        itemIDs,
 		Items:          items,
 	}, true
 }
 
+func isPlanarDirection(direction string) bool {
+	switch direction {
+	case "north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest":
+		return true
+	default:
+		return false
+	}
+}
+
 func (w *World) Move(roomID RoomID, direction string) (RoomID, bool) {
-	room, ok := w.rooms[roomID]
-	if !ok {
+	if _, ok := w.rooms[roomID]; !ok {
 		return roomID, false
 	}
-
-	nextRoomID, ok := room.Exits[direction]
-	if !ok {
-		return roomID, false
+	for _, itemID := range w.exitItemIDs(roomID) {
+		item := w.items[itemID]
+		exit, ok := w.itemExit(itemID)
+		if !ok || (exit.Direction != direction && !item.matchesPhrase(itemID, direction)) {
+			continue
+		}
+		return exit.TargetRoomID, true
 	}
-
-	return nextRoomID, true
+	return roomID, false
 }

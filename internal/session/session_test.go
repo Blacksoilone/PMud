@@ -119,6 +119,26 @@ func TestSessionActions_doNotReturnQuestProgressNotificationWhenQuestDoesNotAdva
 	}
 }
 
+func TestSessionActions_lookReturnsRoomObservationAndLogFeedback(t *testing.T) {
+	state := newTestSessionState()
+
+	events := state.handleLine("look")
+
+	if len(events) != 2 {
+		t.Fatalf("event count = %d, want 2", len(events))
+	}
+	if _, ok := events[0].(presentation.RoomObservationEvent); !ok {
+		t.Fatalf("first event type = %T, want presentation.RoomObservationEvent", events[0])
+	}
+	feedback, ok := events[1].(presentation.SystemMessageEvent)
+	if !ok {
+		t.Fatalf("second event type = %T, want presentation.SystemMessageEvent", events[1])
+	}
+	if feedback.MessageKey != "system.look.observed" {
+		t.Fatalf("feedback message key = %q, want system.look.observed", feedback.MessageKey)
+	}
+}
+
 func TestSessionHelp_returnsCommandSummary(t *testing.T) {
 	state := newTestSessionState()
 

@@ -15,12 +15,6 @@ func TestCompile_projectsServerSnapshot(t *testing.T) {
 	if compiled.Server.StartRoomID != "room.tutorial.start" {
 		t.Fatalf("expected start room %q, got %q", "room.tutorial.start", compiled.Server.StartRoomID)
 	}
-	if got := compiled.Server.Rooms["room.tutorial.start"].Exits["north"]; got != "room.tutorial.yard" {
-		t.Fatalf("expected north exit to yard, got %q", got)
-	}
-	if got := compiled.Server.Rooms["room.tutorial.yard"].Exits["south"]; got != "room.tutorial.start" {
-		t.Fatalf("expected south exit to start, got %q", got)
-	}
 	if _, ok := compiled.Server.Items["item.tutorial.old_lantern"]; !ok {
 		t.Fatal("expected old lantern in server items")
 	}
@@ -29,6 +23,52 @@ func TestCompile_projectsServerSnapshot(t *testing.T) {
 	}
 	if got := compiled.Server.ItemLocations["item.tutorial.practice_sword"]; got != "room.tutorial.yard" {
 		t.Fatalf("expected practice sword in yard, got %q", got)
+	}
+	north, ok := compiled.Server.Items["item.tutorial.north"]
+	if !ok {
+		t.Fatal("expected north exit item in server items")
+	}
+	if len(north.Tags) != 1 || north.Tags[0].Exit == nil {
+		t.Fatal("expected north item to compile as an exit")
+	}
+	exit := north.Tags[0].Exit
+	if exit.Direction != "north" || exit.TargetRoomID != "room.tutorial.yard" {
+		t.Fatalf("north exit = %#v", exit)
+	}
+}
+
+func TestCompile_rejectsExitNameWithoutTarget(t *testing.T) {
+	source := testContentSource()
+	source.Items = append(source.Items, ItemSource{
+		ID:             "item.tutorial.east",
+		InnerNameKey:   "item.tutorial.east.inner_name",
+		DisplayNameKey: "item.tutorial.east.name",
+		InitialRoom:    "room.tutorial.start",
+		Tags:           []SourceTag{{ID: TagExit}},
+	})
+	source.Text["item.tutorial.east.inner_name"] = "east"
+
+	if _, err := Compile(source); err == nil {
+		t.Fatal("expected missing exit target to fail compilation")
+	}
+}
+
+func TestCompile_rejectsDuplicateStandardDirectionInRoom(t *testing.T) {
+	source := testContentSource()
+	source.Items = append(source.Items, ItemSource{
+		ID:             "item.tutorial.second_north",
+		InnerNameKey:   "item.tutorial.second_north.inner_name",
+		DisplayNameKey: "item.tutorial.second_north.name",
+		InitialRoom:    "room.tutorial.start",
+		Tags: []SourceTag{{
+			ID:     TagExit,
+			Params: map[string]string{"target_room_id": "room.tutorial.yard"},
+		}},
+	})
+	source.Text["item.tutorial.second_north.inner_name"] = "north"
+
+	if _, err := Compile(source); err == nil {
+		t.Fatal("expected duplicate north exits to fail compilation")
 	}
 }
 
@@ -71,7 +111,14 @@ func TestCompile_projectsClientCatalog(t *testing.T) {
 func TestCompile_projectsClientItemAliases(t *testing.T) {
 	// Given
 	source := testContentSource()
-	source.Items[0].Aliases = []TextKey{
+	lanternIndex := 0
+	for index, item := range source.Items {
+		if item.ID == "item.tutorial.old_lantern" {
+			lanternIndex = index
+			break
+		}
+	}
+	source.Items[lanternIndex].Aliases = []TextKey{
 		"item.tutorial.old_lantern.alias.jiuyoudeng",
 		"item.tutorial.old_lantern.alias.old_lantern",
 	}
@@ -157,8 +204,8 @@ func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
 	if len(compiled.Server.Rooms) != 2 {
 		t.Fatalf("expected 2 rooms, got %d", len(compiled.Server.Rooms))
 	}
-	if len(compiled.Server.Items) != 2 {
-		t.Fatalf("expected 2 items, got %d", len(compiled.Server.Items))
+	if len(compiled.Server.Items) != 4 {
+		t.Fatalf("expected 4 items including exits, got %d", len(compiled.Server.Items))
 	}
 	if got := compiled.Server.ItemLocations["item.tutorial.old_lantern"]; got != "room.tutorial.start" {
 		t.Fatalf("expected old lantern in start room, got %q", got)
@@ -182,26 +229,43 @@ func testContentSource() ContentSource {
 				ID:             "room.tutorial.start",
 				NameKey:        "room.tutorial.start.name",
 				DescriptionKey: "room.tutorial.start.description",
-				Exits: map[Direction]RoomID{
-					"north": "room.tutorial.yard",
-				},
 			},
 			{
 				ID:             "room.tutorial.yard",
 				NameKey:        "room.tutorial.yard.name",
 				DescriptionKey: "room.tutorial.yard.description",
-				Exits: map[Direction]RoomID{
-					"south": "room.tutorial.start",
-				},
 			},
 		},
 		Items: []ItemSource{
+			{
+				ID:             "item.tutorial.north",
+				DisplayNameKey: "item.tutorial.north.name",
+				InnerNameKey:   "item.tutorial.north.inner_name",
+				DescriptionKey: "item.tutorial.north.description",
+				Tags: []SourceTag{{
+					ID:     TagExit,
+					Params: map[string]string{"target_room_id": "room.tutorial.yard"},
+				}},
+				InitialRoom: "room.tutorial.start",
+			},
+			{
+				ID:             "item.tutorial.south",
+				DisplayNameKey: "item.tutorial.south.name",
+				InnerNameKey:   "item.tutorial.south.inner_name",
+				DescriptionKey: "item.tutorial.south.description",
+				Tags: []SourceTag{{
+					ID:     TagExit,
+					Params: map[string]string{"target_room_id": "room.tutorial.start"},
+				}},
+				InitialRoom: "room.tutorial.yard",
+			},
 			{
 				ID:             "item.tutorial.old_lantern",
 				DisplayNameKey: "item.tutorial.old_lantern.name",
 				InnerNameKey:   "item.tutorial.old_lantern.inner_name",
 				DescriptionKey: "item.tutorial.old_lantern.description",
 				InitialRoom:    "room.tutorial.start",
+				Tags:           []SourceTag{{ID: TagCarryable}},
 			},
 			{
 				ID:             "item.tutorial.practice_sword",
@@ -209,6 +273,7 @@ func testContentSource() ContentSource {
 				InnerNameKey:   "item.tutorial.practice_sword.inner_name",
 				DescriptionKey: "item.tutorial.practice_sword.description",
 				InitialRoom:    "room.tutorial.yard",
+				Tags:           []SourceTag{{ID: TagCarryable}},
 			},
 		},
 		Quests: []QuestSource{
@@ -248,6 +313,12 @@ func testContentSource() ContentSource {
 			},
 		},
 		Text: map[TextKey]string{
+			"item.tutorial.north.name":                            "北方",
+			"item.tutorial.north.inner_name":                      "north",
+			"item.tutorial.north.description":                     "北方的道路。",
+			"item.tutorial.south.name":                            "南方",
+			"item.tutorial.south.inner_name":                      "south",
+			"item.tutorial.south.description":                     "南方的道路。",
 			"room.tutorial.start.name":                            "练习场入口",
 			"room.tutorial.start.description":                     "这里是练习场的入口。北边传来木剑碰撞的声音。",
 			"room.tutorial.yard.name":                             "练习场",

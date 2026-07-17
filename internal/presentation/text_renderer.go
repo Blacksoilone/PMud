@@ -25,12 +25,18 @@ func (TextRenderer) Render(event Event) string {
 		}
 		return line("system", fields...)
 	case RoomObservationEvent:
+		neighbors := make([]string, 0, len(e.Neighbors))
+		for direction, room := range e.Neighbors {
+			neighbors = append(neighbors, direction+"="+room)
+		}
+		slices.Sort(neighbors)
 		return line(
 			"room",
 			field("room", e.Room),
 			field("name_key", e.NameKey),
 			field("description_key", e.DescriptionKey),
 			field("exits", strings.Join(e.Exits, ",")),
+			optionalField("neighbors", strings.Join(neighbors, ",")),
 			field("items", strings.Join(e.Items, ",")),
 		)
 	case InventoryEvent:
@@ -60,12 +66,23 @@ func (TextRenderer) Render(event Event) string {
 func line(eventKind string, fields ...string) string {
 	parts := make([]string, 0, len(fields)+1)
 	parts = append(parts, field("event", eventKind))
-	parts = append(parts, fields...)
+	for _, value := range fields {
+		if value != "" {
+			parts = append(parts, value)
+		}
+	}
 	return strings.Join(parts, "\t") + "\n"
 }
 
 func field(name string, value string) string {
 	return name + "=" + escapeValue(value)
+}
+
+func optionalField(name string, value string) string {
+	if value == "" {
+		return ""
+	}
+	return field(name, value)
 }
 
 func escapeValue(value string) string {

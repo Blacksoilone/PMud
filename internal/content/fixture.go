@@ -8,20 +8,22 @@ func TutorialSource() ContentSource {
 				ID:             "room.tutorial.start",
 				NameKey:        "room.tutorial.start.name",
 				DescriptionKey: "room.tutorial.start.description",
-				Exits: map[Direction]RoomID{
-					"north": "room.tutorial.yard",
-				},
 			},
 			{
 				ID:             "room.tutorial.yard",
 				NameKey:        "room.tutorial.yard.name",
 				DescriptionKey: "room.tutorial.yard.description",
-				Exits: map[Direction]RoomID{
-					"south": "room.tutorial.start",
-				},
 			},
 		},
 		Items: []ItemSource{
+			{
+				ID: "item.tutorial.north", DisplayNameKey: "item.tutorial.north.name", InnerNameKey: "item.tutorial.north.inner_name", DescriptionKey: "item.tutorial.north.description", InitialRoom: "room.tutorial.start",
+				Tags: []SourceTag{{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.yard"}}},
+			},
+			{
+				ID: "item.tutorial.south", DisplayNameKey: "item.tutorial.south.name", InnerNameKey: "item.tutorial.south.inner_name", DescriptionKey: "item.tutorial.south.description", InitialRoom: "room.tutorial.yard",
+				Tags: []SourceTag{{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.start"}}},
+			},
 			{
 				ID:             "item.tutorial.old_lantern",
 				DisplayNameKey: "item.tutorial.old_lantern.name",
@@ -32,6 +34,7 @@ func TutorialSource() ContentSource {
 					"item.tutorial.old_lantern.alias.old_lantern",
 				},
 				InitialRoom: "room.tutorial.start",
+				Tags:        []SourceTag{{ID: TagCarryable}},
 			},
 			{
 				ID:             "item.tutorial.practice_sword",
@@ -40,6 +43,7 @@ func TutorialSource() ContentSource {
 				DescriptionKey: "item.tutorial.practice_sword.description",
 				Aliases:        []TextKey{"item.tutorial.practice_sword.alias.lianximujian"},
 				InitialRoom:    "room.tutorial.yard",
+				Tags:           []SourceTag{{ID: TagCarryable}},
 			},
 		},
 		Quests: []QuestSource{
@@ -79,6 +83,8 @@ func TutorialSource() ContentSource {
 			},
 		},
 		Text: map[TextKey]string{
+			"item.tutorial.north.name": "北方", "item.tutorial.north.inner_name": "north", "item.tutorial.north.description": "北方通向练习场。",
+			"item.tutorial.south.name": "南方", "item.tutorial.south.inner_name": "south", "item.tutorial.south.description": "南方通向练习场入口。",
 			"room.tutorial.start.name":                            "练习场入口",
 			"room.tutorial.start.description":                     "这里是练习场的入口。北边传来木剑碰撞的声音。",
 			"room.tutorial.yard.name":                             "练习场",
@@ -98,6 +104,7 @@ func TutorialSource() ContentSource {
 			"quest.tutorial.first_steps.stage.examine_sword.text": "查看练习木剑。",
 			"system.empty_input":                                  "你没有输入任何内容",
 			"system.help":                                         "可用命令: look/l, go <direction>, north/n, south/s, east/e, west/w, up/u, down/d, northeast/ne, northwest/nw, southeast/se, southwest/sw, get/take <item>, drop <item>, examine/x/inspect <item>, inventory/i, quest, help\n方向: north/n/北, south/s/南, east/e, west/w, up/u, down/d, northeast/ne, northwest/nw, southeast/se, southwest/sw",
+			"system.look.observed":                                "你重新观察了周围。",
 			"system.move.blocked":                                 "你不能往那个方向走。",
 			"system.item.not_here":                                "这里没有那个东西。",
 			"system.item.taken":                                   "你拿起了{item}。",

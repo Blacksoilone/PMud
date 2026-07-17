@@ -8,6 +8,12 @@ type (
 	QuestID            string
 	QuestStageID       string
 	QuestConditionKind string
+	TagID              string
+)
+
+const (
+	TagExit      TagID = "exit"
+	TagCarryable TagID = "carryable"
 )
 
 const (
@@ -29,7 +35,6 @@ type RoomSource struct {
 	ID             RoomID
 	NameKey        TextKey
 	DescriptionKey TextKey
-	Exits          map[Direction]RoomID
 }
 
 type ItemSource struct {
@@ -39,6 +44,12 @@ type ItemSource struct {
 	DescriptionKey TextKey
 	Aliases        []TextKey
 	InitialRoom    RoomID
+	Tags           []SourceTag
+}
+
+type SourceTag struct {
+	ID     TagID
+	Params map[string]string
 }
 
 type QuestSource struct {
@@ -75,7 +86,6 @@ type ServerSnapshot struct {
 }
 
 type ServerRoom struct {
-	Exits map[Direction]RoomID
 }
 
 type ServerItem struct {
@@ -83,6 +93,17 @@ type ServerItem struct {
 	InnerNameKey   TextKey
 	DescriptionKey TextKey
 	Aliases        []TextKey
+	Tags           []ServerTag
+}
+
+type ServerTag struct {
+	Exit      *ExitTag
+	Carryable bool
+}
+
+type ExitTag struct {
+	Direction    Direction
+	TargetRoomID RoomID
 }
 
 type ServerQuest struct {

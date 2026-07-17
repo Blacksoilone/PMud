@@ -47,6 +47,7 @@ func TestTextRenderer_RenderRoomObservationEvent_asStructuredLine(t *testing.T) 
 		Name:           "练习场入口",
 		Description:    "这里是练习场的入口。北边传来木剑碰撞的声音。",
 		Exits:          []string{"north"},
+		Neighbors:      map[string]string{"north": "room.tutorial.yard"},
 		Items:          []string{"item.tutorial.old_lantern"},
 	}
 
@@ -54,7 +55,7 @@ func TestTextRenderer_RenderRoomObservationEvent_asStructuredLine(t *testing.T) 
 	got := renderer.Render(event)
 
 	// Then
-	want := "event=room\troom=room.tutorial.start\tname_key=room.tutorial.start.name\tdescription_key=room.tutorial.start.description\texits=north\titems=item.tutorial.old_lantern\n"
+	want := "event=room\troom=room.tutorial.start\tname_key=room.tutorial.start.name\tdescription_key=room.tutorial.start.description\texits=north\tneighbors=north=room.tutorial.yard\titems=item.tutorial.old_lantern\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}

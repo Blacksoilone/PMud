@@ -21,6 +21,7 @@ type RoomObservationEvent struct {
 	Name           string
 	Description    string
 	Exits          []string
+	Neighbors      map[string]string
 	Items          []string
 }
 

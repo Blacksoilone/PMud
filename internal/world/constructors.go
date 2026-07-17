@@ -16,21 +16,31 @@ func New() *World {
 				DescriptionKey: "room.tutorial.start.description",
 				Name:           "练习场入口",
 				Description:    "这里是练习场的入口。北边传来木剑碰撞的声音。",
-				Exits: map[string]RoomID{
-					"north": "room.tutorial.yard",
-				},
 			},
 			"room.tutorial.yard": {
 				NameKey:        "room.tutorial.yard.name",
 				DescriptionKey: "room.tutorial.yard.description",
 				Name:           "练习场",
 				Description:    "几根木桩立在泥地上，地面满是被踩出的脚印。",
-				Exits: map[string]RoomID{
-					"south": "room.tutorial.start",
-				},
 			},
 		},
 		items: map[ItemID]Item{
+			"item.tutorial.north": {
+				NameKey:        "item.tutorial.north.name",
+				InnerName:      "north",
+				DescriptionKey: "item.tutorial.north.description",
+				Name:           "北方",
+				Description:    "北方通向练习场。",
+				Tags:           []Tag{{Exit: &Exit{Direction: "north", TargetRoomID: "room.tutorial.yard"}}},
+			},
+			"item.tutorial.south": {
+				NameKey:        "item.tutorial.south.name",
+				InnerName:      "south",
+				DescriptionKey: "item.tutorial.south.description",
+				Name:           "南方",
+				Description:    "南方通向练习场入口。",
+				Tags:           []Tag{{Exit: &Exit{Direction: "south", TargetRoomID: "room.tutorial.start"}}},
+			},
 			"item.tutorial.old_lantern": {
 				NameKey:        "item.tutorial.old_lantern.name",
 				InnerName:      "old lantern",
@@ -38,6 +48,7 @@ func New() *World {
 				Name:           "旧油灯",
 				Description:    "灯罩上蒙着一层灰，里面还剩一点灯油。",
 				Aliases:        []string{"jiuyoudeng", "old_lantern"},
+				Tags:           []Tag{{Carryable: true}},
 			},
 			"item.tutorial.practice_sword": {
 				NameKey:        "item.tutorial.practice_sword.name",
@@ -46,9 +57,12 @@ func New() *World {
 				Name:           "练习木剑",
 				Description:    "一把被许多人握过的木剑，剑柄已经磨得发亮。",
 				Aliases:        []string{"lianximujian"},
+				Tags:           []Tag{{Carryable: true}},
 			},
 		},
 		itemLocations: map[ItemID]ItemLocation{
+			"item.tutorial.north": RoomItemLocation{RoomID: "room.tutorial.start"},
+			"item.tutorial.south": RoomItemLocation{RoomID: "room.tutorial.yard"},
 			"item.tutorial.old_lantern": RoomItemLocation{
 				RoomID: "room.tutorial.start",
 			},
@@ -62,12 +76,7 @@ func New() *World {
 
 func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCatalog) *World {
 	rooms := make(map[RoomID]Room, len(snapshot.Rooms))
-	for roomID, room := range snapshot.Rooms {
-		exits := make(map[string]RoomID, len(room.Exits))
-		for direction, targetRoomID := range room.Exits {
-			exits[string(direction)] = RoomID(targetRoomID)
-		}
-
+	for roomID := range snapshot.Rooms {
 		nameKey := catalog.RoomNames[roomID]
 		descriptionKey := catalog.RoomDescriptions[roomID]
 		rooms[RoomID(roomID)] = Room{
@@ -75,7 +84,6 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 			DescriptionKey: string(descriptionKey),
 			Name:           catalog.Text[nameKey],
 			Description:    catalog.Text[descriptionKey],
-			Exits:          exits,
 		}
 	}
 
@@ -91,6 +99,7 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 			Name:           catalog.Text[nameKey],
 			Description:    catalog.Text[descriptionKey],
 			Aliases:        textKeysToStrings(catalog, serverItem.Aliases),
+			Tags:           worldTags(serverItem.Tags),
 		}
 	}
 
@@ -106,6 +115,24 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 		itemLocations:          itemLocations,
 		progressionDefinitions: progressionDefinitionsFromSnapshot(snapshot, catalog),
 	}
+}
+
+func worldTags(tags []content.ServerTag) []Tag {
+	result := make([]Tag, 0, len(tags))
+	for _, tag := range tags {
+		if tag.Carryable {
+			result = append(result, Tag{Carryable: true})
+			continue
+		}
+		if tag.Exit == nil {
+			continue
+		}
+		result = append(result, Tag{Exit: &Exit{
+			Direction:    string(tag.Exit.Direction),
+			TargetRoomID: RoomID(tag.Exit.TargetRoomID),
+		}})
+	}
+	return result
 }
 
 func (w *World) ProgressionDefinitions() progression.Definitions {

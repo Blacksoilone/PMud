@@ -48,6 +48,94 @@ func TestWorld_NewFromSnapshotPreservesTutorialBehavior(t *testing.T) {
 	}
 }
 
+func TestWorldMoveUsesExitItems(t *testing.T) {
+	// Given
+	game := New()
+	startRoom := game.StartRoom()
+	game.rooms[startRoom] = Room{
+		NameKey:        game.rooms[startRoom].NameKey,
+		DescriptionKey: game.rooms[startRoom].DescriptionKey,
+		Name:           game.rooms[startRoom].Name,
+		Description:    game.rooms[startRoom].Description,
+	}
+	game.items["item.tutorial.north"] = Item{
+		Name:      "北方",
+		InnerName: "north",
+		Tags: []Tag{{Exit: &Exit{
+			Direction:    "north",
+			TargetRoomID: "room.tutorial.yard",
+		}}},
+	}
+	game.itemLocations["item.tutorial.north"] = RoomItemLocation{RoomID: startRoom}
+
+	// When
+	nextRoom, moved := game.Move(startRoom, "north")
+
+	// Then
+	if !moved || nextRoom != "room.tutorial.yard" {
+		t.Fatalf("Move north = %q, %v; want yard, true", nextRoom, moved)
+	}
+}
+
+func TestWorldMoveUsesNamedExitWithoutDirection(t *testing.T) {
+	// Given
+	game := New()
+	startRoom := game.StartRoom()
+	game.rooms[startRoom] = Room{Name: game.rooms[startRoom].Name}
+	game.items["item.tutorial.portal"] = Item{
+		Name:      "传送门",
+		InnerName: "portal",
+		Tags: []Tag{{Exit: &Exit{
+			TargetRoomID: "room.tutorial.yard",
+		}}},
+	}
+	game.itemLocations["item.tutorial.portal"] = RoomItemLocation{RoomID: startRoom}
+
+	// When
+	nextRoom, moved := game.Move(startRoom, "传送门")
+
+	// Then
+	if !moved || nextRoom != "room.tutorial.yard" {
+		t.Fatalf("Move portal = %q, %v; want yard, true", nextRoom, moved)
+	}
+}
+
+func TestWorldLookSeparatesExitsFromOrdinaryItems(t *testing.T) {
+	// Given
+	game := New()
+	startRoom := game.StartRoom()
+	game.items["item.tutorial.north"] = Item{
+		Name:      "北方",
+		InnerName: "north",
+		Tags: []Tag{{Exit: &Exit{
+			Direction:    "north",
+			TargetRoomID: "room.tutorial.yard",
+		}}},
+	}
+	game.itemLocations["item.tutorial.north"] = RoomItemLocation{RoomID: startRoom}
+
+	// When
+	observation, ok := game.Look(startRoom)
+	_, gotExit := game.GetItem(startRoom, "item.tutorial.north", "player.local")
+
+	// Then
+	if !ok {
+		t.Fatal("expected room observation")
+	}
+	if !slices.Contains(observation.Exits, "north") {
+		t.Fatalf("exits = %v, want north", observation.Exits)
+	}
+	if got := observation.Neighbors["north"]; got != "room.tutorial.yard" {
+		t.Fatalf("north neighbor = %q, want room.tutorial.yard", got)
+	}
+	if slices.Contains(observation.Items, "北方") {
+		t.Fatalf("ordinary items include exit: %v", observation.Items)
+	}
+	if gotExit {
+		t.Fatal("expected exit item not to be gettable")
+	}
+}
+
 func TestWorld_ItemMovesBetweenRoomAndInventory(t *testing.T) {
 	// Given
 	game := New()
@@ -268,6 +356,7 @@ func TestWorldResolveRoomItemPhrase_reportsAmbiguityOnlyWithinRoom(t *testing.T)
 		InnerName:      "old lantern",
 		Description:    "另一盏旧油灯。",
 		Aliases:        []string{"jiuyoudeng"},
+		Tags:           []Tag{{Carryable: true}},
 	}
 	game.itemLocations["item.tutorial.second_lantern"] = RoomItemLocation{RoomID: game.StartRoom()}
 	game.items["item.tutorial.distant_lantern"] = Item{
@@ -277,6 +366,7 @@ func TestWorldResolveRoomItemPhrase_reportsAmbiguityOnlyWithinRoom(t *testing.T)
 		InnerName:      "old lantern",
 		Description:    "远处的旧油灯。",
 		Aliases:        []string{"jiuyoudeng"},
+		Tags:           []Tag{{Carryable: true}},
 	}
 	game.itemLocations["item.tutorial.distant_lantern"] = RoomItemLocation{RoomID: "room.tutorial.yard"}
 
@@ -294,5 +384,55 @@ func TestWorldResolveRoomItemPhrase_reportsAmbiguityOnlyWithinRoom(t *testing.T)
 	}
 	if !yardResolution.Found || yardResolution.ItemID != "item.tutorial.distant_lantern" {
 		t.Fatalf("yard resolution = %#v, want distant lantern only", yardResolution)
+	}
+}
+
+func TestWorldGetItemAllowsCarryableExit(t *testing.T) {
+	// Given
+	game := New()
+	startRoom := game.StartRoom()
+	game.items["item.tutorial.portal"] = Item{
+		Name:      "传送门",
+		InnerName: "portal",
+		Tags: []Tag{
+			{Exit: &Exit{TargetRoomID: "room.tutorial.yard"}},
+			{Carryable: true},
+		},
+	}
+	game.itemLocations["item.tutorial.portal"] = RoomItemLocation{RoomID: startRoom}
+
+	// When
+	itemID, got := game.GetItem(startRoom, "item.tutorial.portal", "player.local")
+
+	// Then
+	if !got || itemID != "item.tutorial.portal" {
+		t.Fatalf("GetItem carryable exit = %q, %v", itemID, got)
+	}
+}
+
+func TestWorldDropInventoryItemRejectsDuplicateExitDirection(t *testing.T) {
+	// Given
+	game := New()
+	playerID := PlayerID("player.local")
+	startRoom := game.StartRoom()
+	game.items["item.tutorial.moving_north"] = Item{
+		Name:      "另一个北方",
+		InnerName: "north",
+		Tags: []Tag{
+			{Exit: &Exit{Direction: "north", TargetRoomID: "room.tutorial.yard"}},
+			{Carryable: true},
+		},
+	}
+	game.itemLocations["item.tutorial.moving_north"] = InventoryItemLocation{PlayerID: playerID}
+
+	// When
+	itemID, dropped := game.DropInventoryItem(startRoom, "item.tutorial.moving_north", playerID)
+
+	// Then
+	if dropped || itemID != "" {
+		t.Fatalf("DropInventoryItem duplicate north = %q, %v; want empty, false", itemID, dropped)
+	}
+	if !slices.Contains(game.Inventory(playerID), "另一个北方") {
+		t.Fatal("rejected exit drop removed item from inventory")
 	}
 }

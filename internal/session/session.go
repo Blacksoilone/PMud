@@ -59,7 +59,10 @@ func (s *sessionState) handleLine(line string) []presentation.Event {
 	parsed := command.ParseServerInput(line)
 	switch command := parsed.(type) {
 	case command.LookCommand:
-		return singleEvent(roomObservationEvent(s.game, s.currentRoom))
+		return []presentation.Event{
+			roomObservationEvent(s.game, s.currentRoom),
+			presentation.SystemMessageEvent{MessageKey: "system.look.observed"},
+		}
 	case command.HelpCommand:
 		return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.help"})
 	case command.QuestCommand:
@@ -252,8 +255,17 @@ func roomObservationEvent(game *world.World, roomID world.RoomID) presentation.E
 		Name:           observation.Name,
 		Description:    observation.Description,
 		Exits:          observation.Exits,
+		Neighbors:      roomNeighborStrings(observation.Neighbors),
 		Items:          itemIDStrings(observation.ItemIDs),
 	}
+}
+
+func roomNeighborStrings(neighbors map[string]world.RoomID) map[string]string {
+	result := make(map[string]string, len(neighbors))
+	for direction, roomID := range neighbors {
+		result[direction] = string(roomID)
+	}
+	return result
 }
 
 func itemIDStrings(itemIDs []world.ItemID) []string {

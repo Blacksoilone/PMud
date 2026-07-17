@@ -9,6 +9,7 @@ type RoomObservation struct {
 	Name           string
 	Description    string
 	Exits          []string
+	Neighbors      map[string]RoomID
 	ItemIDs        []ItemID
 	Items          []string
 }
@@ -32,7 +33,6 @@ type Room struct {
 	DescriptionKey string
 	Name           string
 	Description    string
-	Exits          map[string]RoomID
 }
 
 type Item struct {
@@ -42,6 +42,17 @@ type Item struct {
 	Name           string
 	Description    string
 	Aliases        []string
+	Tags           []Tag
+}
+
+type Tag struct {
+	Exit      *Exit
+	Carryable bool
+}
+
+type Exit struct {
+	Direction    string
+	TargetRoomID RoomID
 }
 
 type ItemResolution struct {

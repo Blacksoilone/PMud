@@ -6,7 +6,7 @@ import (
 )
 
 func (w *World) GetItem(roomID RoomID, targetItemID ItemID, playerID PlayerID) (ItemID, bool) {
-	for _, itemID := range w.itemsInRoom(roomID) {
+	for _, itemID := range w.carryableItemsInRoom(roomID) {
 		if itemID != targetItemID {
 			continue
 		}
@@ -18,8 +18,20 @@ func (w *World) GetItem(roomID RoomID, targetItemID ItemID, playerID PlayerID) (
 	return "", false
 }
 
-func (w *World) DropItem(roomID RoomID, itemID ItemID) {
+func (w *World) DropItem(roomID RoomID, itemID ItemID) bool {
+	if exit, ok := w.itemExit(itemID); ok && exit.Direction != "" {
+		for _, existingID := range w.exitItemIDs(roomID) {
+			if existingID == itemID {
+				continue
+			}
+			existing, exists := w.itemExit(existingID)
+			if exists && existing.Direction == exit.Direction {
+				return false
+			}
+		}
+	}
 	w.itemLocations[itemID] = RoomItemLocation{RoomID: roomID}
+	return true
 }
 
 func (w *World) DropInventoryItem(roomID RoomID, targetItemID ItemID, playerID PlayerID) (ItemID, bool) {
@@ -28,8 +40,10 @@ func (w *World) DropInventoryItem(roomID RoomID, targetItemID ItemID, playerID P
 			continue
 		}
 
-		w.DropItem(roomID, itemID)
-		return itemID, true
+		if w.DropItem(roomID, itemID) {
+			return itemID, true
+		}
+		return "", false
 	}
 
 	return "", false
@@ -56,7 +70,7 @@ func (w *World) ExamineItem(roomID RoomID, targetItemID ItemID, playerID PlayerI
 }
 
 func (w *World) ResolveRoomItemPhrase(roomID RoomID, phrase string) ItemResolution {
-	return w.resolveItemPhrase(w.itemsInRoom(roomID), phrase)
+	return w.resolveItemPhrase(w.carryableItemsInRoom(roomID), phrase)
 }
 
 func (w *World) ResolveInventoryItemPhrase(playerID PlayerID, phrase string) ItemResolution {
@@ -182,4 +196,60 @@ func (w *World) visibleItemIDs(roomID RoomID, playerID PlayerID) []ItemID {
 	itemIDs := w.itemsInRoom(roomID)
 	itemIDs = append(itemIDs, w.itemsInInventory(playerID)...)
 	return itemIDs
+}
+
+func (w *World) ordinaryItemsInRoom(roomID RoomID) []ItemID {
+	itemIDs := make([]ItemID, 0)
+	for _, itemID := range w.itemsInRoom(roomID) {
+		if _, isExit := w.itemExit(itemID); !isExit {
+			itemIDs = append(itemIDs, itemID)
+		}
+	}
+	return itemIDs
+}
+
+func (w *World) carryableItemsInRoom(roomID RoomID) []ItemID {
+	itemIDs := make([]ItemID, 0)
+	for _, itemID := range w.itemsInRoom(roomID) {
+		if w.itemIsCarryable(itemID) {
+			itemIDs = append(itemIDs, itemID)
+		}
+	}
+	return itemIDs
+}
+
+func (w *World) exitItemIDs(roomID RoomID) []ItemID {
+	itemIDs := make([]ItemID, 0)
+	for _, itemID := range w.itemsInRoom(roomID) {
+		if _, isExit := w.itemExit(itemID); isExit {
+			itemIDs = append(itemIDs, itemID)
+		}
+	}
+	return itemIDs
+}
+
+func (w *World) itemExit(itemID ItemID) (Exit, bool) {
+	item, ok := w.items[itemID]
+	if !ok {
+		return Exit{}, false
+	}
+	for _, tag := range item.Tags {
+		if tag.Exit != nil {
+			return *tag.Exit, true
+		}
+	}
+	return Exit{}, false
+}
+
+func (w *World) itemIsCarryable(itemID ItemID) bool {
+	item, ok := w.items[itemID]
+	if !ok {
+		return false
+	}
+	for _, tag := range item.Tags {
+		if tag.Carryable {
+			return true
+		}
+	}
+	return false
 }

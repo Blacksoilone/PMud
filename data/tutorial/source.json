@@ -4,26 +4,37 @@
     {
       "ID": "room.tutorial.start",
       "NameKey": "room.tutorial.start.name",
-      "DescriptionKey": "room.tutorial.start.description",
-      "Exits": {
-        "north": "room.tutorial.yard"
-      }
+      "DescriptionKey": "room.tutorial.start.description"
     },
     {
       "ID": "room.tutorial.yard",
       "NameKey": "room.tutorial.yard.name",
-      "DescriptionKey": "room.tutorial.yard.description",
-      "Exits": {
-        "south": "room.tutorial.start"
-      }
+      "DescriptionKey": "room.tutorial.yard.description"
     }
   ],
   "Items": [
+    {
+      "ID": "item.tutorial.north",
+      "DisplayNameKey": "item.tutorial.north.name",
+      "InnerNameKey": "item.tutorial.north.inner_name",
+      "DescriptionKey": "item.tutorial.north.description",
+      "InitialRoom": "room.tutorial.start",
+      "Tags": [{"ID": "exit", "Params": {"target_room_id": "room.tutorial.yard"}}]
+    },
+    {
+      "ID": "item.tutorial.south",
+      "DisplayNameKey": "item.tutorial.south.name",
+      "InnerNameKey": "item.tutorial.south.inner_name",
+      "DescriptionKey": "item.tutorial.south.description",
+      "InitialRoom": "room.tutorial.yard",
+      "Tags": [{"ID": "exit", "Params": {"target_room_id": "room.tutorial.start"}}]
+    },
     {
       "ID": "item.tutorial.old_lantern",
       "DisplayNameKey": "item.tutorial.old_lantern.name",
       "InnerNameKey": "item.tutorial.old_lantern.inner_name",
       "DescriptionKey": "item.tutorial.old_lantern.description",
+      "Tags": [{"ID": "carryable"}],
       "Aliases": [
         "item.tutorial.old_lantern.alias.jiuyoudeng",
         "item.tutorial.old_lantern.alias.old_lantern"
@@ -35,6 +46,7 @@
       "DisplayNameKey": "item.tutorial.practice_sword.name",
       "InnerNameKey": "item.tutorial.practice_sword.inner_name",
       "DescriptionKey": "item.tutorial.practice_sword.description",
+      "Tags": [{"ID": "carryable"}],
       "Aliases": [
         "item.tutorial.practice_sword.alias.lianximujian"
       ],
@@ -91,6 +103,12 @@
     "room.tutorial.start.description": "这里是练习场的入口。北边传来木剑碰撞的声音。",
     "room.tutorial.yard.name": "练习场",
     "room.tutorial.yard.description": "几根木桩立在泥地上，地面满是被踩出的脚印。",
+    "item.tutorial.north.name": "北方",
+    "item.tutorial.north.inner_name": "north",
+    "item.tutorial.north.description": "北方通向练习场。",
+    "item.tutorial.south.name": "南方",
+    "item.tutorial.south.inner_name": "south",
+    "item.tutorial.south.description": "南方通向练习场入口。",
     "item.tutorial.old_lantern.name": "旧油灯",
     "item.tutorial.old_lantern.inner_name": "old lantern",
     "item.tutorial.old_lantern.description": "灯罩上蒙着一层灰，里面还剩一点灯油。",
@@ -106,6 +124,7 @@
     "quest.tutorial.first_steps.stage.examine_sword.text": "查看练习木剑。",
     "system.empty_input": "你没有输入任何内容",
     "system.help": "可用命令: look/l, go <direction>, north/n, south/s, east/e, west/w, up/u, down/d, northeast/ne, northwest/nw, southeast/se, southwest/sw, get/take <item>, drop <item>, examine/x/inspect <item>, inventory/i, quest, help\n方向: north/n/北, south/s/南, east/e, west/w, up/u, down/d, northeast/ne, northwest/nw, southeast/se, southwest/sw",
+    "system.look.observed": "你重新观察了周围。",
     "system.move.blocked": "你不能往那个方向走。",
     "system.item.not_here": "这里没有那个东西。",
     "system.item.taken": "你拿起了{item}。",

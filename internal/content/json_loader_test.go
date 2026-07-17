@@ -14,15 +14,15 @@ func TestLoadSourceLoadsValidJSON(t *testing.T) {
 			{
 				"ID": "room.test.start",
 				"NameKey": "room.test.start.name",
-				"DescriptionKey": "room.test.start.description",
-				"Exits": {"north": "room.test.yard"}
+					"DescriptionKey": "room.test.start.description"
 			}
 		],
 		"Items": [
 			{
 				"ID": "item.test.lantern",
-				"NameKey": "item.test.lantern.name",
-				"InitialRoom": "room.test.start"
+					"DisplayNameKey": "item.test.lantern.name",
+					"InitialRoom": "room.test.start",
+					"Tags": [{"ID": "carryable"}]
 			}
 		],
 		"Text": {
@@ -40,11 +40,11 @@ func TestLoadSourceLoadsValidJSON(t *testing.T) {
 	if source.StartRoomID != "room.test.start" {
 		t.Fatalf("StartRoomID = %q, want room.test.start", source.StartRoomID)
 	}
-	if len(source.Rooms) != 1 || source.Rooms[0].Exits["north"] != "room.test.yard" {
-		t.Fatalf("Rooms = %#v, want start room with north exit", source.Rooms)
+	if len(source.Rooms) != 1 || len(source.Items) != 1 {
+		t.Fatalf("source = %#v, want one room and one item", source)
 	}
-	if len(source.Items) != 1 || source.Items[0].InitialRoom != "room.test.start" {
-		t.Fatalf("Items = %#v, want lantern in start room", source.Items)
+	if source.Items[0].InitialRoom != "room.test.start" || source.Items[0].Tags[0].ID != TagCarryable {
+		t.Fatalf("Items = %#v, want carryable lantern in start room", source.Items)
 	}
 	compiled, err := Compile(source)
 	if err != nil {
