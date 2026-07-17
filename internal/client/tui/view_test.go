@@ -39,6 +39,29 @@ func TestMinimapNeighborsUsesPlanarRoomProjection(t *testing.T) {
 	}
 }
 
+func TestTutorialMinimapShowsTriangleAsCurrentRoomToOneHopNeighborsOnly(t *testing.T) {
+	compiled, err := content.Compile(content.TutorialSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := NewModel(3)
+	model.Regions.Room.Room = "room.tutorial.start"
+	model.Regions.Room.Neighbors = "north=room.tutorial.yard,northeast=room.tutorial.shed"
+
+	lines := renderMinimapGrid(MinimapRegion{
+		Current:   MinimapRoom{Label: minimapLabel(model, compiled.Client)},
+		Neighbors: minimapNeighbors(model, compiled.Client),
+	})
+
+	top := termwidth.StripANSI(lines[0])
+	if !strings.Contains(top, "练习场") || !strings.Contains(top, "器械棚") {
+		t.Fatalf("top row does not contain both one-hop neighbors: %q", top)
+	}
+	if strings.Contains(top, "--") {
+		t.Fatalf("minimap connected neighboring rooms to each other: %q", top)
+	}
+}
+
 func TestViewIncludesMultipleEventsInOrder(t *testing.T) {
 	catalog := testClientCatalog(t)
 	model := NewModel(3)
