@@ -109,13 +109,29 @@ func TestSessionActions_returnQuestCompletedNotificationAfterFinalStage(t *testi
 func TestSessionActions_doNotReturnQuestProgressNotificationWhenQuestDoesNotAdvance(t *testing.T) {
 	state := newTestSessionState()
 
-	events := state.handleLine("go north")
+	state.handleLine("get 旧油灯") // get_lantern -> enter_yard
+	state.handleLine("go north")  // enter_yard -> examine_sword, now in yard
 
+	events := state.handleLine("go east")
 	if len(events) != 1 {
 		t.Fatalf("event count = %d, want 1", len(events))
 	}
 	if _, ok := events[0].(presentation.RoomObservationEvent); !ok {
 		t.Fatalf("event type = %T, want presentation.RoomObservationEvent", events[0])
+	}
+}
+
+func TestSessionLockedDoor_returnsSystemMoveLocked(t *testing.T) {
+	state := newTestSessionState()
+
+	event := requireSingleSessionEvent(t, state.handleLine("go north"))
+
+	msg, ok := event.(presentation.SystemMessageEvent)
+	if !ok {
+		t.Fatalf("expected system message, got %T", event)
+	}
+	if msg.MessageKey != "system.move.locked" {
+		t.Fatalf("message key = %q, want system.move.locked", msg.MessageKey)
 	}
 }
 
@@ -192,20 +208,24 @@ func TestSessionDirectionAliases_moveBetweenRooms(t *testing.T) {
 		name     string
 		command  string
 		fromRoom world.RoomID
+		setup    []string // commands to run before checking fromRoom
 		wantRoom string
 	}{
-		{name: "go n moves north", command: "go n", fromRoom: "room.tutorial.start", wantRoom: "练习场"},
-		{name: "go 北 moves north", command: "go 北", fromRoom: "room.tutorial.start", wantRoom: "练习场"},
-		{name: "go s moves south", command: "go s", fromRoom: "room.tutorial.yard", wantRoom: "练习场入口"},
-		{name: "go 南 moves south", command: "go 南", fromRoom: "room.tutorial.yard", wantRoom: "练习场入口"},
+		{name: "go n moves north", command: "go n", setup: []string{"get 旧油灯"}, fromRoom: "room.tutorial.start", wantRoom: "练习场"},
+		{name: "go 北 moves north", command: "go 北", setup: []string{"get 旧油灯"}, fromRoom: "room.tutorial.start", wantRoom: "练习场"},
+		{name: "go s moves south", command: "go s", setup: []string{"get 旧油灯", "go north"}, fromRoom: "room.tutorial.yard", wantRoom: "练习场入口"},
+		{name: "go 南 moves south", command: "go 南", setup: []string{"get 旧油灯", "go north"}, fromRoom: "room.tutorial.yard", wantRoom: "练习场入口"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := newTestSessionState()
+			for _, cmd := range tt.setup {
+				state.handleLine(cmd)
+			}
 			state.currentRoom = tt.fromRoom
 
-			event := requireSingleSessionEvent(t, state.handleLine(tt.command))
+			event := requireFirstSessionEvent(t, state.handleLine(tt.command))
 
 			observation, ok := event.(presentation.RoomObservationEvent)
 			if !ok {
@@ -343,9 +363,10 @@ func TestSessionExamine_resolvesAliasPhrase(t *testing.T) {
 
 func TestSessionLook_resolvesItemPhrase(t *testing.T) {
 	state := newTestSessionState()
+	state.handleLine("get 旧油灯")
 	state.handleLine("go north")
 
-	event := requireSingleSessionEvent(t, state.handleLine("look practice-sword"))
+	event := requireFirstSessionEvent(t, state.handleLine("look practice-sword"))
 
 	observation, ok := event.(presentation.ItemObservationEvent)
 	if !ok {
@@ -358,9 +379,10 @@ func TestSessionLook_resolvesItemPhrase(t *testing.T) {
 
 func TestSessionExamine_resolvesPracticeSwordPinyinAlias(t *testing.T) {
 	state := newTestSessionState()
+	state.handleLine("get 旧油灯")
 	state.handleLine("go north")
 
-	event := requireSingleSessionEvent(t, state.handleLine("examine lianximujian"))
+	event := requireFirstSessionEvent(t, state.handleLine("examine lianximujian"))
 
 	observation, ok := event.(presentation.ItemObservationEvent)
 	if !ok {
@@ -389,8 +411,9 @@ func TestHandleConn_writesInitialRoomObservation(t *testing.T) {
 	serverConn, clientConn := net.Pipe()
 	defer clientConn.Close()
 	done := make(chan error, 1)
+	loop := newTestLoop()
 	go func() {
-		done <- handleConn(serverConn, world.New())
+		done <- handleConn(serverConn, loop)
 	}()
 
 	if err := clientConn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
@@ -414,7 +437,7 @@ func TestHandleConn_writesInitialRoomObservation(t *testing.T) {
 	if !strings.Contains(output, "\tdescription_key=room.tutorial.start.description\t") {
 		t.Fatalf("expected initial output to include start room description key field, got %q", output)
 	}
-	if !strings.Contains(output, "\texits=north\t") {
+	if !strings.Contains(output, "\texits=north") {
 		t.Fatalf("expected initial output to include exits field, got %q", output)
 	}
 	if !strings.Contains(output, "\titems=item.tutorial.old_lantern\n") {
@@ -433,8 +456,9 @@ func TestHandleConn_acceptsExistingCommandsAndWritesStructuredResponses(t *testi
 	serverConn, clientConn := net.Pipe()
 	defer clientConn.Close()
 	done := make(chan error, 1)
+	loop := newTestLoop()
 	go func() {
-		done <- handleConn(serverConn, world.New())
+		done <- handleConn(serverConn, loop)
 	}()
 
 	if err := clientConn.SetDeadline(time.Now().Add(time.Second)); err != nil {
@@ -465,10 +489,25 @@ func TestHandleConn_acceptsExistingCommandsAndWritesStructuredResponses(t *testi
 	}
 }
 
+func newTestLoop() *world.Loop {
+	game := world.New()
+	loop := world.NewLoop(game)
+	loop.Start()
+	return loop
+}
+
 func newTestSessionState() sessionState {
 	game := world.New()
+	loop := world.NewLoop(game)
+	loop.Start()
+	loop.EnterWorld("player.local")
+
+	outgoing := make(chan []presentation.Event, 8)
+	loop.Register("player.local", outgoing)
+
 	return sessionState{
-		game:        game,
+		loop:        loop,
+		incoming:    outgoing,
 		currentRoom: game.StartRoom(),
 		playerID:    "player.local",
 	}

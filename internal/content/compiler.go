@@ -103,6 +103,28 @@ func compileTags(item ItemSource, rooms []RoomSource, text map[TextKey]string) (
 			}
 			result = append(result, ServerTag{Carryable: true})
 			continue
+		case TagLightable:
+			if len(tag.Params) != 0 {
+				return nil, fmt.Errorf("item %q: lightable tag accepts no parameters", item.ID)
+			}
+			result = append(result, ServerTag{Lightable: true})
+			continue
+		case TagContainer:
+			capacity := 1
+			if capStr, ok := tag.Params["capacity"]; ok {
+				if _, err := fmt.Sscanf(capStr, "%d", &capacity); err != nil {
+					return nil, fmt.Errorf("item %q: container tag capacity must be an integer, got %q", item.ID, capStr)
+				}
+			}
+			result = append(result, ServerTag{Container: &ContainerTag{Capacity: capacity}})
+			continue
+		case TagLockable:
+			keyID, ok := tag.Params["key_item_id"]
+			if !ok || keyID == "" {
+				return nil, fmt.Errorf("item %q: lockable tag requires key_item_id", item.ID)
+			}
+			result = append(result, ServerTag{Lockable: &LockableTag{KeyItemID: ItemID(keyID)}})
+			continue
 		case TagExit:
 		default:
 			return nil, fmt.Errorf("item %q: unknown tag %q", item.ID, tag.ID)

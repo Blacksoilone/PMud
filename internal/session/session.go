@@ -2,52 +2,94 @@ package session
 
 import (
 	"bufio"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"strings"
+	"sync/atomic"
 
 	"PMud/internal/command"
 	"PMud/internal/presentation"
-	"PMud/internal/progression"
 	"PMud/internal/world"
 )
 
-func handleConn(conn net.Conn, game *world.World) error {
-	defer conn.Close()
-	renderer := presentation.TextRenderer{} // 复用renderer
-	state := sessionState{
-		game:        game,
-		currentRoom: game.StartRoom(),
-		playerID:    "player.local",
-	}
-	initialResponse := renderer.Render(roomObservationEvent(state.game, state.currentRoom))
-	_, err := io.WriteString(conn, initialResponse)
-	if err != nil {
-		return err
-	}
+var playerIDCounter atomic.Uint64
 
-	scanner := bufio.NewScanner(conn)
-	for scanner.Scan() {
-		events := state.handleLine(scanner.Text())
-		for _, event := range events {
-			response := renderer.Render(event)
-			_, err := io.WriteString(conn, response)
-			if err != nil {
+func handleConn(conn net.Conn, loop *world.Loop) error {
+	defer conn.Close()
+
+	playerID := world.PlayerID(fmt.Sprintf("player.%d", playerIDCounter.Add(1)))
+	_, ok := loop.EnterWorld(playerID)
+	if !ok {
+		return errors.New("failed to create player in world")
+	}
+	defer loop.LeaveWorld(playerID)
+
+	outgoing := make(chan []presentation.Event, 8)
+	loop.Register(playerID, outgoing)
+	defer loop.Unregister(playerID)
+
+	renderer := presentation.TextRenderer{}
+
+	resp := make(chan world.ActionResult, 1)
+	loop.Submit(world.Action{
+		PlayerID: playerID,
+		Verb:     "look",
+		Resp:     resp,
+	})
+	initResult := <-resp
+	state := sessionState{
+		loop:        loop,
+		incoming:    outgoing,
+		currentRoom: initResult.NewRoom,
+		playerID:    playerID,
+	}
+	writeEvents(conn, &renderer, initResult.Events)
+
+	type lineOrDone struct {
+		line string
+	}
+	lines := make(chan lineOrDone, 8)
+	scannerDone := make(chan error, 1)
+	go func() {
+		scanner := bufio.NewScanner(conn)
+		for scanner.Scan() {
+			lines <- lineOrDone{line: scanner.Text()}
+		}
+		scannerDone <- scanner.Err()
+	}()
+
+	for {
+		select {
+		case ld := <-lines:
+			if err := writeEvents(conn, &renderer, state.handleLine(ld.line)); err != nil {
+				return err
+			}
+		case err := <-scannerDone:
+			return err
+		case broadcast := <-state.incoming:
+			if err := writeEvents(conn, &renderer, broadcast); err != nil {
 				return err
 			}
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return err
+}
+
+func writeEvents(conn net.Conn, renderer *presentation.TextRenderer, events []presentation.Event) error {
+	var buf strings.Builder
+	for _, event := range events {
+		buf.WriteString(renderer.Render(event))
 	}
-	return nil
+	_, err := io.WriteString(conn, buf.String())
+	return err
 }
 
 type sessionState struct {
-	game        *world.World
+	loop        *world.Loop
+	incoming    chan []presentation.Event
 	currentRoom world.RoomID
 	playerID    world.PlayerID
-	progression *progression.Engine
 }
 
 func (s *sessionState) handleLine(line string) []presentation.Event {
@@ -57,114 +99,56 @@ func (s *sessionState) handleLine(line string) []presentation.Event {
 	}
 
 	parsed := command.ParseServerInput(line)
-	switch command := parsed.(type) {
+	switch cmd := parsed.(type) {
 	case command.LookCommand:
-		return []presentation.Event{
-			roomObservationEvent(s.game, s.currentRoom),
-			presentation.SystemMessageEvent{MessageKey: "system.look.observed"},
-		}
+		return s.submitAction("look", "")
 	case command.HelpCommand:
 		return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.help"})
 	case command.QuestCommand:
-		return singleEvent(s.questStatusEvent())
+		return s.submitAction("quest", "")
 	case command.MoveCommand:
-		nextRoom, ok := s.game.Move(s.currentRoom, command.Direction)
-		if !ok {
-			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.move.blocked"})
-		}
-		s.currentRoom = nextRoom
-		events := singleEvent(roomObservationEvent(s.game, s.currentRoom))
-		events = append(events, s.applyProgression(progression.Trigger{Kind: progression.TriggerMovedRoom, RoomID: string(nextRoom)})...)
-		return events
+		dir := normalizeDirection(cmd.Direction)
+		return s.submitAction("move", dir)
 	case command.InventoryCommand:
-		return singleEvent(presentation.InventoryEvent{Items: itemIDStrings(s.game.InventoryItemIDs(s.playerID))})
+		return s.submitAction("inventory", "")
 	case command.ItemCommand:
-		return s.handleItemCommand(command)
+		return s.handleItemCommand(cmd)
 	case command.UnknownCommand:
 		return singleEvent(presentation.SystemMessageEvent{
 			MessageKey: "system.unknown_command",
-			Fields: map[string]string{
-				"input": command.Input,
-			},
+			Fields:     map[string]string{"input": cmd.Input},
 		})
 	default:
 		return singleEvent(presentation.SystemMessageEvent{
 			MessageKey: "system.unknown_command",
-			Fields: map[string]string{
-				"input": line,
-			},
+			Fields:     map[string]string{"input": line},
 		})
 	}
+}
+
+func (s *sessionState) submitAction(verb, target string) []presentation.Event {
+	resp := make(chan world.ActionResult, 1)
+	s.loop.Submit(world.Action{
+		PlayerID: s.playerID,
+		Verb:     verb,
+		Target:   target,
+		Resp:     resp,
+	})
+	result := <-resp
+	s.currentRoom = result.NewRoom
+	return result.Events
 }
 
 func (s *sessionState) handleItemCommand(itemCommand command.ItemCommand) []presentation.Event {
 	switch itemCommand.Verb {
 	case command.ItemVerbGet:
-		resolution := s.game.ResolveRoomItemPhrase(s.currentRoom, itemCommand.Target)
-		if len(resolution.AmbiguousItemIDs) > 0 {
-			return singleEvent(ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs))
-		}
-		if !resolution.Found {
-			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
-		}
-		itemID, ok := s.game.GetItem(s.currentRoom, resolution.ItemID, s.playerID)
-		if !ok {
-			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
-		}
-		events := singleEvent(presentation.SystemMessageEvent{
-			MessageKey: "system.item.taken",
-			Fields: map[string]string{
-				"item": string(itemID),
-			},
-		})
-		events = append(events, s.applyProgression(progression.Trigger{Kind: progression.TriggerGotItem, ItemID: string(itemID)})...)
-		return events
+		return s.submitAction("get", itemCommand.Target)
 	case command.ItemVerbDrop:
-		resolution := s.game.ResolveInventoryItemPhrase(s.playerID, itemCommand.Target)
-		if len(resolution.AmbiguousItemIDs) > 0 {
-			return singleEvent(ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs))
-		}
-		if !resolution.Found {
-			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_carried"})
-		}
-		itemID, ok := s.game.DropInventoryItem(s.currentRoom, resolution.ItemID, s.playerID)
-		if !ok {
-			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_carried"})
-		}
-		return singleEvent(presentation.SystemMessageEvent{
-			MessageKey: "system.item.dropped",
-			Fields: map[string]string{
-				"item": string(itemID),
-			},
-		})
+		return s.submitAction("drop", itemCommand.Target)
 	case command.ItemVerbExamine:
-		resolution := s.game.ResolveVisibleItemPhrase(s.currentRoom, s.playerID, itemCommand.Target)
-		if len(resolution.AmbiguousItemIDs) > 0 {
-			return singleEvent(ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs))
-		}
-		if !resolution.Found {
-			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
-		}
-		item, ok := s.game.ExamineItem(s.currentRoom, resolution.ItemID, s.playerID)
-		if !ok {
-			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
-		}
-		events := singleEvent(itemObservationEvent(item))
-		events = append(events, s.applyProgression(progression.Trigger{Kind: progression.TriggerExaminedItem, ItemID: string(item.Item)})...)
-		return events
+		return s.submitAction("examine", itemCommand.Target)
 	case command.ItemVerbLook:
-		resolution := s.game.ResolveVisibleItemPhrase(s.currentRoom, s.playerID, itemCommand.Target)
-		if len(resolution.AmbiguousItemIDs) > 0 {
-			return singleEvent(ambiguousItemEvent(s.game, resolution.AmbiguousItemIDs))
-		}
-		if !resolution.Found {
-			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
-		}
-		item, ok := s.game.ExamineItem(s.currentRoom, resolution.ItemID, s.playerID)
-		if !ok {
-			return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
-		}
-		return singleEvent(itemObservationEvent(item))
+		return s.submitAction("look-item", itemCommand.Target)
 	default:
 		return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.unknown_command"})
 	}
@@ -174,104 +158,10 @@ func singleEvent(event presentation.Event) []presentation.Event {
 	return []presentation.Event{event}
 }
 
-func (s *sessionState) progressionEngine() *progression.Engine {
-	if s.progression == nil {
-		s.progression = progression.NewEngine(s.game.ProgressionDefinitions())
-	}
-	return s.progression
-}
-
-func (s *sessionState) applyProgression(trigger progression.Trigger) []presentation.Event {
-	status, advanced := s.progressionEngine().Apply(string(s.playerID), trigger)
-	if !advanced {
-		return nil
-	}
-	if status.State == progression.QuestStateRewardPending {
-		resolvedStatus, resolved := s.progressionEngine().ResolveRewards(string(s.playerID))
-		if resolved {
-			status = resolvedStatus
-		}
-	}
-	return singleEvent(questProgressEvent(status))
-}
-
-func questProgressEvent(status progression.Status) presentation.Event {
-	return presentation.SystemMessageEvent{
-		MessageKey: "system.quest.progress",
-		Fields: map[string]string{
-			"quest_id": status.QuestID,
-			"stage_id": status.StageID,
-			"state":    string(status.State),
-		},
-	}
-}
-
-func (s *sessionState) questStatusEvent() presentation.Event {
-	status, ok := s.progressionEngine().Status(string(s.playerID))
-	if !ok {
-		return presentation.SystemMessageEvent{MessageKey: "system.quest.none"}
-	}
-	return presentation.QuestStatusEvent{
-		QuestID:    status.QuestID,
-		QuestName:  status.QuestName,
-		StageID:    status.StageID,
-		StageText:  status.StageText,
-		Conditions: status.Conditions,
-		State:      string(status.State),
-	}
-}
-
-func ambiguousItemEvent(game *world.World, itemIDs []world.ItemID) presentation.Event {
-	return presentation.SystemMessageEvent{Message: "名字不明确: " + strings.Join(game.ItemNames(itemIDs), ", ")}
-}
-
-func itemObservationEvent(item world.ItemObservation) presentation.Event {
-	return presentation.ItemObservationEvent{
-		Item:           string(item.Item),
-		NameKey:        item.NameKey,
-		DescriptionKey: item.DescriptionKey,
-		Name:           item.Name,
-		Description:    item.Description,
-	}
-}
-
 func normalizeDirection(direction string) string {
 	canonical, ok := command.CanonicalDirection(direction)
 	if ok {
 		return canonical
 	}
 	return direction
-}
-
-func roomObservationEvent(game *world.World, roomID world.RoomID) presentation.Event {
-	observation, ok := game.Look(roomID)
-	if !ok {
-		return presentation.SystemMessageEvent{MessageKey: "system.room.missing"}
-	}
-	return presentation.RoomObservationEvent{
-		Room:           string(observation.Room),
-		NameKey:        observation.NameKey,
-		DescriptionKey: observation.DescriptionKey,
-		Name:           observation.Name,
-		Description:    observation.Description,
-		Exits:          observation.Exits,
-		Neighbors:      roomNeighborStrings(observation.Neighbors),
-		Items:          itemIDStrings(observation.ItemIDs),
-	}
-}
-
-func roomNeighborStrings(neighbors map[string]world.RoomID) map[string]string {
-	result := make(map[string]string, len(neighbors))
-	for direction, roomID := range neighbors {
-		result[direction] = string(roomID)
-	}
-	return result
-}
-
-func itemIDStrings(itemIDs []world.ItemID) []string {
-	items := make([]string, 0, len(itemIDs))
-	for _, itemID := range itemIDs {
-		items = append(items, string(itemID))
-	}
-	return items
 }

@@ -14,6 +14,9 @@ type (
 const (
 	TagExit      TagID = "exit"
 	TagCarryable TagID = "carryable"
+	TagLightable TagID = "lightable"
+	TagContainer TagID = "container"
+	TagLockable  TagID = "lockable"
 )
 
 const (
@@ -99,11 +102,22 @@ type ServerItem struct {
 type ServerTag struct {
 	Exit      *ExitTag
 	Carryable bool
+	Lightable bool
+	Container *ContainerTag
+	Lockable  *LockableTag
 }
 
 type ExitTag struct {
 	Direction    Direction
 	TargetRoomID RoomID
+}
+
+type ContainerTag struct {
+	Capacity int
+}
+
+type LockableTag struct {
+	KeyItemID ItemID
 }
 
 type ServerQuest struct {

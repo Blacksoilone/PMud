@@ -21,10 +21,13 @@ func TutorialSource() ContentSource {
 			},
 		},
 		Items: []ItemSource{
-			{
-				ID: "item.tutorial.north", DisplayNameKey: "item.tutorial.north.name", InnerNameKey: "item.tutorial.north.inner_name", DescriptionKey: "item.tutorial.north.description", InitialRoom: "room.tutorial.start",
-				Tags: []SourceTag{{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.yard"}}},
+		{
+			ID: "item.tutorial.north", DisplayNameKey: "item.tutorial.north.name", InnerNameKey: "item.tutorial.north.inner_name", DescriptionKey: "item.tutorial.north.description", InitialRoom: "room.tutorial.start",
+			Tags: []SourceTag{
+				{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.yard"}},
+				{ID: TagLockable, Params: map[string]string{"key_item_id": "item.tutorial.old_lantern"}},
 			},
+		},
 			{
 				ID: "item.tutorial.south", DisplayNameKey: "item.tutorial.south.name", InnerNameKey: "item.tutorial.south.inner_name", DescriptionKey: "item.tutorial.south.description", InitialRoom: "room.tutorial.yard",
 				Tags: []SourceTag{{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.start"}}},
@@ -55,7 +58,7 @@ func TutorialSource() ContentSource {
 					"item.tutorial.old_lantern.alias.old_lantern",
 				},
 				InitialRoom: "room.tutorial.start",
-				Tags:        []SourceTag{{ID: TagCarryable}},
+				Tags:        []SourceTag{{ID: TagCarryable}, {ID: TagLightable}},
 			},
 			{
 				ID:             "item.tutorial.practice_sword",
@@ -132,7 +135,8 @@ func TutorialSource() ContentSource {
 			"system.empty_input":                                  "你没有输入任何内容",
 			"system.help":                                         "可用命令: look/l, go <direction>, north/n, south/s, east/e, west/w, up/u, down/d, northeast/ne, northwest/nw, southeast/se, southwest/sw, get/take <item>, drop <item>, examine/x/inspect <item>, inventory/i, quest, help\n方向: north/n/北, south/s/南, east/e, west/w, up/u, down/d, northeast/ne, northwest/nw, southeast/se, southwest/sw",
 			"system.look.observed":                                "你重新观察了周围。",
-			"system.move.blocked":                                 "你不能往那个方向走。",
+			"system.move.blocked":                               "你不能往那个方向走。",
+			"system.move.locked":                                "门锁着。",
 			"system.item.not_here":                                "这里没有那个东西。",
 			"system.item.taken":                                   "你拿起了{item}。",
 			"system.item.not_carried":                             "你没有那个东西。",

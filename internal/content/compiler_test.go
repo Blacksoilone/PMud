@@ -188,6 +188,54 @@ func TestCompile_projectsTutorialQuest(t *testing.T) {
 	}
 }
 
+func TestCompile_lockableTag_createsLockableInstance(t *testing.T) {
+	source := testContentSource()
+	source.Items = append(source.Items, ItemSource{
+		ID: "item.test.locked_door", DisplayNameKey: "dn.lock", InnerNameKey: "in.lock",
+		DescriptionKey: "dd.lock", InitialRoom: "room.tutorial.start",
+		Tags: []SourceTag{
+			{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.yard"}},
+			{ID: TagLockable, Params: map[string]string{"key_item_id": "item.tutorial.old_lantern"}},
+		},
+	})
+	source.Text["dn.lock"] = "锁着的门"
+	source.Text["in.lock"] = "locked door"
+
+	compiled, err := Compile(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	door, ok := compiled.Server.Items["item.test.locked_door"]
+	if !ok {
+		t.Fatal("expected locked door in compiled output")
+	}
+	lockableFound := false
+	for _, tag := range door.Tags {
+		if tag.Lockable != nil && tag.Lockable.KeyItemID == "item.tutorial.old_lantern" {
+			lockableFound = true
+		}
+	}
+	if !lockableFound {
+		t.Fatal("expected lockable tag with key_item_id=item.tutorial.old_lantern")
+	}
+}
+
+func TestCompile_lockableTag_rejectsMissingKey(t *testing.T) {
+	source := testContentSource()
+	source.Items = append(source.Items, ItemSource{
+		ID: "item.test.bad_lock", DisplayNameKey: "bl", InnerNameKey: "bl",
+		DescriptionKey: "bl", InitialRoom: "room.tutorial.start",
+		Tags: []SourceTag{
+			{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.yard"}},
+			{ID: TagLockable, Params: map[string]string{}},
+		},
+	})
+
+	if _, err := Compile(source); err == nil {
+		t.Fatal("expected lockable without key_item_id to fail")
+	}
+}
+
 func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
 	// Given
 	source := TutorialSource()
@@ -217,11 +265,21 @@ func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
 	}
 	for itemID, targetRoomID := range exitTargets {
 		item, ok := compiled.Server.Items[itemID]
-		if !ok || len(item.Tags) != 1 || item.Tags[0].Exit == nil {
-			t.Fatalf("expected %s to compile as one exit tag", itemID)
+		if !ok || len(item.Tags) == 0 {
+			t.Fatalf("expected %s to compile with tags", itemID)
 		}
-		if got := item.Tags[0].Exit.TargetRoomID; got != targetRoomID {
-			t.Fatalf("%s target = %q, want %q", itemID, got, targetRoomID)
+		exitFound := false
+		for _, tag := range item.Tags {
+			if tag.Exit != nil {
+				exitFound = true
+				if tag.Exit.TargetRoomID != targetRoomID {
+					t.Fatalf("%s target = %q, want %q", itemID, tag.Exit.TargetRoomID, targetRoomID)
+				}
+				break
+			}
+		}
+		if !exitFound {
+			t.Fatalf("expected %s to compile with an exit tag", itemID)
 		}
 	}
 	if got := compiled.Server.ItemLocations["item.tutorial.old_lantern"]; got != "room.tutorial.start" {

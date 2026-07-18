@@ -233,12 +233,13 @@ func (w *World) itemExit(itemID ItemID) (Exit, bool) {
 	if !ok {
 		return Exit{}, false
 	}
-	for _, tag := range item.Tags {
-		if tag.Exit != nil {
-			return *tag.Exit, true
-		}
+	params, ok := item.tagParams("tag.exit")
+	if !ok {
+		return Exit{}, false
 	}
-	return Exit{}, false
+	target, _ := params["target"].(string)
+	direction, _ := params["direction"].(string)
+	return Exit{Direction: direction, TargetRoomID: RoomID(target)}, true
 }
 
 func (w *World) itemIsCarryable(itemID ItemID) bool {
@@ -246,10 +247,6 @@ func (w *World) itemIsCarryable(itemID ItemID) bool {
 	if !ok {
 		return false
 	}
-	for _, tag := range item.Tags {
-		if tag.Carryable {
-			return true
-		}
-	}
-	return false
+	_, ok = item.tagParams("tag.carryable")
+	return ok
 }

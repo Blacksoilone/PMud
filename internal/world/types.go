@@ -42,14 +42,10 @@ type Item struct {
 	Name           string
 	Description    string
 	Aliases        []string
-	Tags           []Tag
+	Tags           []TagInstance
 }
 
-type Tag struct {
-	Exit      *Exit
-	Carryable bool
-}
-
+// Exit 是一个纯值类型，从 tag.exit 的 TagInstance 中提取
 type Exit struct {
 	Direction    string
 	TargetRoomID RoomID
@@ -77,10 +73,17 @@ type InventoryItemLocation struct {
 
 func (InventoryItemLocation) itemLocation() {}
 
+type PlayerEntity struct {
+	ID     PlayerID
+	RoomID RoomID
+}
+
 type World struct {
 	startRoom              RoomID
 	rooms                  map[RoomID]Room
 	items                  map[ItemID]Item
 	itemLocations          map[ItemID]ItemLocation
 	progressionDefinitions progression.Definitions
+	players                map[PlayerID]PlayerEntity
+	tagDefinitions         map[TagID]TagDefinition
 }
