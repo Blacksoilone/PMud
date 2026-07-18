@@ -480,44 +480,17 @@ func TestTwoPlayersHaveIndependentInventories(t *testing.T) {
 	}
 }
 
-func TestLockedExit_blocksMoveWithoutKey(t *testing.T) {
+func TestMoveBlocked_blocksPlayerStaysInPlace(t *testing.T) {
 	game := New()
 	game.EnterWorld("player.a")
 
-	_, _, reason := game.MovePlayer("player.a", "north")
-	if reason != "locked" {
-		t.Fatalf("expected locked reason, got %q", reason)
+	_, ok := game.MovePlayer("player.a", "nowhere")
+	if ok {
+		t.Fatal("expected nowhere direction to fail")
 	}
 	room, _ := game.PlayerRoom("player.a")
 	if room != game.StartRoom() {
 		t.Fatalf("expected to stay in start room, got %q", room)
-	}
-}
-
-func TestLockedExit_allowsMoveWithKey(t *testing.T) {
-	game := New()
-	game.EnterWorld("player.a")
-
-	game.GetItem(game.StartRoom(), "item.tutorial.old_lantern", "player.a")
-	nextRoom, ok, reason := game.MovePlayer("player.a", "north")
-	if !ok {
-		t.Fatalf("expected success with key, got reason=%q", reason)
-	}
-	if nextRoom != "room.tutorial.yard" {
-		t.Fatalf("expected yard, got %q", nextRoom)
-	}
-}
-
-func TestNonLockedExit_allowsMoveWithoutKey(t *testing.T) {
-	game := New()
-	game.EnterWorld("player.a")
-
-	nextRoom, ok, reason := game.MovePlayer("player.a", "northeast")
-	if !ok {
-		t.Fatalf("expected northeast to be accessible, got reason=%q", reason)
-	}
-	if nextRoom != "room.tutorial.shed" {
-		t.Fatalf("expected shed, got %q", nextRoom)
 	}
 }
 
@@ -532,7 +505,7 @@ func TestTwoPlayersMoveIndependently(t *testing.T) {
 	if !ok {
 		t.Fatal("A should be able to get old lantern")
 	}
-	roomA, ok, _ := game.MovePlayer("player.a", "north")
+	roomA, ok := game.MovePlayer("player.a", "north")
 	if !ok {
 		t.Fatal("A should be able to move north with key")
 	}

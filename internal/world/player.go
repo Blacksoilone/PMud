@@ -44,31 +44,24 @@ func (w *World) PlayerCount() int {
 	return len(w.players)
 }
 
-func (w *World) MovePlayer(playerID PlayerID, direction string) (RoomID, bool, string) {
+func (w *World) MovePlayer(playerID PlayerID, direction string) (RoomID, bool) {
 	player, ok := w.players[playerID]
 	if !ok {
-		return "", false, ""
+		return "", false
 	}
 	for _, itemID := range w.exitItemIDs(player.RoomID) {
-		item := w.items[itemID]
 		exit, ok := w.itemExit(itemID)
-		if !ok || (exit.Direction != direction && !item.matchesPhrase(itemID, direction)) {
+		if !ok || exit.Direction != direction {
 			continue
-		}
-		if params, locked := item.tagParams("tag.lockable"); locked {
-			keyID, _ := params["key_item_id"].(string)
-			if keyID != "" && !w.playerHasItem(playerID, ItemID(keyID)) {
-				return player.RoomID, false, "locked"
-			}
 		}
 		player.RoomID = exit.TargetRoomID
 		w.players[playerID] = player
-		return exit.TargetRoomID, true, ""
+		return exit.TargetRoomID, true
 	}
-	return player.RoomID, false, ""
+	return player.RoomID, false
 }
 
-func (w *World) playerHasItem(playerID PlayerID, itemID ItemID) bool {
+func (w *World) PlayerHasItem(playerID PlayerID, itemID ItemID) bool {
 	for _, id := range w.itemsInInventory(playerID) {
 		if id == itemID {
 			return true

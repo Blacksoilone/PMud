@@ -27,11 +27,25 @@ type TagField struct {
 	Default  any
 }
 
+type HookPhase int
+
+const (
+	HookPreAction  HookPhase = iota // 执行前检查，可阻断
+	HookPostAction                   // 执行后附加事件
+)
+
+type TagHook struct {
+	Phase   HookPhase
+	Verbs   []string // 空 = 所有动词
+	Handler func(ctx *AttemptContext, params map[string]any)
+}
+
 type TagDefinition struct {
 	ID          TagID
 	Description string
 	Scopes      []TagScope
 	Fields      []TagField
+	Hooks       []TagHook
 }
 
 type TagInstance struct {
@@ -116,6 +130,22 @@ func builtinTagDefs() []TagDefinition {
 			Scopes:      []TagScope{TagScopeItem},
 			Fields: []TagField{
 				{Name: "key_item_id", Type: TagFieldRef, Required: true},
+			},
+			Hooks: []TagHook{
+				{
+					Phase: HookPreAction,
+					Verbs: []string{"move"},
+					Handler: func(ctx *AttemptContext, params map[string]any) {
+						keyID, _ := params["key_item_id"].(string)
+						if keyID == "" {
+							return
+						}
+						if !ctx.World.PlayerHasItem(ctx.PlayerID, ItemID(keyID)) {
+							ctx.Blocked = true
+							ctx.BlockReason = "locked"
+						}
+					},
+				},
 			},
 		},
 	}
