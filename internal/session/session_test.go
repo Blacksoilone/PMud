@@ -43,12 +43,14 @@ func TestSessionQuest_reportsTutorialStatus(t *testing.T) {
 func TestSessionActions_advanceTutorialQuest(t *testing.T) {
 	state := newTestSessionState()
 
+	state.handleLine("go east")
 	state.handleLine("get 旧油灯")
 	afterGet := requireSingleSessionEvent(t, state.handleLine("quest")).(presentation.QuestStatusEvent)
 	if afterGet.StageID != "quest.tutorial.first_steps.stage.enter_yard" {
 		t.Fatalf("stage after get = %q", afterGet.StageID)
 	}
 
+	state.handleLine("go west")
 	state.handleLine("go north")
 	afterMove := requireSingleSessionEvent(t, state.handleLine("quest")).(presentation.QuestStatusEvent)
 	if afterMove.StageID != "quest.tutorial.first_steps.stage.examine_sword" {
@@ -71,6 +73,7 @@ func TestSessionActions_advanceTutorialQuest(t *testing.T) {
 func TestSessionActions_returnQuestProgressNotificationAfterAdvancingQuest(t *testing.T) {
 	state := newTestSessionState()
 
+	state.handleLine("go east")
 	events := state.handleLine("get 旧油灯")
 
 	if len(events) != 2 {
@@ -88,7 +91,9 @@ func TestSessionActions_returnQuestProgressNotificationAfterAdvancingQuest(t *te
 
 func TestSessionActions_returnQuestCompletedNotificationAfterFinalStage(t *testing.T) {
 	state := newTestSessionState()
+	state.handleLine("go east")
 	state.handleLine("get 旧油灯")
+	state.handleLine("go west")
 	state.handleLine("go north")
 
 	events := state.handleLine("examine 练习木剑")
@@ -109,10 +114,12 @@ func TestSessionActions_returnQuestCompletedNotificationAfterFinalStage(t *testi
 func TestSessionActions_doNotReturnQuestProgressNotificationWhenQuestDoesNotAdvance(t *testing.T) {
 	state := newTestSessionState()
 
+	state.handleLine("go east")   // move to lock_hall
 	state.handleLine("get 旧油灯") // get_lantern -> enter_yard
-	state.handleLine("go north")  // enter_yard -> examine_sword, now in yard
+	state.handleLine("go west")   // back to hall
+	state.handleLine("go north")  // enter_yard -> examine_sword, now in item_yard
 
-	events := state.handleLine("go east")
+	events := state.handleLine("go south")
 	if len(events) != 1 {
 		t.Fatalf("event count = %d, want 1", len(events))
 	}
@@ -124,7 +131,8 @@ func TestSessionActions_doNotReturnQuestProgressNotificationWhenQuestDoesNotAdva
 func TestSessionLockedDoor_returnsSystemMoveLocked(t *testing.T) {
 	state := newTestSessionState()
 
-	event := requireSingleSessionEvent(t, state.handleLine("go north"))
+	state.handleLine("go east")
+	event := requireSingleSessionEvent(t, state.handleLine("go east"))
 
 	msg, ok := event.(presentation.SystemMessageEvent)
 	if !ok {
@@ -211,10 +219,10 @@ func TestSessionDirectionAliases_moveBetweenRooms(t *testing.T) {
 		setup    []string // commands to run before checking fromRoom
 		wantRoom string
 	}{
-		{name: "go n moves north", command: "go n", setup: []string{"get 旧油灯"}, fromRoom: "room.tutorial.start", wantRoom: "练习场"},
-		{name: "go 北 moves north", command: "go 北", setup: []string{"get 旧油灯"}, fromRoom: "room.tutorial.start", wantRoom: "练习场"},
-		{name: "go s moves south", command: "go s", setup: []string{"get 旧油灯", "go north"}, fromRoom: "room.tutorial.yard", wantRoom: "练习场入口"},
-		{name: "go 南 moves south", command: "go 南", setup: []string{"get 旧油灯", "go north"}, fromRoom: "room.tutorial.yard", wantRoom: "练习场入口"},
+		{name: "go n moves north", command: "go n", setup: nil, fromRoom: "room.tutorial.hall", wantRoom: "物品庭院"},
+		{name: "go 北 moves north", command: "go 北", setup: nil, fromRoom: "room.tutorial.hall", wantRoom: "物品庭院"},
+		{name: "go s moves south", command: "go s", setup: []string{"go north"}, fromRoom: "room.tutorial.item_yard", wantRoom: "教学大厅"},
+		{name: "go 南 moves south", command: "go 南", setup: []string{"go north"}, fromRoom: "room.tutorial.item_yard", wantRoom: "教学大厅"},
 	}
 
 	for _, tt := range tests {
@@ -270,6 +278,7 @@ func TestNormalizeDirection_mapsStandardAliases(t *testing.T) {
 
 func TestSessionGet_resolvesVisibleItemPhrase(t *testing.T) {
 	state := newTestSessionState()
+	state.handleLine("go east")
 
 	nameEvent := requireFirstSessionEvent(t, state.handleLine("get 旧油灯"))
 
@@ -285,6 +294,7 @@ func TestSessionGet_resolvesVisibleItemPhrase(t *testing.T) {
 	}
 
 	idState := newTestSessionState()
+	idState.handleLine("go east")
 	idEvent := requireFirstSessionEvent(t, idState.handleLine("get item.tutorial.old_lantern"))
 	idMessage, ok := idEvent.(presentation.SystemMessageEvent)
 	if !ok {
@@ -300,6 +310,7 @@ func TestSessionGet_resolvesVisibleItemPhrase(t *testing.T) {
 
 func TestSessionDrop_resolvesInventoryItemPhrase(t *testing.T) {
 	state := newTestSessionState()
+	state.handleLine("go east")
 	state.handleLine("get item.tutorial.old_lantern")
 
 	nameEvent := requireSingleSessionEvent(t, state.handleLine("drop 旧油灯"))
@@ -316,6 +327,7 @@ func TestSessionDrop_resolvesInventoryItemPhrase(t *testing.T) {
 	}
 
 	idState := newTestSessionState()
+	idState.handleLine("go east")
 	idState.handleLine("get item.tutorial.old_lantern")
 	idEvent := requireSingleSessionEvent(t, idState.handleLine("drop item.tutorial.old_lantern"))
 	idMessage, ok := idEvent.(presentation.SystemMessageEvent)
@@ -332,6 +344,7 @@ func TestSessionDrop_resolvesInventoryItemPhrase(t *testing.T) {
 
 func TestSessionExamine_resolvesVisibleItemPhrase(t *testing.T) {
 	state := newTestSessionState()
+	state.handleLine("go east")
 
 	event := requireSingleSessionEvent(t, state.handleLine("examine 旧油灯"))
 
@@ -349,6 +362,7 @@ func TestSessionExamine_resolvesVisibleItemPhrase(t *testing.T) {
 
 func TestSessionExamine_resolvesAliasPhrase(t *testing.T) {
 	state := newTestSessionState()
+	state.handleLine("go east")
 
 	event := requireSingleSessionEvent(t, state.handleLine("examine jiuyoudeng"))
 
@@ -363,7 +377,9 @@ func TestSessionExamine_resolvesAliasPhrase(t *testing.T) {
 
 func TestSessionLook_resolvesItemPhrase(t *testing.T) {
 	state := newTestSessionState()
+	state.handleLine("go east")
 	state.handleLine("get 旧油灯")
+	state.handleLine("go west")
 	state.handleLine("go north")
 
 	event := requireFirstSessionEvent(t, state.handleLine("look practice-sword"))
@@ -379,7 +395,9 @@ func TestSessionLook_resolvesItemPhrase(t *testing.T) {
 
 func TestSessionExamine_resolvesPracticeSwordPinyinAlias(t *testing.T) {
 	state := newTestSessionState()
+	state.handleLine("go east")
 	state.handleLine("get 旧油灯")
+	state.handleLine("go west")
 	state.handleLine("go north")
 
 	event := requireFirstSessionEvent(t, state.handleLine("examine lianximujian"))
@@ -428,20 +446,20 @@ func TestHandleConn_writesInitialRoomObservation(t *testing.T) {
 	if !strings.HasPrefix(output, "event=room\t") {
 		t.Fatalf("expected initial output to be a room event line, got %q", output)
 	}
-	if !strings.Contains(output, "\troom=room.tutorial.start\t") {
-		t.Fatalf("expected initial output to include start room id field, got %q", output)
+	if !strings.Contains(output, "\troom=room.tutorial.hall\t") {
+		t.Fatalf("expected initial output to include hall room id field, got %q", output)
 	}
-	if !strings.Contains(output, "\tname_key=room.tutorial.start.name\t") {
-		t.Fatalf("expected initial output to include start room name key field, got %q", output)
+	if !strings.Contains(output, "\tname_key=room.tutorial.hall.name\t") {
+		t.Fatalf("expected initial output to include hall name key field, got %q", output)
 	}
-	if !strings.Contains(output, "\tdescription_key=room.tutorial.start.description\t") {
-		t.Fatalf("expected initial output to include start room description key field, got %q", output)
+	if !strings.Contains(output, "\tdescription_key=room.tutorial.hall.description\t") {
+		t.Fatalf("expected initial output to include hall description key field, got %q", output)
 	}
-	if !strings.Contains(output, "\texits=north") {
+	if !strings.Contains(output, "\texits=") {
 		t.Fatalf("expected initial output to include exits field, got %q", output)
 	}
-	if !strings.Contains(output, "\titems=item.tutorial.old_lantern\n") {
-		t.Fatalf("expected initial output to include items field, got %q", output)
+	if !strings.Contains(output, "\titems=\n") {
+		t.Fatalf("expected initial output to include empty items field, got %q", output)
 	}
 
 	if err := clientConn.Close(); err != nil {

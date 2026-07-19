@@ -10,16 +10,15 @@ func TestRenderBlock_roomEventUsesClientCatalog(t *testing.T) {
 	event := protocol.Event{
 		Name: "room",
 		Fields: map[string]string{
-			"room":            "room.tutorial.start",
-			"name_key":        "room.tutorial.start.name",
-			"description_key": "room.tutorial.start.description",
-			"exits":           "north",
-			"items":           "item.tutorial.old_lantern",
+			"room":            "room.tutorial.hall",
+			"name_key":        "room.tutorial.hall.name",
+			"description_key": "room.tutorial.hall.description",
+			"exits":           "north,east,portal",
 		},
 	}
 
 	got := RenderBlock(event, catalog).String()
-	want := "练习场入口\n这里是练习场的入口。北边传来木剑碰撞的声音。\n出口: north\n你看到: 旧油灯（old lantern）\n"
+	want := "教学大厅\n大厅宽敞明亮，四周墙壁上挂着几幅地图。这里连通着多个区域。\n出口: north, east, portal\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}

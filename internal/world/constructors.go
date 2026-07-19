@@ -9,124 +9,106 @@ import (
 
 func New() *World {
 	w := &World{
-		startRoom: "room.tutorial.start",
+		startRoom: "room.tutorial.hall",
 		rooms: map[RoomID]Room{
-			"room.tutorial.start": {
-				NameKey:        "room.tutorial.start.name",
-				DescriptionKey: "room.tutorial.start.description",
-				Name:           "练习场入口",
-				Description:    "这里是练习场的入口。北边传来木剑碰撞的声音。",
+			"room.tutorial.hall": {
+				NameKey: "room.tutorial.hall.name", DescriptionKey: "room.tutorial.hall.description",
+				Name: "教学大厅", Description: "大厅宽敞明亮，四周墙壁上挂着几幅地图。这里连通着多个区域。",
 			},
-			"room.tutorial.yard": {
-				NameKey:        "room.tutorial.yard.name",
-				DescriptionKey: "room.tutorial.yard.description",
-				Name:           "练习场",
-				Description:    "几根木桩立在泥地上，地面满是被踩出的脚印。",
+			"room.tutorial.item_yard": {
+				NameKey: "room.tutorial.item_yard.name", DescriptionKey: "room.tutorial.item_yard.description",
+				Name: "物品庭院", Description: "庭院里散落着各种练习用品，地上还有几把木剑。",
 			},
-			"room.tutorial.shed": {
-				NameKey:        "room.tutorial.shed.name",
-				DescriptionKey: "room.tutorial.shed.description",
-				Name:           "器械棚",
-				Description:    "角落里堆着一些练习器械。",
+			"room.tutorial.lock_hall": {
+				NameKey: "room.tutorial.lock_hall.name", DescriptionKey: "room.tutorial.lock_hall.description",
+				Name: "锁钥厅", Description: "墙壁上挂着一盏旧油灯，东侧有一扇厚重的铁门。",
+			},
+			"room.tutorial.lock_chamber": {
+				NameKey: "room.tutorial.lock_chamber.name", DescriptionKey: "room.tutorial.lock_chamber.description",
+				Name: "密室", Description: "一间昏暗的小室，空气中有股陈旧的灰尘味。",
+			},
+			"room.tutorial.quest_start": {
+				NameKey: "room.tutorial.quest_start.name", DescriptionKey: "room.tutorial.quest_start.description",
+				Name: "任务之门", Description: "你感到一股神秘的力量在这里流动。",
 			},
 		},
 		items: map[ItemID]Item{
-			"item.tutorial.north": {
-				NameKey:        "item.tutorial.north.name",
-				InnerName:      "north",
-				DescriptionKey: "item.tutorial.north.description",
-				Name:           "北方",
-				Description:    "北方通向练习场。",
+			// 大厅出口
+			"item.hall.north": {
+				NameKey: "item.hall.north.name", InnerName: "north", DescriptionKey: "item.hall.north.description",
+				Name: "北方通路", Description: "一条向北延伸的石板路。",
+				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "north", "target": "room.tutorial.item_yard"}}},
+			},
+			"item.hall.east": {
+				NameKey: "item.hall.east.name", InnerName: "east", DescriptionKey: "item.hall.east.description",
+				Name: "东方通路", Description: "一条向东的走廊。",
+				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "east", "target": "room.tutorial.lock_hall"}}},
+			},
+			"item.hall.portal": {
+				NameKey: "item.hall.portal.name", InnerName: "portal", DescriptionKey: "item.hall.portal.description",
+				Name: "传送门", Description: "一扇泛着蓝光的传送门。",
+				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "portal", "target": "room.tutorial.quest_start"}}},
+			},
+			// 物品庭院出口
+			"item.yard.south": {
+				NameKey: "item.yard.south.name", InnerName: "south", DescriptionKey: "item.yard.south.description",
+				Name: "南方通路", Description: "一条向南的石板路，通向大厅。",
+				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "south", "target": "room.tutorial.hall"}}},
+			},
+			// 锁钥厅出口
+			"item.lock_hall.west": {
+				NameKey: "item.lock_hall.west.name", InnerName: "west", DescriptionKey: "item.lock_hall.west.description",
+				Name: "西方通路", Description: "向西返回大厅的通道。",
+				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "west", "target": "room.tutorial.hall"}}},
+			},
+			"item.lock_hall.east": {
+				NameKey: "item.lock_hall.east.name", InnerName: "east", DescriptionKey: "item.lock_hall.east.description",
+				Name: "铁门", Description: "一扇厚重的铁门，似乎需要什么才能打开。",
 				Tags: []TagInstance{
-					{DefinitionID: "tag.exit", Params: map[string]any{"direction": "north", "target": "room.tutorial.yard"}},
+					{DefinitionID: "tag.exit", Params: map[string]any{"direction": "east", "target": "room.tutorial.lock_chamber"}},
 					{DefinitionID: "tag.lockable", Params: map[string]any{"key_item_id": "item.tutorial.old_lantern"}},
 				},
 			},
-			"item.tutorial.south": {
-				NameKey:        "item.tutorial.south.name",
-				InnerName:      "south",
-				DescriptionKey: "item.tutorial.south.description",
-				Name:           "南方",
-				Description:    "南方通向练习场入口。",
-				Tags: []TagInstance{
-					{DefinitionID: "tag.exit", Params: map[string]any{"direction": "south", "target": "room.tutorial.start"}},
-				},
+			// 密室出口
+			"item.lock_chamber.west": {
+				NameKey: "item.lock_chamber.west.name", InnerName: "west", DescriptionKey: "item.lock_chamber.west.description",
+				Name: "西方出口", Description: "向西返回锁钥厅。",
+				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "west", "target": "room.tutorial.lock_hall"}}},
 			},
-			"item.tutorial.northeast": {
-				NameKey:        "item.tutorial.northeast.name",
-				InnerName:      "northeast",
-				DescriptionKey: "item.tutorial.northeast.description",
-				Name:           "东北方",
-				Description:    "东北方通向器械棚。",
-				Tags: []TagInstance{
-					{DefinitionID: "tag.exit", Params: map[string]any{"direction": "northeast", "target": "room.tutorial.shed"}},
-				},
+			// 任务起点出口
+			"item.quest_start.portal": {
+				NameKey: "item.quest_start.portal.name", InnerName: "portal", DescriptionKey: "item.quest_start.portal.description",
+				Name: "传送门", Description: "一扇泛着蓝光的传送门。",
+				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "portal", "target": "room.tutorial.hall"}}},
 			},
-			"item.tutorial.east": {
-				NameKey:        "item.tutorial.east.name",
-				InnerName:      "east",
-				DescriptionKey: "item.tutorial.east.description",
-				Name:           "东方",
-				Description:    "东方通向器械棚。",
-				Tags: []TagInstance{
-					{DefinitionID: "tag.exit", Params: map[string]any{"direction": "east", "target": "room.tutorial.shed"}},
-				},
-			},
-			"item.tutorial.west": {
-				NameKey:        "item.tutorial.west.name",
-				InnerName:      "west",
-				DescriptionKey: "item.tutorial.west.description",
-				Name:           "西方",
-				Description:    "西方通向练习场。",
-				Tags: []TagInstance{
-					{DefinitionID: "tag.exit", Params: map[string]any{"direction": "west", "target": "room.tutorial.yard"}},
-				},
-			},
-			"item.tutorial.southwest": {
-				NameKey:        "item.tutorial.southwest.name",
-				InnerName:      "southwest",
-				DescriptionKey: "item.tutorial.southwest.description",
-				Name:           "西南方",
-				Description:    "西南方通向练习场入口。",
-				Tags: []TagInstance{
-					{DefinitionID: "tag.exit", Params: map[string]any{"direction": "southwest", "target": "room.tutorial.start"}},
-				},
-			},
+			// 游戏物品
 			"item.tutorial.old_lantern": {
-				NameKey:        "item.tutorial.old_lantern.name",
-				InnerName:      "old lantern",
-				DescriptionKey: "item.tutorial.old_lantern.description",
-				Name:           "旧油灯",
-				Description:    "灯罩上蒙着一层灰，里面还剩一点灯油。",
-				Aliases:        []string{"jiuyoudeng", "old_lantern"},
+				NameKey: "item.tutorial.old_lantern.name", InnerName: "old lantern", DescriptionKey: "item.tutorial.old_lantern.description",
+				Name: "旧油灯", Description: "灯罩上蒙着一层灰，里面还剩一点灯油。",
+				Aliases: []string{"jiuyoudeng", "old_lantern"},
 				Tags: []TagInstance{
 					{DefinitionID: "tag.carryable", Params: map[string]any{}},
 					{DefinitionID: "tag.lightable", Params: map[string]any{}},
 				},
 			},
 			"item.tutorial.practice_sword": {
-				NameKey:        "item.tutorial.practice_sword.name",
-				InnerName:      "practice sword",
-				DescriptionKey: "item.tutorial.practice_sword.description",
-				Name:           "练习木剑",
-				Description:    "一把被许多人握过的木剑，剑柄已经磨得发亮。",
-				Aliases:        []string{"lianximujian"},
-				Tags:           []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+				NameKey: "item.tutorial.practice_sword.name", InnerName: "practice sword", DescriptionKey: "item.tutorial.practice_sword.description",
+				Name: "练习木剑", Description: "一把被许多人握过的木剑，剑柄已经磨得发亮。",
+				Aliases: []string{"lianximujian"},
+				Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
 			},
 		},
 		itemLocations: map[ItemID]ItemLocation{
-			"item.tutorial.north":     RoomItemLocation{RoomID: "room.tutorial.start"},
-			"item.tutorial.northeast": RoomItemLocation{RoomID: "room.tutorial.start"},
-			"item.tutorial.south":     RoomItemLocation{RoomID: "room.tutorial.yard"},
-			"item.tutorial.east":      RoomItemLocation{RoomID: "room.tutorial.yard"},
-			"item.tutorial.west":      RoomItemLocation{RoomID: "room.tutorial.shed"},
-			"item.tutorial.southwest": RoomItemLocation{RoomID: "room.tutorial.shed"},
-			"item.tutorial.old_lantern": RoomItemLocation{
-				RoomID: "room.tutorial.start",
-			},
-			"item.tutorial.practice_sword": RoomItemLocation{
-				RoomID: "room.tutorial.yard",
-			},
+			"item.hall.north":        RoomItemLocation{RoomID: "room.tutorial.hall"},
+			"item.hall.east":         RoomItemLocation{RoomID: "room.tutorial.hall"},
+			"item.hall.portal":       RoomItemLocation{RoomID: "room.tutorial.hall"},
+			"item.yard.south":        RoomItemLocation{RoomID: "room.tutorial.item_yard"},
+			"item.lock_hall.west":    RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
+			"item.lock_hall.east":    RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
+			"item.lock_chamber.west": RoomItemLocation{RoomID: "room.tutorial.lock_chamber"},
+			"item.quest_start.portal":  RoomItemLocation{RoomID: "room.tutorial.quest_start"},
+			"item.tutorial.old_lantern": RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
+			"item.tutorial.practice_sword": RoomItemLocation{RoomID: "room.tutorial.item_yard"},
 		},
 		progressionDefinitions: tutorialProgressionDefinitions(),
 		players:                make(map[PlayerID]PlayerEntity),
@@ -304,7 +286,7 @@ func conditionText(condition content.ServerQuestCondition) string {
 	case content.QuestConditionGotItem:
 		return "获取旧油灯"
 	case content.QuestConditionMovedRoom:
-		return "到达练习场"
+		return "到达物品庭院"
 	case content.QuestConditionExaminedItem:
 		return "查看练习木剑"
 	default:
@@ -334,10 +316,10 @@ func tutorialProgressionDefinitions() progression.Definitions {
 			},
 			"quest.tutorial.first_steps.stage.enter_yard": {
 				ID:     "quest.tutorial.first_steps.stage.enter_yard",
-				Text:   "前往练习场。",
+				Text:   "前往物品庭院。",
 				NextID: "quest.tutorial.first_steps.stage.examine_sword",
 				Conditions: []progression.ConditionDefinition{
-				{Kind: string(progression.TriggerMovedRoom), RoomID: "room.tutorial.yard", Text: "到达练习场"},
+				{Kind: string(progression.TriggerMovedRoom), RoomID: "room.tutorial.item_yard", Text: "到达物品庭院"},
 			},
 		},
 		"quest.tutorial.first_steps.stage.examine_sword": {

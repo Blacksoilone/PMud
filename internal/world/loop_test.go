@@ -73,8 +73,8 @@ func TestLoop_customItemResolver_overridesFallback(t *testing.T) {
 	})
 	l.Start()
 
-	// 把玩家放入起始房间（旧油灯在那里）
-	l.world.players["player.test"] = PlayerEntity{ID: "player.test", RoomID: "room.tutorial.start"}
+	// 把玩家放入锁钥厅（旧油灯在那里）
+	l.world.players["player.test"] = PlayerEntity{ID: "player.test", RoomID: "room.tutorial.lock_hall"}
 
 	resp := make(chan ActionResult, 1)
 	l.Submit(Action{PlayerID: "player.test", Verb: "custom", Resp: resp})
@@ -117,8 +117,8 @@ func TestLoop_relevantItemsFallback_visibleItemsWithMatchingHooks(t *testing.T) 
 	})
 	l.Start()
 
-	// 把玩家放入起始房间（旧油灯在那里，且有 tag.lightable）
-	l.world.players["player.test"] = PlayerEntity{ID: "player.test", RoomID: "room.tutorial.start"}
+	// 把玩家放入锁钥厅（旧油灯在那里，且有 tag.lightable）
+	l.world.players["player.test"] = PlayerEntity{ID: "player.test", RoomID: "room.tutorial.lock_hall"}
 
 	resp := make(chan ActionResult, 1)
 	l.Submit(Action{PlayerID: "player.test", Verb: "light", Resp: resp})

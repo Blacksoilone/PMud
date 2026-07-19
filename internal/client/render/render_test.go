@@ -13,11 +13,10 @@ func TestRender_roomEventUsesClientCatalog(t *testing.T) {
 	event := protocol.Event{
 		Name: "room",
 		Fields: map[string]string{
-			"room":            "room.tutorial.start",
-			"name_key":        "room.tutorial.start.name",
-			"description_key": "room.tutorial.start.description",
-			"exits":           "north",
-			"items":           "item.tutorial.old_lantern",
+			"room":            "room.tutorial.hall",
+			"name_key":        "room.tutorial.hall.name",
+			"description_key": "room.tutorial.hall.description",
+			"exits":           "north,east,portal",
 		},
 	}
 
@@ -25,7 +24,7 @@ func TestRender_roomEventUsesClientCatalog(t *testing.T) {
 	got := Render(event, catalog)
 
 	// Then
-	want := "练习场入口\n这里是练习场的入口。北边传来木剑碰撞的声音。\n出口: north\n你看到: 旧油灯（old lantern）\n"
+	want := "教学大厅\n大厅宽敞明亮，四周墙壁上挂着几幅地图。这里连通着多个区域。\n出口: north, east, portal\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
@@ -195,8 +194,8 @@ func testCatalog() content.ClientCatalog {
 			"item.tutorial.old_lantern": "item.tutorial.old_lantern.description",
 		},
 		Text: map[content.TextKey]string{
-			"room.tutorial.start.name":                "练习场入口",
-			"room.tutorial.start.description":         "这里是练习场的入口。北边传来木剑碰撞的声音。",
+			"room.tutorial.hall.name":                "教学大厅",
+			"room.tutorial.hall.description":         "大厅宽敞明亮，四周墙壁上挂着几幅地图。这里连通着多个区域。",
 			"item.tutorial.old_lantern.name":          "旧油灯",
 			"item.tutorial.old_lantern.inner_name":    "old lantern",
 			"item.tutorial.old_lantern.description":   "灯罩上蒙着一层灰，里面还剩一点灯油。",

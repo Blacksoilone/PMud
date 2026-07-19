@@ -18,21 +18,20 @@ func TestViewIncludesRoomEventAndPrompt(t *testing.T) {
 	got := View(model, catalog, 128).String()
 
 	assertContains(t, got, "小地图")
-	assertContains(t, got, "练习场入口")
-	assertContains(t, got, "这里是练习场的入口。北边传来木剑碰撞的声音。")
-	assertContains(t, got, "你看到: 旧油灯")
+	assertContains(t, got, "教学大厅")
+	assertContains(t, got, "大厅宽敞明亮，四周墙壁上挂着几幅地图。这里连通着多个区域。")
 	assertContains(t, got, "> get 旧油灯")
 }
 
 func TestMinimapNeighborsUsesPlanarRoomProjection(t *testing.T) {
 	catalog := testClientCatalog(t)
 	model := NewModel(3)
-	model.Regions.Room.Neighbors = "north=room.tutorial.yard,up=room.tutorial.yard"
+	model.Regions.Room.Neighbors = "north=room.tutorial.item_yard,up=room.tutorial.item_yard"
 
 	neighbors := minimapNeighbors(model, catalog)
 
-	if got := neighbors[MapNorth].Label; got != "练习场" {
-		t.Fatalf("north label = %q, want 练习场", got)
+	if got := neighbors[MapNorth].Label; got != "物品庭院" {
+		t.Fatalf("north label = %q, want 物品庭院", got)
 	}
 	if _, exists := neighbors[MapDirection("up")]; exists {
 		t.Fatal("height-changing direction entered planar minimap")
@@ -45,20 +44,20 @@ func TestTutorialMinimapShowsTriangleAsCurrentRoomToOneHopNeighborsOnly(t *testi
 		t.Fatal(err)
 	}
 	model := NewModel(3)
-	model.Regions.Room.Room = "room.tutorial.start"
-	model.Regions.Room.Neighbors = "north=room.tutorial.yard,northeast=room.tutorial.shed"
+	model.Regions.Room.Room = "room.tutorial.hall"
+	model.Regions.Room.Neighbors = "north=room.tutorial.item_yard,east=room.tutorial.lock_hall"
 
 	lines := renderMinimapGrid(MinimapRegion{
 		Current:   MinimapRoom{Label: minimapLabel(model, compiled.Client)},
 		Neighbors: minimapNeighbors(model, compiled.Client),
 	})
 
-	top := termwidth.StripANSI(lines[0])
-	if !strings.Contains(top, "练习场") || !strings.Contains(top, "器械棚") {
-		t.Fatalf("top row does not contain both one-hop neighbors: %q", top)
+	grid := termwidth.StripANSI(lines[0] + " " + lines[1] + " " + lines[2])
+	if !strings.Contains(grid, "物品庭院") || !strings.Contains(grid, "锁钥厅") {
+		t.Fatalf("minimap grid should contain both one-hop neighbors: %q", grid)
 	}
-	if strings.Contains(top, "--") {
-		t.Fatalf("minimap connected neighboring rooms to each other: %q", top)
+	if strings.Contains(grid, "--") {
+		t.Fatalf("minimap connected neighboring rooms to each other: %q", grid)
 	}
 }
 
@@ -132,7 +131,7 @@ func TestViewRendersRightHUDPermanentPanes(t *testing.T) {
 		"初入练习场",
 		"阶段: 走进院子",
 		"目标: 查看练习木剑",
-		"练习场入口",
+		"教学大厅",
 		"> look",
 	} {
 		assertContains(t, got, want)
@@ -221,7 +220,7 @@ func TestViewLogOmitsPermanentRoomAndQuestEvents(t *testing.T) {
 
 	got := ViewWithSize(model, catalog, 128, 26).String()
 
-	if strings.Count(got, "练习场入口") != 1 {
+	if strings.Count(got, "大厅宽敞明亮，四周墙壁上挂着几幅地图。这里连通着多个区域。") != 1 {
 		t.Fatalf("room event should only appear in room pane:\n%s", got)
 	}
 	if strings.Count(got, "初入练习场") != 1 {
@@ -243,12 +242,11 @@ func tutorialRoomEvent() protocol.Event {
 	return protocol.Event{
 		Name: "room",
 		Fields: map[string]string{
-			"room":            "room.tutorial.start",
-			"name_key":        "room.tutorial.start.name",
-			"description_key": "room.tutorial.start.description",
-			"exits":           "north",
-			"neighbors":       "north=room.tutorial.yard",
-			"items":           "item.tutorial.old_lantern",
+			"room":            "room.tutorial.hall",
+			"name_key":        "room.tutorial.hall.name",
+			"description_key": "room.tutorial.hall.description",
+			"exits":           "north,east,portal",
+			"neighbors":       "north=room.tutorial.item_yard,east=room.tutorial.lock_hall",
 		},
 	}
 }

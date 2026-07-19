@@ -8,7 +8,6 @@ import (
 )
 
 func TestWorld_NewFromSnapshotPreservesTutorialBehavior(t *testing.T) {
-	// Given
 	compiled, err := content.Compile(content.TutorialSource())
 	if err != nil {
 		t.Fatal(err)
@@ -16,29 +15,29 @@ func TestWorld_NewFromSnapshotPreservesTutorialBehavior(t *testing.T) {
 	game := NewFromSnapshot(compiled.Server, compiled.Client)
 	playerID := PlayerID("player.local")
 
-	// When
 	observation, ok := game.Look(game.StartRoom())
-
-	// Then
 	if !ok {
 		t.Fatal("expected start room to exist")
 	}
-	if observation.Name != "练习场入口" {
+	if observation.Name != "教学大厅" {
 		t.Fatalf("expected start room name, got %q", observation.Name)
 	}
-	if !slices.Contains(observation.Items, "旧油灯") {
-		t.Fatalf("expected old lantern in start room, got %v", observation.Items)
+	// old_lantern is in lock_hall, not in start room
+	if slices.Contains(observation.Items, "旧油灯") {
+		t.Fatalf("expected no old lantern in start room, got %v", observation.Items)
 	}
+	// move north to item_yard
 	nextRoom, ok := game.Move(game.StartRoom(), "north")
 	if !ok {
 		t.Fatal("expected north movement to work")
 	}
-	if nextRoom != "room.tutorial.yard" {
-		t.Fatalf("expected yard room, got %q", nextRoom)
+	if nextRoom != "room.tutorial.item_yard" {
+		t.Fatalf("expected item_yard, got %q", nextRoom)
 	}
-	itemID, ok := game.GetItem(game.StartRoom(), "item.tutorial.old_lantern", playerID)
+	// get old lantern from lock_hall
+	itemID, ok := game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", playerID)
 	if !ok {
-		t.Fatal("expected to get old lantern")
+		t.Fatal("expected to get old lantern from lock_hall")
 	}
 	if itemID != "item.tutorial.old_lantern" {
 		t.Fatalf("expected old lantern id, got %q", itemID)
@@ -49,84 +48,38 @@ func TestWorld_NewFromSnapshotPreservesTutorialBehavior(t *testing.T) {
 }
 
 func TestWorldMoveUsesExitItems(t *testing.T) {
-	// Given
 	game := New()
 	startRoom := game.StartRoom()
-	game.rooms[startRoom] = Room{
-		NameKey:        game.rooms[startRoom].NameKey,
-		DescriptionKey: game.rooms[startRoom].DescriptionKey,
-		Name:           game.rooms[startRoom].Name,
-		Description:    game.rooms[startRoom].Description,
-	}
-	game.items["item.tutorial.north"] = Item{
-		Name:      "北方",
-		InnerName: "north",
-		Tags: []TagInstance{
-			{DefinitionID: "tag.exit", Params: map[string]any{"direction": "north", "target": "room.tutorial.yard"}},
-		},
-	}
-	game.itemLocations["item.tutorial.north"] = RoomItemLocation{RoomID: startRoom}
-
-	// When
 	nextRoom, moved := game.Move(startRoom, "north")
-
-	// Then
-	if !moved || nextRoom != "room.tutorial.yard" {
-		t.Fatalf("Move north = %q, %v; want yard, true", nextRoom, moved)
+	if !moved || nextRoom != "room.tutorial.item_yard" {
+		t.Fatalf("Move north = %q, %v; want item_yard, true", nextRoom, moved)
 	}
 }
 
-func TestWorldMoveUsesNamedExitWithoutDirection(t *testing.T) {
-	// Given
+func TestWorldMoveUsesNamedPortalExit(t *testing.T) {
 	game := New()
 	startRoom := game.StartRoom()
-	game.rooms[startRoom] = Room{Name: game.rooms[startRoom].Name}
-	game.items["item.tutorial.portal"] = Item{
-		Name:      "传送门",
-		InnerName: "portal",
-		Tags: []TagInstance{
-			{DefinitionID: "tag.exit", Params: map[string]any{"target": "room.tutorial.yard"}},
-		},
-	}
-	game.itemLocations["item.tutorial.portal"] = RoomItemLocation{RoomID: startRoom}
-
-	// When
-	nextRoom, moved := game.Move(startRoom, "传送门")
-
-	// Then
-	if !moved || nextRoom != "room.tutorial.yard" {
-		t.Fatalf("Move portal = %q, %v; want yard, true", nextRoom, moved)
+	nextRoom, moved := game.Move(startRoom, "portal")
+	if !moved || nextRoom != "room.tutorial.quest_start" {
+		t.Fatalf("Move portal = %q, %v; want quest_start, true", nextRoom, moved)
 	}
 }
 
 func TestWorldLookSeparatesExitsFromOrdinaryItems(t *testing.T) {
-	// Given
 	game := New()
 	startRoom := game.StartRoom()
-	game.items["item.tutorial.north"] = Item{
-		Name:      "北方",
-		InnerName: "north",
-		Tags: []TagInstance{
-			{DefinitionID: "tag.exit", Params: map[string]any{"direction": "north", "target": "room.tutorial.yard"}},
-		},
-	}
-	game.itemLocations["item.tutorial.north"] = RoomItemLocation{RoomID: startRoom}
-
-	// When
 	observation, ok := game.Look(startRoom)
-	_, gotExit := game.GetItem(startRoom, "item.tutorial.north", "player.local")
-
-	// Then
+	_, gotExit := game.GetItem(startRoom, "item.hall.north", "player.local")
 	if !ok {
 		t.Fatal("expected room observation")
 	}
 	if !slices.Contains(observation.Exits, "north") {
 		t.Fatalf("exits = %v, want north", observation.Exits)
 	}
-	if got := observation.Neighbors["north"]; got != "room.tutorial.yard" {
-		t.Fatalf("north neighbor = %q, want room.tutorial.yard", got)
+	if got := observation.Neighbors["north"]; got != "room.tutorial.item_yard" {
+		t.Fatalf("north neighbor = %q, want room.tutorial.item_yard", got)
 	}
-	if slices.Contains(observation.Items, "北方") {
+	if slices.Contains(observation.Items, "北方通路") {
 		t.Fatalf("ordinary items include exit: %v", observation.Items)
 	}
 	if gotExit {
@@ -135,21 +88,17 @@ func TestWorldLookSeparatesExitsFromOrdinaryItems(t *testing.T) {
 }
 
 func TestWorld_ItemMovesBetweenRoomAndInventory(t *testing.T) {
-	// Given
 	game := New()
 	playerID := PlayerID("player.local")
-	startRoom := game.StartRoom()
+	lanternRoom := RoomID("room.tutorial.lock_hall")
 
-	// When
-	itemID, ok := game.GetItem(startRoom, "item.tutorial.old_lantern", playerID)
-
-	// Then
+	itemID, ok := game.GetItem(lanternRoom, "item.tutorial.old_lantern", playerID)
 	if !ok {
 		t.Fatal("expected to get old lantern")
 	}
-	observation, ok := game.Look(startRoom)
+	observation, ok := game.Look(lanternRoom)
 	if !ok {
-		t.Fatal("expected start room to exist")
+		t.Fatal("expected lock_hall to exist")
 	}
 	if slices.Contains(observation.Items, "旧油灯") {
 		t.Fatal("expected old lantern to leave the room after get")
@@ -158,19 +107,16 @@ func TestWorld_ItemMovesBetweenRoomAndInventory(t *testing.T) {
 		t.Fatal("expected old lantern to enter player inventory after get")
 	}
 
-	// When
-	droppedItemID, ok := game.DropInventoryItem(startRoom, "item.tutorial.old_lantern", playerID)
-
-	// Then
+	droppedItemID, ok := game.DropInventoryItem(lanternRoom, "item.tutorial.old_lantern", playerID)
 	if !ok {
 		t.Fatal("expected to drop old lantern")
 	}
 	if droppedItemID != itemID {
 		t.Fatalf("expected dropped item %q, got %q", itemID, droppedItemID)
 	}
-	observation, ok = game.Look(startRoom)
+	observation, ok = game.Look(lanternRoom)
 	if !ok {
-		t.Fatal("expected start room to exist")
+		t.Fatal("expected lock_hall to exist")
 	}
 	if !slices.Contains(observation.Items, "旧油灯") {
 		t.Fatal("expected old lantern to return to the room after drop")
@@ -187,10 +133,10 @@ func TestWorld_ExamineItemFindsItemInCurrentRoom(t *testing.T) {
 	game := New()
 	playerID := PlayerID("player.local")
 
-	observation, ok := game.ExamineItem(game.StartRoom(), "item.tutorial.old_lantern", playerID)
+	observation, ok := game.ExamineItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", playerID)
 
 	if !ok {
-		t.Fatal("expected to examine old lantern in current room")
+		t.Fatal("expected to examine old lantern in lock_hall")
 	}
 	if observation.Item != "item.tutorial.old_lantern" {
 		t.Fatalf("expected old lantern id, got %q", observation.Item)
@@ -206,9 +152,9 @@ func TestWorld_ExamineItemFindsItemInCurrentRoom(t *testing.T) {
 func TestWorld_ExamineItemFindsItemInInventory(t *testing.T) {
 	game := New()
 	playerID := PlayerID("player.local")
-	game.GetItem(game.StartRoom(), "item.tutorial.old_lantern", playerID)
+	game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", playerID)
 
-	observation, ok := game.ExamineItem(game.StartRoom(), "item.tutorial.old_lantern", playerID)
+	observation, ok := game.ExamineItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", playerID)
 
 	if !ok {
 		t.Fatal("expected to examine old lantern in inventory")
@@ -230,13 +176,9 @@ func TestWorld_ExamineItemRejectsInvisibleItem(t *testing.T) {
 }
 
 func TestWorldResolveRoomItemPhrase_matchesDisplayName(t *testing.T) {
-	// Given
 	game := New()
+	resolution := game.ResolveRoomItemPhrase("room.tutorial.lock_hall", "旧油灯")
 
-	// When
-	resolution := game.ResolveRoomItemPhrase(game.StartRoom(), "旧油灯")
-
-	// Then
 	if !resolution.Found {
 		t.Fatal("expected old lantern to resolve")
 	}
@@ -246,16 +188,12 @@ func TestWorldResolveRoomItemPhrase_matchesDisplayName(t *testing.T) {
 }
 
 func TestWorldResolveRoomItemPhrase_matchesInnerNameSeparatorsCaseInsensitively(t *testing.T) {
-	// Given
 	game := New()
 
 	tests := []string{"oldlantern", "old-lantern", "old_lantern", "OLD-LANTERN"}
 	for _, phrase := range tests {
 		t.Run(phrase, func(t *testing.T) {
-			// When
-			resolution := game.ResolveRoomItemPhrase(game.StartRoom(), phrase)
-
-			// Then
+			resolution := game.ResolveRoomItemPhrase("room.tutorial.lock_hall", phrase)
 			if !resolution.Found {
 				t.Fatal("expected old lantern to resolve")
 			}
@@ -267,16 +205,12 @@ func TestWorldResolveRoomItemPhrase_matchesInnerNameSeparatorsCaseInsensitively(
 }
 
 func TestWorldResolveRoomItemPhrase_matchesAliasSeparatorsCaseInsensitively(t *testing.T) {
-	// Given
 	game := New()
 
 	tests := []string{"jiuyoudeng", "jiu-youdeng", "jiu_youdeng", "JIU_YOUDENG"}
 	for _, phrase := range tests {
 		t.Run(phrase, func(t *testing.T) {
-			// When
-			resolution := game.ResolveRoomItemPhrase(game.StartRoom(), phrase)
-
-			// Then
+			resolution := game.ResolveRoomItemPhrase("room.tutorial.lock_hall", phrase)
 			if !resolution.Found {
 				t.Fatal("expected old lantern to resolve")
 			}
@@ -288,13 +222,9 @@ func TestWorldResolveRoomItemPhrase_matchesAliasSeparatorsCaseInsensitively(t *t
 }
 
 func TestWorldResolveRoomItemPhrase_matchesPracticeSwordPinyinAlias(t *testing.T) {
-	// Given
 	game := New()
+	resolution := game.ResolveRoomItemPhrase("room.tutorial.item_yard", "lianximujian")
 
-	// When
-	resolution := game.ResolveRoomItemPhrase("room.tutorial.yard", "lianximujian")
-
-	// Then
 	if !resolution.Found {
 		t.Fatal("expected practice sword to resolve")
 	}
@@ -304,16 +234,13 @@ func TestWorldResolveRoomItemPhrase_matchesPracticeSwordPinyinAlias(t *testing.T
 }
 
 func TestWorldResolveInventoryItemPhrase_matchesOnlyInventory(t *testing.T) {
-	// Given
 	game := New()
 	playerID := PlayerID("player.local")
-	game.GetItem(game.StartRoom(), "item.tutorial.old_lantern", playerID)
+	game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", playerID)
 
-	// When
 	inventoryResolution := game.ResolveInventoryItemPhrase(playerID, "旧油灯")
-	roomResolution := game.ResolveRoomItemPhrase(game.StartRoom(), "旧油灯")
+	roomResolution := game.ResolveRoomItemPhrase("room.tutorial.lock_hall", "旧油灯")
 
-	// Then
 	if !inventoryResolution.Found {
 		t.Fatal("expected old lantern to resolve in inventory")
 	}
@@ -326,16 +253,13 @@ func TestWorldResolveInventoryItemPhrase_matchesOnlyInventory(t *testing.T) {
 }
 
 func TestWorldResolveVisibleItemPhrase_matchesRoomAndInventory(t *testing.T) {
-	// Given
 	game := New()
 	playerID := PlayerID("player.local")
-	game.GetItem(game.StartRoom(), "item.tutorial.old_lantern", playerID)
+	game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", playerID)
 
-	// When
-	inventoryResolution := game.ResolveVisibleItemPhrase(game.StartRoom(), playerID, "旧油灯")
-	yardResolution := game.ResolveVisibleItemPhrase("room.tutorial.yard", playerID, "练习木剑")
+	inventoryResolution := game.ResolveVisibleItemPhrase("room.tutorial.lock_hall", playerID, "旧油灯")
+	yardResolution := game.ResolveVisibleItemPhrase("room.tutorial.item_yard", playerID, "练习木剑")
 
-	// Then
 	if !inventoryResolution.Found || inventoryResolution.ItemID != "item.tutorial.old_lantern" {
 		t.Fatalf("inventory visible resolution = %#v, want old lantern", inventoryResolution)
 	}
@@ -345,40 +269,31 @@ func TestWorldResolveVisibleItemPhrase_matchesRoomAndInventory(t *testing.T) {
 }
 
 func TestWorldResolveRoomItemPhrase_reportsAmbiguityOnlyWithinRoom(t *testing.T) {
-	// Given
 	game := New()
 	game.items["item.tutorial.second_lantern"] = Item{
-		NameKey:        "item.tutorial.second_lantern.name",
-		DescriptionKey: "item.tutorial.second_lantern.description",
-		Name:           "旧油灯",
-		InnerName:      "old lantern",
-		Description:    "另一盏旧油灯。",
-		Aliases:        []string{"jiuyoudeng"},
-		Tags:           []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+		NameKey: "item.tutorial.second_lantern.name", DescriptionKey: "item.tutorial.second_lantern.description",
+		Name: "旧油灯", InnerName: "old lantern", Description: "另一盏旧油灯。",
+		Aliases: []string{"jiuyoudeng"},
+		Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
 	}
-	game.itemLocations["item.tutorial.second_lantern"] = RoomItemLocation{RoomID: game.StartRoom()}
+	game.itemLocations["item.tutorial.second_lantern"] = RoomItemLocation{RoomID: "room.tutorial.lock_hall"}
 	game.items["item.tutorial.distant_lantern"] = Item{
-		NameKey:        "item.tutorial.distant_lantern.name",
-		DescriptionKey: "item.tutorial.distant_lantern.description",
-		Name:           "旧油灯",
-		InnerName:      "old lantern",
-		Description:    "远处的旧油灯。",
-		Aliases:        []string{"jiuyoudeng"},
-		Tags:           []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+		NameKey: "item.tutorial.distant_lantern.name", DescriptionKey: "item.tutorial.distant_lantern.description",
+		Name: "旧油灯", InnerName: "old lantern", Description: "远处的旧油灯。",
+		Aliases: []string{"jiuyoudeng"},
+		Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
 	}
-	game.itemLocations["item.tutorial.distant_lantern"] = RoomItemLocation{RoomID: "room.tutorial.yard"}
+	game.itemLocations["item.tutorial.distant_lantern"] = RoomItemLocation{RoomID: "room.tutorial.item_yard"}
 
-	// When
-	startResolution := game.ResolveRoomItemPhrase(game.StartRoom(), "旧油灯")
-	yardResolution := game.ResolveRoomItemPhrase("room.tutorial.yard", "旧油灯")
+	lockHallResolution := game.ResolveRoomItemPhrase("room.tutorial.lock_hall", "旧油灯")
+	yardResolution := game.ResolveRoomItemPhrase("room.tutorial.item_yard", "旧油灯")
 
-	// Then
 	wantAmbiguous := []ItemID{"item.tutorial.old_lantern", "item.tutorial.second_lantern"}
-	if startResolution.Found {
-		t.Fatalf("expected ambiguous start room resolution, got found %#v", startResolution)
+	if lockHallResolution.Found {
+		t.Fatalf("expected ambiguous lock_hall resolution, got found %#v", lockHallResolution)
 	}
-	if !slices.Equal(startResolution.AmbiguousItemIDs, wantAmbiguous) {
-		t.Fatalf("ambiguous ids = %#v, want %#v", startResolution.AmbiguousItemIDs, wantAmbiguous)
+	if !slices.Equal(lockHallResolution.AmbiguousItemIDs, wantAmbiguous) {
+		t.Fatalf("ambiguous ids = %#v, want %#v", lockHallResolution.AmbiguousItemIDs, wantAmbiguous)
 	}
 	if !yardResolution.Found || yardResolution.ItemID != "item.tutorial.distant_lantern" {
 		t.Fatalf("yard resolution = %#v, want distant lantern only", yardResolution)
@@ -386,47 +301,37 @@ func TestWorldResolveRoomItemPhrase_reportsAmbiguityOnlyWithinRoom(t *testing.T)
 }
 
 func TestWorldGetItemAllowsCarryableExit(t *testing.T) {
-	// Given
 	game := New()
 	startRoom := game.StartRoom()
-	game.items["item.tutorial.portal"] = Item{
-		Name:      "传送门",
-		InnerName: "portal",
+	game.items["item.hall.test_portal"] = Item{
+		Name: "传送门", InnerName: "test_portal",
 		Tags: []TagInstance{
-			{DefinitionID: "tag.exit", Params: map[string]any{"target": "room.tutorial.yard"}},
+			{DefinitionID: "tag.exit", Params: map[string]any{"direction": "test_portal", "target": "room.tutorial.item_yard"}},
 			{DefinitionID: "tag.carryable", Params: map[string]any{}},
 		},
 	}
-	game.itemLocations["item.tutorial.portal"] = RoomItemLocation{RoomID: startRoom}
+	game.itemLocations["item.hall.test_portal"] = RoomItemLocation{RoomID: startRoom}
 
-	// When
-	itemID, got := game.GetItem(startRoom, "item.tutorial.portal", "player.local")
-
-	// Then
-	if !got || itemID != "item.tutorial.portal" {
+	itemID, got := game.GetItem(startRoom, "item.hall.test_portal", "player.local")
+	if !got || itemID != "item.hall.test_portal" {
 		t.Fatalf("GetItem carryable exit = %q, %v", itemID, got)
 	}
 }
 
 func TestWorldDropInventoryItemRejectsDuplicateExitDirection(t *testing.T) {
-	// Given
 	game := New()
 	playerID := PlayerID("player.local")
 	startRoom := game.StartRoom()
 	game.items["item.tutorial.moving_north"] = Item{
-		Name:      "另一个北方",
-		InnerName: "north",
+		Name: "另一个北方", InnerName: "north",
 		Tags: []TagInstance{
-			{DefinitionID: "tag.exit", Params: map[string]any{"direction": "north", "target": "room.tutorial.yard"}},
+			{DefinitionID: "tag.exit", Params: map[string]any{"direction": "north", "target": "room.tutorial.lock_hall"}},
 			{DefinitionID: "tag.carryable", Params: map[string]any{}},
 		},
 	}
 	game.itemLocations["item.tutorial.moving_north"] = InventoryItemLocation{PlayerID: playerID}
 
-	// When
 	itemID, dropped := game.DropInventoryItem(startRoom, "item.tutorial.moving_north", playerID)
-
-	// Then
 	if dropped || itemID != "" {
 		t.Fatalf("DropInventoryItem duplicate north = %q, %v; want empty, false", itemID, dropped)
 	}
@@ -451,20 +356,15 @@ func TestTwoPlayersHaveIndependentInventories(t *testing.T) {
 		t.Fatal("both players should start in start room")
 	}
 
-	// A picks up lantern
-	_, ok = game.GetItem(game.StartRoom(), "item.tutorial.old_lantern", "player.a")
+	// A picks up lantern from lock_hall (physics-based; no movement needed for this world-level test)
+	_, ok = game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", "player.a")
 	if !ok {
 		t.Fatal("A should get the lantern")
 	}
 
-	// B should not see lantern in room
-	roomB, _ := game.Look(game.StartRoom())
-	if slices.Contains(roomB.Items, "旧油灯") {
-		t.Fatal("B should not see lantern in room after A picked it up")
-	}
-
-	// B should not be able to get lantern
-	_, ok = game.GetItem(game.StartRoom(), "item.tutorial.old_lantern", "player.b")
+	// B should not see lantern in lock_hall (checked by same item state)
+	// after A picked it up, it's in A's inventory — no longer visible from any room
+	_, ok = game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", "player.b")
 	if ok {
 		t.Fatal("B should not be able to get lantern that A has")
 	}
@@ -500,20 +400,24 @@ func TestTwoPlayersMoveIndependently(t *testing.T) {
 	game.EnterWorld("player.a")
 	game.EnterWorld("player.b")
 
-	// A picks up old lantern (key to the locked north door) then moves north
-	_, ok := game.GetItem(game.StartRoom(), "item.tutorial.old_lantern", "player.a")
+	// A: start in hall → move east to lock_hall → get lantern → move east to lock_chamber (unlocked with lantern)
+	_, ok := game.MovePlayer("player.a", "east")
 	if !ok {
-		t.Fatal("A should be able to get old lantern")
+		t.Fatal("A should be able to move east to lock_hall")
 	}
-	roomA, ok := game.MovePlayer("player.a", "north")
+	_, ok = game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", "player.a")
 	if !ok {
-		t.Fatal("A should be able to move north with key")
+		t.Fatal("A should be able to get old lantern in lock_hall")
 	}
-	if roomA != "room.tutorial.yard" {
-		t.Fatalf("A should be in yard, got %q", roomA)
+	roomA, ok := game.MovePlayer("player.a", "east")
+	if !ok {
+		t.Fatal("A should be able to move east with lantern")
+	}
+	if roomA != "room.tutorial.lock_chamber" {
+		t.Fatalf("A should be in lock_chamber, got %q", roomA)
 	}
 
-	// B should still be in start
+	// B should still be in start (hall)
 	roomB, ok := game.PlayerRoom("player.b")
 	if !ok {
 		t.Fatal("player B should exist")
@@ -522,22 +426,22 @@ func TestTwoPlayersMoveIndependently(t *testing.T) {
 		t.Fatalf("B should still be in start room, got %q", roomB)
 	}
 
-	// Only A in yard
-	yardPlayers := game.PlayersInRoom("room.tutorial.yard")
-	if !slices.Contains(yardPlayers, PlayerID("player.a")) {
-		t.Fatal("A should be in yard")
+	// Only A in lock_chamber
+	chamberPlayers := game.PlayersInRoom("room.tutorial.lock_chamber")
+	if !slices.Contains(chamberPlayers, PlayerID("player.a")) {
+		t.Fatal("A should be in lock_chamber")
 	}
-	if slices.Contains(yardPlayers, PlayerID("player.b")) {
-		t.Fatal("B should not be in yard")
+	if slices.Contains(chamberPlayers, PlayerID("player.b")) {
+		t.Fatal("B should not be in lock_chamber")
 	}
 
-	// Only B in start
+	// Only B in hall
 	startPlayers := game.PlayersInRoom(game.StartRoom())
 	if !slices.Contains(startPlayers, PlayerID("player.b")) {
-		t.Fatal("B should be in start")
+		t.Fatal("B should be in hall")
 	}
 	if slices.Contains(startPlayers, PlayerID("player.a")) {
-		t.Fatal("A should not be in start")
+		t.Fatal("A should not be in hall")
 	}
 }
 

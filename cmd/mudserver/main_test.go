@@ -12,7 +12,7 @@ func TestBuildGameLoadsTutorialData(t *testing.T) {
 	if !ok {
 		t.Fatal("expected start room to exist")
 	}
-	if observation.Name != "练习场入口" {
-		t.Fatalf("start room name = %q, want 练习场入口", observation.Name)
+	if observation.Name != "教学大厅" {
+		t.Fatalf("start room name = %q, want 教学大厅", observation.Name)
 	}
 }

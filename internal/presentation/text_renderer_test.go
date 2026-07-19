@@ -41,21 +41,21 @@ func TestTextRenderer_RenderRoomObservationEvent_asStructuredLine(t *testing.T) 
 	// Given
 	renderer := TextRenderer{}
 	event := RoomObservationEvent{
-		Room:           "room.tutorial.start",
-		NameKey:        "room.tutorial.start.name",
-		DescriptionKey: "room.tutorial.start.description",
-		Name:           "练习场入口",
-		Description:    "这里是练习场的入口。北边传来木剑碰撞的声音。",
-		Exits:          []string{"north"},
-		Neighbors:      map[string]string{"north": "room.tutorial.yard"},
-		Items:          []string{"item.tutorial.old_lantern"},
+		Room:           "room.tutorial.hall",
+		NameKey:        "room.tutorial.hall.name",
+		DescriptionKey: "room.tutorial.hall.description",
+		Name:           "教学大厅",
+		Description:    "大厅宽敞明亮，四周墙壁上挂着几幅地图。这里连通着多个区域。",
+		Exits:          []string{"north", "east", "portal"},
+		Neighbors:      map[string]string{"north": "room.tutorial.item_yard", "east": "room.tutorial.lock_hall"},
+		Items:          []string{},
 	}
 
 	// When
 	got := renderer.Render(event)
 
 	// Then
-	want := "event=room\troom=room.tutorial.start\tname_key=room.tutorial.start.name\tdescription_key=room.tutorial.start.description\texits=north\tneighbors=north=room.tutorial.yard\titems=item.tutorial.old_lantern\n"
+	want := "event=room\troom=room.tutorial.hall\tname_key=room.tutorial.hall.name\tdescription_key=room.tutorial.hall.description\texits=north,east,portal\tneighbors=east=room.tutorial.lock_hall,north=room.tutorial.item_yard\titems=\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}

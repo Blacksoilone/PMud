@@ -237,31 +237,29 @@ func TestCompile_lockableTag_rejectsMissingKey(t *testing.T) {
 }
 
 func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
-	// Given
 	source := TutorialSource()
-
-	// When
 	compiled, err := Compile(source)
-	// Then
 	if err != nil {
 		t.Fatal(err)
 	}
-	if compiled.Server.StartRoomID != "room.tutorial.start" {
+	if compiled.Server.StartRoomID != "room.tutorial.hall" {
 		t.Fatalf("expected tutorial start room, got %q", compiled.Server.StartRoomID)
 	}
-	if len(compiled.Server.Rooms) != 3 {
-		t.Fatalf("expected 3 rooms, got %d", len(compiled.Server.Rooms))
+	if len(compiled.Server.Rooms) != 5 {
+		t.Fatalf("expected 5 rooms, got %d", len(compiled.Server.Rooms))
 	}
-	if len(compiled.Server.Items) != 8 {
-		t.Fatalf("expected 8 items including six exits, got %d", len(compiled.Server.Items))
+	if len(compiled.Server.Items) != 11 {
+		t.Fatalf("expected 11 items (8 exits + 3 game items), got %d", len(compiled.Server.Items))
 	}
 	exitTargets := map[ItemID]RoomID{
-		"item.tutorial.north":     "room.tutorial.yard",
-		"item.tutorial.south":     "room.tutorial.start",
-		"item.tutorial.northeast": "room.tutorial.shed",
-		"item.tutorial.southwest": "room.tutorial.start",
-		"item.tutorial.east":      "room.tutorial.shed",
-		"item.tutorial.west":      "room.tutorial.yard",
+		"item.hall.north":          "room.tutorial.item_yard",
+		"item.hall.east":           "room.tutorial.lock_hall",
+		"item.hall.portal":         "room.tutorial.quest_start",
+		"item.yard.south":          "room.tutorial.hall",
+		"item.lock_hall.west":      "room.tutorial.hall",
+		"item.lock_hall.east":      "room.tutorial.lock_chamber",
+		"item.lock_chamber.west":   "room.tutorial.lock_hall",
+		"item.quest_start.portal":  "room.tutorial.hall",
 	}
 	for itemID, targetRoomID := range exitTargets {
 		item, ok := compiled.Server.Items[itemID]
@@ -282,11 +280,11 @@ func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
 			t.Fatalf("expected %s to compile with an exit tag", itemID)
 		}
 	}
-	if got := compiled.Server.ItemLocations["item.tutorial.old_lantern"]; got != "room.tutorial.start" {
-		t.Fatalf("expected old lantern in start room, got %q", got)
+	if got := compiled.Server.ItemLocations["item.tutorial.old_lantern"]; got != "room.tutorial.lock_hall" {
+		t.Fatalf("expected old lantern in lock_hall, got %q", got)
 	}
-	if got := compiled.Client.Text[compiled.Client.RoomNames["room.tutorial.start"]]; got != "练习场入口" {
-		t.Fatalf("expected start room text, got %q", got)
+	if got := compiled.Client.Text[compiled.Client.RoomNames["room.tutorial.hall"]]; got != "教学大厅" {
+		t.Fatalf("expected hall text, got %q", got)
 	}
 	if got := compiled.Client.Text[compiled.Client.ItemDisplayNames["item.tutorial.practice_sword"]]; got != "练习木剑" {
 		t.Fatalf("expected practice sword text, got %q", got)

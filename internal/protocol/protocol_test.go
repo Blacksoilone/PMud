@@ -7,7 +7,7 @@ import (
 
 func TestParseLine_parsesStructuredEventFields(t *testing.T) {
 	// Given
-	line := "event=room\troom=room.tutorial.start\tname_key=room.tutorial.start.name\texits=north\titems=item.tutorial.old_lantern\n"
+	line := "event=room\troom=room.tutorial.hall\tname_key=room.tutorial.hall.name\texits=north,east,portal\titems=\n"
 
 	// When
 	event, err := ParseLine(line)
@@ -20,10 +20,10 @@ func TestParseLine_parsesStructuredEventFields(t *testing.T) {
 		t.Fatalf("expected event name %q, got %q", "room", event.Name)
 	}
 	wantFields := map[string]string{
-		"room":     "room.tutorial.start",
-		"name_key": "room.tutorial.start.name",
-		"exits":    "north",
-		"items":    "item.tutorial.old_lantern",
+		"room":     "room.tutorial.hall",
+		"name_key": "room.tutorial.hall.name",
+		"exits":    "north,east,portal",
+		"items":    "",
 	}
 	for key, want := range wantFields {
 		if got := event.Fields[key]; got != want {

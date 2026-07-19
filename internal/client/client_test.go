@@ -66,14 +66,14 @@ func TestRenderProtocolLines_rendersServerEvents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	input := strings.NewReader("event=room\troom=room.tutorial.start\tname_key=room.tutorial.start.name\tdescription_key=room.tutorial.start.description\texits=north\titems=item.tutorial.old_lantern\n")
+	input := strings.NewReader("event=room\troom=room.tutorial.hall\tname_key=room.tutorial.hall.name\tdescription_key=room.tutorial.hall.description\texits=north,east,portal\n")
 	var output strings.Builder
 
 	err = RenderProtocolLines(input, &output, compiled.Client)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "练习场入口\n这里是练习场的入口。北边传来木剑碰撞的声音。\n出口: north\n你看到: 旧油灯（old lantern）\n"
+	want := "教学大厅\n大厅宽敞明亮，四周墙壁上挂着几幅地图。这里连通着多个区域。\n出口: north, east, portal\n"
 	if got := output.String(); got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
@@ -122,7 +122,7 @@ func TestRenderTUIProtocolLines_rendersObservedEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := NewState(compiled.Client)
-	input := strings.NewReader("event=room\troom=room.tutorial.start\tname_key=room.tutorial.start.name\tdescription_key=room.tutorial.start.description\texits=north\titems=item.tutorial.old_lantern\n")
+	input := strings.NewReader("event=room\troom=room.tutorial.hall\tname_key=room.tutorial.hall.name\tdescription_key=room.tutorial.hall.description\texits=north,east,portal\n")
 	var output strings.Builder
 
 	err = RenderTUIProtocolLines(input, &output, state, 128, 3)
@@ -130,7 +130,7 @@ func TestRenderTUIProtocolLines_rendersObservedEvents(t *testing.T) {
 		t.Fatalf("RenderTUIProtocolLines: %v", err)
 	}
 	got := output.String()
-	if !strings.Contains(got, "练习场入口") {
+	if !strings.Contains(got, "教学大厅") {
 		t.Fatalf("output does not include room name:\n%s", got)
 	}
 	if !strings.Contains(got, "> ") {
@@ -144,7 +144,7 @@ func TestRenderTUIObservedProtocolLines_updatesCommandResolution(t *testing.T) {
 		t.Fatal(err)
 	}
 	state := NewState(compiled.Client)
-	input := strings.NewReader("event=room\troom=room.tutorial.start\tname_key=room.tutorial.start.name\tdescription_key=room.tutorial.start.description\texits=north\titems=item.tutorial.old_lantern\n")
+	input := strings.NewReader("event=room\troom=room.tutorial.hall\tname_key=room.tutorial.hall.name\tdescription_key=room.tutorial.hall.description\texits=north,east,portal\n")
 	var output strings.Builder
 
 	err = RenderTUIObservedProtocolLines(input, &output, state, 128, 3)
@@ -269,7 +269,7 @@ func TestRenderTUIObservedProtocolLinesWithRuntime_sharesModelWithForwardTUILine
 		t.Fatal(err)
 	}
 	state := NewState(compiled.Client)
-	serverEvents := strings.NewReader("event=room\troom=room.tutorial.start\tname_key=room.tutorial.start.name\tdescription_key=room.tutorial.start.description\texits=north\titems=item.tutorial.old_lantern\n")
+	serverEvents := strings.NewReader("event=room\troom=room.tutorial.hall\tname_key=room.tutorial.hall.name\tdescription_key=room.tutorial.hall.description\texits=north,east,portal\n")
 	input := strings.NewReader("get 旧油灯\n")
 	var screenOutput strings.Builder
 	var serverOutput strings.Builder
@@ -287,7 +287,7 @@ func TestRenderTUIObservedProtocolLinesWithRuntime_sharesModelWithForwardTUILine
 		t.Fatalf("server output = %q", serverOutput.String())
 	}
 	got := screenOutput.String()
-	if !strings.Contains(got, "练习场入口") || !strings.Contains(got, "> get 旧油灯") {
+	if !strings.Contains(got, "教学大厅") || !strings.Contains(got, "> get 旧油灯") {
 		t.Fatalf("screen output missing shared event history or input:\n%s", got)
 	}
 }
