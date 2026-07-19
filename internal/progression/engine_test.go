@@ -141,6 +141,41 @@ func TestEngine_doesNotResolveRewardsBeforeRewardPending(t *testing.T) {
 	}
 }
 
+func TestEngine_customConditionChecker_registersExternally(t *testing.T) {
+	// Given — a quest with a custom condition kind
+	defs := Definitions{
+		Quest: QuestDefinition{
+			ID: "quest.custom", Name: "自定义",
+			StageIDs: []string{"stage.kill"},
+		},
+		Stages: map[string]StageDefinition{
+			"stage.kill": {
+				ID: "stage.kill", Text: "击杀 5 只老鼠。",
+				Conditions: []ConditionDefinition{
+					{Kind: "killed_monster", ItemID: "monster.rat", Text: "击杀老鼠 0/5"},
+				},
+			},
+		},
+	}
+	engine := NewEngine(defs)
+
+	// Register a custom checker — 5 rat kills required
+	engine.RegisterConditionChecker("killed_monster", func(c ConditionDefinition, t Trigger) bool {
+		return t.Kind == TriggerGotItem && c.ItemID == t.ItemID
+	})
+
+	// When — first kill
+	status, advanced := engine.Apply("p1", Trigger{Kind: TriggerGotItem, ItemID: "monster.rat"})
+
+	// Then
+	if !advanced {
+		t.Fatal("expected custom condition to match on first kill")
+	}
+	if status.State != QuestStateRewardPending {
+		t.Fatalf("state after kill = %q", status.State)
+	}
+}
+
 func tutorialDefinitions() Definitions {
 	return Definitions{
 		Quest: QuestDefinition{
@@ -158,7 +193,7 @@ func tutorialDefinitions() Definitions {
 				Text:   "拿起旧油灯。",
 				NextID: "quest.tutorial.first_steps.stage.enter_yard",
 				Conditions: []ConditionDefinition{
-					{Kind: TriggerGotItem, ItemID: "item.tutorial.old_lantern", Text: "获取旧油灯"},
+					{Kind: string(TriggerGotItem), ItemID: "item.tutorial.old_lantern", Text: "获取旧油灯"},
 				},
 			},
 			"quest.tutorial.first_steps.stage.enter_yard": {
@@ -166,14 +201,14 @@ func tutorialDefinitions() Definitions {
 				Text:   "前往练习场。",
 				NextID: "quest.tutorial.first_steps.stage.examine_sword",
 				Conditions: []ConditionDefinition{
-					{Kind: TriggerMovedRoom, RoomID: "room.tutorial.yard", Text: "到达练习场"},
+					{Kind: string(TriggerMovedRoom), RoomID: "room.tutorial.yard", Text: "到达练习场"},
 				},
 			},
 			"quest.tutorial.first_steps.stage.examine_sword": {
 				ID:   "quest.tutorial.first_steps.stage.examine_sword",
 				Text: "查看练习木剑。",
 				Conditions: []ConditionDefinition{
-					{Kind: TriggerExaminedItem, ItemID: "item.tutorial.practice_sword", Text: "查看练习木剑"},
+					{Kind: string(TriggerExaminedItem), ItemID: "item.tutorial.practice_sword", Text: "查看练习木剑"},
 				},
 			},
 		},

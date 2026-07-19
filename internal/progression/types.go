@@ -40,8 +40,10 @@ type StageDefinition struct {
 	NextID     string
 }
 
+type ConditionChecker func(condition ConditionDefinition, trigger Trigger) bool
+
 type ConditionDefinition struct {
-	Kind   TriggerKind
+	Kind   string
 	ItemID string
 	RoomID string
 	Text   string

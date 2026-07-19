@@ -3,12 +3,32 @@ package progression
 type Engine struct {
 	definitions Definitions
 	runtime     map[string]questRuntime
+	checkers    map[string]ConditionChecker
 }
 
 func NewEngine(definitions Definitions) *Engine {
-	return &Engine{
+	e := &Engine{
 		definitions: definitions,
 		runtime:     make(map[string]questRuntime),
+		checkers:    make(map[string]ConditionChecker),
+	}
+	e.registerBuiltinCheckers()
+	return e
+}
+
+func (e *Engine) RegisterConditionChecker(kind string, checker ConditionChecker) {
+	e.checkers[kind] = checker
+}
+
+func (e *Engine) registerBuiltinCheckers() {
+	e.checkers[string(TriggerGotItem)] = func(c ConditionDefinition, t Trigger) bool {
+		return t.Kind == TriggerGotItem && (c.ItemID == "" || c.ItemID == t.ItemID)
+	}
+	e.checkers[string(TriggerMovedRoom)] = func(c ConditionDefinition, t Trigger) bool {
+		return t.Kind == TriggerMovedRoom && (c.RoomID == "" || c.RoomID == t.RoomID)
+	}
+	e.checkers[string(TriggerExaminedItem)] = func(c ConditionDefinition, t Trigger) bool {
+		return t.Kind == TriggerExaminedItem && (c.ItemID == "" || c.ItemID == t.ItemID)
 	}
 }
 
@@ -18,7 +38,7 @@ func (e *Engine) Apply(playerID string, trigger Trigger) (Status, bool) {
 		return e.status(runtime), false
 	}
 	stage := e.definitions.Stages[runtime.currentStageID]
-	if !stage.matches(trigger) {
+	if !stage.matches(trigger, e.checkers) {
 		return e.status(runtime), false
 	}
 	if stage.NextID == "" {
@@ -75,27 +95,18 @@ func (e *Engine) status(runtime questRuntime) Status {
 	}
 }
 
-func (s StageDefinition) matches(trigger Trigger) bool {
+func (s StageDefinition) matches(trigger Trigger, checkers map[string]ConditionChecker) bool {
 	if len(s.Conditions) == 0 {
 		return false
 	}
 	for _, condition := range s.Conditions {
-		if !condition.matches(trigger) {
+		checker, ok := checkers[condition.Kind]
+		if !ok {
 			return false
 		}
-	}
-	return true
-}
-
-func (c ConditionDefinition) matches(trigger Trigger) bool {
-	if c.Kind != trigger.Kind {
-		return false
-	}
-	if c.ItemID != "" && c.ItemID != trigger.ItemID {
-		return false
-	}
-	if c.RoomID != "" && c.RoomID != trigger.RoomID {
-		return false
+		if !checker(condition, trigger) {
+			return false
+		}
 	}
 	return true
 }
