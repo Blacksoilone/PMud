@@ -1,6 +1,7 @@
 package world
 
 import (
+	"log"
 	"sync"
 
 	"PMud/internal/presentation"
@@ -8,6 +9,8 @@ import (
 )
 
 func (l *Loop) registerBuiltinVerbs() {
+	l.RegisterVerb("_enter_world", handleEnterWorld)
+	l.RegisterVerb("_leave_world", handleLeaveWorld)
 	l.RegisterVerb("move", handleMove)
 	l.RegisterVerb("look", handleLook)
 	l.RegisterVerb("get", handleGet)
@@ -16,6 +19,157 @@ func (l *Loop) registerBuiltinVerbs() {
 	l.RegisterVerb("look-item", handleLookItem)
 	l.RegisterVerb("inventory", handleInventory)
 	l.RegisterVerb("quest", handleQuest)
+	l.RegisterVerb("verb", handleVerbList)
+
+	// 注册内置动词到注册表
+	for name := range l.verbHandlers {
+		if name == "" || name[0] == '_' {
+			continue
+		}
+		l.verbRegistry[name] = VerbEntry{Name: name, Source: VerbSourceBuiltin}
+	}
+
+	// 物品解析器 — 管线用它们找到当前 action 相关的物品
+	l.RegisterItemResolver("move", resolveMoveItem)
+	l.RegisterItemResolver("get", resolveRoomItemByPhrase)
+	l.RegisterItemResolver("examine", resolveVisibleItemByPhrase)
+	l.RegisterItemResolver("look-item", resolveVisibleItemByPhrase)
+	l.RegisterItemResolver("drop", resolveInventoryItemByPhrase)
+}
+
+// Verbs 返回当前注册表快照中的全部动词。
+func (l *Loop) Verbs() map[string]VerbEntry {
+	result := make(map[string]VerbEntry, len(l.verbRegistry))
+	for k, v := range l.verbRegistry {
+		result[k] = v
+	}
+	return result
+}
+
+// initContentVerbs 将内容声明的动词合并到注册表中。
+// 对尚无 handler 的 content 动词，自动注册默认 handler。
+func (l *Loop) initContentVerbs(verbs map[string]VerbEntry) {
+	for name, entry := range verbs {
+		if _, exists := l.verbRegistry[name]; exists {
+			continue
+		}
+		l.verbRegistry[name] = entry
+		if _, hasHandler := l.verbHandlers[name]; !hasHandler {
+			l.RegisterVerb(name, contentVerbDefaultHandler)
+		}
+	}
+}
+
+// validateVerbRefs 扫描所有 tag definitions 的 hook.Verbs 引用，
+// 标记那些不在注册表中的动词为 hook_ref，并打印警告。
+func (l *Loop) validateVerbRefs() {
+	for _, def := range l.world.tagDefinitions {
+		for _, hook := range def.Hooks {
+			for _, verb := range hook.Verbs {
+				if verb == "" || verb[0] == '_' {
+					continue
+				}
+				if _, exists := l.verbRegistry[verb]; !exists {
+					l.verbRegistry[verb] = VerbEntry{Name: verb, Source: VerbSourceHookRefOnly}
+					log.Printf("warning: verb %q referenced by tag hook (%q) has no handler or content declaration", verb, def.ID)
+				}
+			}
+		}
+	}
+}
+
+// contentVerbDefaultHandler 是内容声明动词的默认 handler。
+// 它发送该动词的默认成功消息，让 tag hooks 负责实际效果。
+func contentVerbDefaultHandler(l *Loop, ctx *AttemptContext) {
+	entry, ok := l.verbRegistry[ctx.Verb]
+	if !ok || entry.MessageKey == "" {
+		return
+	}
+	fields := map[string]string{"input": ctx.Input}
+	if ctx.TargetItemID != "" {
+		fields["item"] = string(ctx.TargetItemID)
+	}
+	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+		MessageKey: entry.MessageKey,
+		Fields:     fields,
+	})
+}
+
+// handleVerbList 列出当前世界全部可用动词。
+func handleVerbList(l *Loop, ctx *AttemptContext) {
+	var body string
+	for name, entry := range l.verbRegistry {
+		if name == "" || name[0] == '_' {
+			continue
+		}
+		body += "  " + name
+		switch entry.Source {
+		case VerbSourceBuiltin:
+			body += "  [内置]"
+		case VerbSourceContent:
+			body += "  [内容]"
+		case VerbSourceHookRefOnly:
+			body += "  [钩子引用]"
+		}
+		if entry.MessageKey != "" {
+			body += "  " + entry.MessageKey
+		}
+		body += "\n"
+	}
+	if body == "" {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+			Message: "没有可用动词。",
+		})
+		return
+	}
+	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+		Message: "可用动词:\n" + body,
+	})
+}
+
+// resolveMoveItem 找出当前房间中匹配输入方向的那个退出门物品。
+func resolveMoveItem(l *Loop, ctx *AttemptContext) []Item {
+	roomID := l.world.PlayerCurrentRoom(ctx.PlayerID)
+	for _, itemID := range l.world.exitItemIDs(roomID) {
+		exit, ok := l.world.itemExit(itemID)
+		if ok && exit.Direction == ctx.Input {
+			return []Item{l.world.items[itemID]}
+		}
+	}
+	return nil
+}
+
+// resolveRoomItemByPhrase 在当前房间中按短语匹配物品。
+func resolveRoomItemByPhrase(l *Loop, ctx *AttemptContext) []Item {
+	resolution := l.world.ResolveRoomItemPhrase(l.world.PlayerCurrentRoom(ctx.PlayerID), ctx.Input)
+	if resolution.Found {
+		if item, ok := l.world.items[resolution.ItemID]; ok {
+			return []Item{item}
+		}
+	}
+	return nil
+}
+
+// resolveVisibleItemByPhrase 在当前房间+玩家背包中按短语匹配物品。
+func resolveVisibleItemByPhrase(l *Loop, ctx *AttemptContext) []Item {
+	resolution := l.world.ResolveVisibleItemPhrase(l.world.PlayerCurrentRoom(ctx.PlayerID), ctx.PlayerID, ctx.Input)
+	if resolution.Found {
+		if item, ok := l.world.items[resolution.ItemID]; ok {
+			return []Item{item}
+		}
+	}
+	return nil
+}
+
+// resolveInventoryItemByPhrase 在玩家背包中按短语匹配物品。
+func resolveInventoryItemByPhrase(l *Loop, ctx *AttemptContext) []Item {
+	resolution := l.world.ResolveInventoryItemPhrase(ctx.PlayerID, ctx.Input)
+	if resolution.Found {
+		if item, ok := l.world.items[resolution.ItemID]; ok {
+			return []Item{item}
+		}
+	}
+	return nil
 }
 
 type ActionResult struct {
@@ -37,18 +191,24 @@ type Loop struct {
 	mu          sync.RWMutex
 	sessions    map[PlayerID]chan<- []presentation.Event
 
-	verbHandlers map[string]VerbHandler
+	verbHandlers  map[string]VerbHandler
+	itemResolvers map[string]ItemResolver
+	verbRegistry  map[string]VerbEntry
 }
 
 func NewLoop(w *World) *Loop {
 	l := &Loop{
-		world:        w,
-		progression:  progression.NewEngine(w.ProgressionDefinitions()),
-		actions:      make(chan Action, 64),
-		sessions:     make(map[PlayerID]chan<- []presentation.Event),
-		verbHandlers: make(map[string]VerbHandler),
+		world:         w,
+		progression:   progression.NewEngine(w.ProgressionDefinitions()),
+		actions:       make(chan Action, 64),
+		sessions:      make(map[PlayerID]chan<- []presentation.Event),
+		verbHandlers:  make(map[string]VerbHandler),
+		itemResolvers: make(map[string]ItemResolver),
+		verbRegistry:  make(map[string]VerbEntry),
 	}
 	l.registerBuiltinVerbs()
+	l.initContentVerbs(w.contentVerbs)
+	l.validateVerbRefs()
 	return l
 }
 
@@ -68,7 +228,9 @@ func (l *Loop) EnterWorld(playerID PlayerID) (RoomID, bool) {
 }
 
 func (l *Loop) LeaveWorld(playerID PlayerID) {
-	l.Submit(Action{PlayerID: playerID, Verb: "_leave_world"})
+	resp := make(chan ActionResult, 1)
+	l.Submit(Action{PlayerID: playerID, Verb: "_leave_world", Resp: resp})
+	<-resp
 }
 
 func (l *Loop) Register(playerID PlayerID, outgoing chan<- []presentation.Event) {
@@ -85,6 +247,10 @@ func (l *Loop) Unregister(playerID PlayerID) {
 
 func (l *Loop) RegisterVerb(verb string, handler VerbHandler) {
 	l.verbHandlers[verb] = handler
+}
+
+func (l *Loop) RegisterItemResolver(verb string, resolver ItemResolver) {
+	l.itemResolvers[verb] = resolver
 }
 
 func hookMatchesVerb(hook TagHook, verb string) bool {
@@ -117,26 +283,28 @@ func (l *Loop) SendToRoom(roomID RoomID, events []presentation.Event, exclude Pl
 
 func (l *Loop) run() {
 	for a := range l.actions {
-		l.handle(a)
+		l.handleWithRecovery(a)
 	}
 }
 
-func (l *Loop) handle(a Action) {
-	switch a.Verb {
-	case "_enter_world":
-		startRoom, ok := l.world.EnterWorld(a.PlayerID)
-		if !ok {
-			a.Resp <- ActionResult{}
-			return
+func (l *Loop) handleWithRecovery(a Action) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("panic handling action %+v: %v", a, r)
+			if a.Resp != nil {
+				a.Resp <- ActionResult{
+					Events: []presentation.Event{
+						presentation.SystemMessageEvent{MessageKey: "system.internal_error"},
+					},
+				}
+			}
 		}
-		a.Resp <- ActionResult{NewRoom: startRoom}
+	}()
+	l.handle(a)
+}
 
-	case "_leave_world":
-		l.world.LeaveWorld(a.PlayerID)
-
-	default:
-		l.handleAction(a)
-	}
+func (l *Loop) handle(a Action) {
+	l.handleAction(a)
 }
 
 func (l *Loop) handleAction(a Action) {
@@ -243,34 +411,62 @@ func (l *Loop) handleAction(a Action) {
 
 // relevantItems 返回当前 action 上下文相关的物品。
 // 钩子通过检查这些物品的 tag 实例来决定行为。
+// 优先使用注册的 ItemResolver；如果没有注册，使用通用 fallback：
+// 扫描当前房间+玩家背包中所有 hook.Verbs 匹配的物品。
 func (l *Loop) relevantItems(ctx *AttemptContext) []Item {
-	switch ctx.Verb {
-	case "move":
-		// 找出当前房间匹配方向的退出门
-		roomID := l.world.PlayerCurrentRoom(ctx.PlayerID)
-		for _, itemID := range l.world.exitItemIDs(roomID) {
-			exit, ok := l.world.itemExit(itemID)
-			if ok && exit.Direction == ctx.Input {
-				return []Item{l.world.items[itemID]}
-			}
+	// 1. 查找已注册的 resolver
+	if resolver, ok := l.itemResolvers[ctx.Verb]; ok {
+		return resolver(l, ctx)
+	}
+
+	// 2. 通用 fallback：扫描可见物品中 hook.Verbs 匹配的物品
+	roomID := l.world.PlayerCurrentRoom(ctx.PlayerID)
+	return l.visibleItemsWithMatchingHooks(roomID, ctx.PlayerID, ctx.Verb)
+}
+
+// visibleItemsWithMatchingHooks 扫描当前房间+玩家背包，返回 tag hooks 匹配指定动词的物品。
+func (l *Loop) visibleItemsWithMatchingHooks(roomID RoomID, playerID PlayerID, verb string) []Item {
+	itemIDs := l.world.visibleItemIDs(roomID, playerID)
+	var matched []Item
+	for _, itemID := range itemIDs {
+		item, ok := l.world.items[itemID]
+		if !ok {
+			continue
 		}
-	case "get", "examine", "look-item":
-		// 找出当前房间匹配短语的物品
-		resolution := l.world.ResolveRoomItemPhrase(l.world.PlayerCurrentRoom(ctx.PlayerID), ctx.Input)
-		if resolution.Found {
-			if item, ok := l.world.items[resolution.ItemID]; ok {
-				return []Item{item}
-			}
+		if itemHasHookForVerb(item, l.world, verb) {
+			matched = append(matched, item)
 		}
-	case "drop":
-		resolution := l.world.ResolveInventoryItemPhrase(ctx.PlayerID, ctx.Input)
-		if resolution.Found {
-			if item, ok := l.world.items[resolution.ItemID]; ok {
-				return []Item{item}
+	}
+	return matched
+}
+
+// itemHasHookForVerb 检查物品是否有 tag 定义包含匹配指定动词的 hook。
+func itemHasHookForVerb(item Item, w *World, verb string) bool {
+	for _, inst := range item.Tags {
+		def, ok := w.TagDefinition(inst.DefinitionID)
+		if !ok {
+			continue
+		}
+		for _, hook := range def.Hooks {
+			if hookMatchesVerb(hook, verb) {
+				return true
 			}
 		}
 	}
-	return nil
+	return false
+}
+
+func handleEnterWorld(l *Loop, ctx *AttemptContext) {
+	startRoom, ok := l.world.EnterWorld(ctx.PlayerID)
+	if !ok {
+		ctx.Blocked = true
+		return
+	}
+	ctx.NewRoom = startRoom
+}
+
+func handleLeaveWorld(l *Loop, ctx *AttemptContext) {
+	l.world.LeaveWorld(ctx.PlayerID)
 }
 
 func handleMove(l *Loop, ctx *AttemptContext) {

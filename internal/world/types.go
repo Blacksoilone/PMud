@@ -86,4 +86,5 @@ type World struct {
 	progressionDefinitions progression.Definitions
 	players                map[PlayerID]PlayerEntity
 	tagDefinitions         map[TagID]TagDefinition
+	contentVerbs           map[string]VerbEntry
 }

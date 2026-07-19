@@ -9,6 +9,7 @@ type (
 	QuestStageID       string
 	QuestConditionKind string
 	TagID              string
+	VerbID             string
 )
 
 const (
@@ -25,10 +26,16 @@ const (
 	QuestConditionExaminedItem QuestConditionKind = "examined_item"
 )
 
+type VerbSource struct {
+	ID          VerbID
+	MessageKey  TextKey
+}
+
 type ContentSource struct {
 	StartRoomID RoomID
 	Rooms       []RoomSource
 	Items       []ItemSource
+	Verbs       []VerbSource
 	Quests      []QuestSource
 	QuestStages []QuestStageSource
 	Text        map[TextKey]string
@@ -79,11 +86,16 @@ type CompiledContent struct {
 	Client ClientCatalog
 }
 
+type ServerVerb struct {
+	MessageKey TextKey
+}
+
 type ServerSnapshot struct {
 	StartRoomID   RoomID
 	Rooms         map[RoomID]ServerRoom
 	Items         map[ItemID]ServerItem
 	ItemLocations map[ItemID]RoomID
+	Verbs         map[VerbID]ServerVerb
 	Quests        map[QuestID]ServerQuest
 	QuestStages   map[QuestStageID]ServerQuestStage
 }
@@ -144,5 +156,6 @@ type ClientCatalog struct {
 	ItemInnerNames   map[ItemID]TextKey
 	ItemDescriptions map[ItemID]TextKey
 	ItemAliases      map[ItemID][]TextKey
+	VerbNames        map[VerbID]TextKey
 	Text             map[TextKey]string
 }

@@ -11,6 +11,7 @@ func Compile(source ContentSource) (CompiledContent, error) {
 		Rooms:         make(map[RoomID]ServerRoom, len(source.Rooms)),
 		Items:         make(map[ItemID]ServerItem, len(source.Items)),
 		ItemLocations: make(map[ItemID]RoomID, len(source.Items)),
+		Verbs:         make(map[VerbID]ServerVerb, len(source.Verbs)),
 		Quests:        make(map[QuestID]ServerQuest, len(source.Quests)),
 		QuestStages:   make(map[QuestStageID]ServerQuestStage, len(source.QuestStages)),
 	}
@@ -21,6 +22,7 @@ func Compile(source ContentSource) (CompiledContent, error) {
 		ItemInnerNames:   make(map[ItemID]TextKey, len(source.Items)),
 		ItemDescriptions: make(map[ItemID]TextKey, len(source.Items)),
 		ItemAliases:      make(map[ItemID][]TextKey, len(source.Items)),
+		VerbNames:        make(map[VerbID]TextKey, len(source.Verbs)),
 		Text:             make(map[TextKey]string, len(source.Text)),
 	}
 
@@ -63,6 +65,13 @@ func Compile(source ContentSource) (CompiledContent, error) {
 		client.ItemDescriptions[item.ID] = item.DescriptionKey
 		if len(item.Aliases) > 0 {
 			client.ItemAliases[item.ID] = append([]TextKey(nil), item.Aliases...)
+		}
+	}
+
+	for _, verb := range source.Verbs {
+		server.Verbs[verb.ID] = ServerVerb{MessageKey: verb.MessageKey}
+		if verb.MessageKey != "" {
+			client.VerbNames[verb.ID] = verb.MessageKey
 		}
 	}
 

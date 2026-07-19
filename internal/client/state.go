@@ -41,6 +41,8 @@ func (s *State) ResolveCommandInput(input string) CommandResolution {
 		return CommandResolution{Command: "go " + parsedCommand.Direction, Send: true}
 	case command.ItemCommand:
 		return CommandResolution{Command: string(parsedCommand.Verb) + " " + parsedCommand.Target, Send: true}
+	case command.VerbCommand:
+		return CommandResolution{Command: "verb", Send: true}
 	case command.UnknownCommand:
 		return CommandResolution{Command: parsedCommand.Input, Send: true}
 	default:

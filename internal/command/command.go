@@ -54,6 +54,12 @@ func (QuestCommand) clientCommand() {}
 
 func (QuestCommand) serverCommand() {}
 
+type VerbCommand struct{}
+
+func (VerbCommand) clientCommand() {}
+
+func (VerbCommand) serverCommand() {}
+
 type HelpCommand struct{}
 
 func (HelpCommand) clientCommand() {}
@@ -120,6 +126,9 @@ func ParseClientInput(input string) ClientCommand {
 	if verb == "quest" {
 		return QuestCommand{}
 	}
+	if verb == "verb" || verb == "verbs" {
+		return VerbCommand{}
+	}
 	if verb == "help" {
 		return HelpCommand{}
 	}
@@ -167,6 +176,9 @@ func ParseServerInput(input string) ServerCommand {
 	}
 	if verb == "quest" {
 		return QuestCommand{}
+	}
+	if verb == "verb" || verb == "verbs" {
+		return VerbCommand{}
 	}
 	if verb == "help" {
 		return HelpCommand{}

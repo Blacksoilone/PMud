@@ -3,6 +3,9 @@ package content
 func TutorialSource() ContentSource {
 	return ContentSource{
 		StartRoomID: "room.tutorial.start",
+		Verbs: []VerbSource{
+			{ID: "light", MessageKey: "verb.light.default"},
+		},
 		Rooms: []RoomSource{
 			{
 				ID:             "room.tutorial.start",
@@ -134,6 +137,7 @@ func TutorialSource() ContentSource {
 			"quest.tutorial.first_steps.stage.examine_sword.text": "查看练习木剑。",
 			"system.empty_input":                                  "你没有输入任何内容",
 			"system.help":                                         "可用命令: look/l, go <direction>, north/n, south/s, east/e, west/w, up/u, down/d, northeast/ne, northwest/nw, southeast/se, southwest/sw, get/take <item>, drop <item>, examine/x/inspect <item>, inventory/i, quest, help\n方向: north/n/北, south/s/南, east/e, west/w, up/u, down/d, northeast/ne, northwest/nw, southeast/se, southwest/sw",
+			"system.internal_error":                               "服务器内部错误，请稍后重试。",
 			"system.look.observed":                                "你重新观察了周围。",
 			"system.move.blocked":                               "你不能往那个方向走。",
 			"system.move.locked":                                "门锁着。",
@@ -142,6 +146,7 @@ func TutorialSource() ContentSource {
 			"system.item.not_carried":                             "你没有那个东西。",
 			"system.item.dropped":                                 "你放下了{item}。",
 			"system.quest.progress":                               "任务更新: {state}",
+			"verb.light.default":                                  "你点亮了{item}。",
 			"system.unknown_command":                              "未知命令: {input}",
 			"system.room.missing":                                 "你迷失在不存在的地方。",
 		},

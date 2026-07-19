@@ -106,6 +106,8 @@ func (s *sessionState) handleLine(line string) []presentation.Event {
 		return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.help"})
 	case command.QuestCommand:
 		return s.submitAction("quest", "")
+	case command.VerbCommand:
+		return s.submitAction("verb", "")
 	case command.MoveCommand:
 		dir := normalizeDirection(cmd.Direction)
 		return s.submitAction("move", dir)
