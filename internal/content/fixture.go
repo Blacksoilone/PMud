@@ -36,6 +36,12 @@ func TutorialSource() ContentSource {
 				DescriptionKey: "item.yard.south.description", InitialRoom: "room.tutorial.item_yard",
 				Tags: []SourceTag{{ID: TagExit, Params: map[string]string{"target_room_id": "room.tutorial.hall"}}},
 			},
+			// === 物品庭院容器 ===
+			{
+				ID: "item.yard.chest", DisplayNameKey: "item.yard.chest.name", InnerNameKey: "item.yard.chest.inner_name",
+				DescriptionKey: "item.yard.chest.description", InitialRoom: "room.tutorial.item_yard",
+				Tags: []SourceTag{{ID: TagContainer, Params: map[string]string{"capacity": "5"}}},
+			},
 			// === 锁钥厅出口 ===
 			{
 				ID: "item.lock_hall.west", DisplayNameKey: "item.lock_hall.west.name", InnerNameKey: "item.lock_hall.west.inner_name",
@@ -159,6 +165,9 @@ func TutorialSource() ContentSource {
 			"item.yard.south.name":          "南方通路",
 			"item.yard.south.inner_name":    "south",
 			"item.yard.south.description":   "一条向南的石板路，通向大厅。",
+			"item.yard.chest.name":          "木箱",
+			"item.yard.chest.inner_name":    "chest",
+			"item.yard.chest.description":   "一个结实的木箱，看起来能装不少东西。",
 			"item.lock_hall.west.name":      "西方通路",
 			"item.lock_hall.west.inner_name": "west",
 			"item.lock_hall.west.description": "向西返回大厅的通道。",
@@ -208,6 +217,16 @@ func TutorialSource() ContentSource {
 			"system.quest.progress":          "任务更新: {state}",
 			"system.unknown_command":         "未知命令: {input}",
 			"system.room.missing":            "你迷失在不存在的地方。",
+		"system.container.cant_open":     "你打不开{item}。",
+		"system.container.now_open":      "你打开了{item}。",
+		"system.container.cant_close":    "你关不上{item}。",
+		"system.container.now_closed":    "你关上了{item}。",
+		"system.container.closed":        "{container}是关着的。",
+		"system.container.put_fail":      "{error}",
+		"system.container.put_success":   "你把{item}放进了{container}。",
+		"system.container.get_fail":      "{error}",
+		"system.container.get_success":   "你从{container}里拿出了{item}。",
+		"system.item.not_in_container":   "{container}里没有那个东西。",
 
 			// 内容动词
 			"verb.light.default": "你点亮了{item}。",

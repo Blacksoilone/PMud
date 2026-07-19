@@ -22,8 +22,9 @@ type Trigger struct {
 	RoomID string
 }
 
+// Definitions contains all quest definitions and their stages.
 type Definitions struct {
-	Quest  QuestDefinition
+	Quests map[string]QuestDefinition // questID → definition
 	Stages map[string]StageDefinition
 }
 
@@ -49,6 +50,7 @@ type ConditionDefinition struct {
 	Text   string
 }
 
+// Status represents a player's progress on a single quest.
 type Status struct {
 	QuestID    string
 	QuestName  string

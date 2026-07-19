@@ -2,6 +2,7 @@ package presentation
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -50,6 +51,17 @@ func (TextRenderer) Render(event Event) string {
 			field("stage_text", e.StageText),
 			field("conditions", strings.Join(e.Conditions, ",")),
 			field("state", e.State),
+		)
+	case QuestListEvent:
+		items := make([]string, 0, len(e.Quests))
+		for _, q := range e.Quests {
+			items = append(items, q.QuestID+"|"+q.QuestName+"|"+q.StageText+"|"+q.State)
+		}
+		return line(
+			"quest_list",
+			field("count", strconv.Itoa(len(e.Quests))),
+			field("items", strings.Join(items, ",")),
+			optionalField("tracked", e.Tracked),
 		)
 	case ItemObservationEvent:
 		return line(

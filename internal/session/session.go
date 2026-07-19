@@ -105,7 +105,7 @@ func (s *sessionState) handleLine(line string) []presentation.Event {
 	case command.HelpCommand:
 		return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.help"})
 	case command.QuestCommand:
-		return s.submitAction("quest", "")
+		return s.submitAction("quest", cmd.QuestID)
 	case command.VerbCommand:
 		return s.submitAction("verb", "")
 	case command.MoveCommand:
@@ -113,6 +113,10 @@ func (s *sessionState) handleLine(line string) []presentation.Event {
 		return s.submitAction("move", dir)
 	case command.InventoryCommand:
 		return s.submitAction("inventory", "")
+	case command.PutCommand:
+		return s.submitAction("put", cmd.ItemTarget+"|"+cmd.ContainerTarget)
+	case command.GetFromCommand:
+		return s.submitAction("get-from", cmd.ItemTarget+"|"+cmd.ContainerTarget)
 	case command.ItemCommand:
 		return s.handleItemCommand(cmd)
 	case command.UnknownCommand:
@@ -151,6 +155,10 @@ func (s *sessionState) handleItemCommand(itemCommand command.ItemCommand) []pres
 		return s.submitAction("examine", itemCommand.Target)
 	case command.ItemVerbLook:
 		return s.submitAction("look-item", itemCommand.Target)
+	case command.ItemVerbOpen:
+		return s.submitAction("open", itemCommand.Target)
+	case command.ItemVerbClose:
+		return s.submitAction("close", itemCommand.Target)
 	default:
 		return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.unknown_command"})
 	}

@@ -17,6 +17,8 @@ func Render(event protocol.Event, catalog content.ClientCatalog) string {
 		return renderInventory(event, catalog)
 	case "quest":
 		return renderQuest(event)
+	case "quest_list":
+		return ""
 	case "system":
 		return renderSystem(event, catalog)
 	default:

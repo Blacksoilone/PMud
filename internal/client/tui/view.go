@@ -128,7 +128,10 @@ func popupContentForView(model Model, catalog content.ClientCatalog) PopupConten
 func popupRows(content PopupContent, offset int, width int, height int) []string {
 	innerWidth := width - 4
 	body := make([]string, 0, len(content.Lines))
-	for _, line := range content.Lines {
+	for i, line := range content.Lines {
+		if content.Kind == PopupQuestList && i == content.Cursor {
+			line = "\x1b[7m" + line + "\x1b[0m" // reverse video for cursor
+		}
 		body = append(body, wrapVisible(line, innerWidth)...)
 	}
 	bodyHeight := max(0, height-5)
@@ -145,7 +148,11 @@ func popupRows(content PopupContent, offset int, width int, height int) []string
 		}
 		rows[index+3] = popupContentRow(line, innerWidth)
 	}
-	rows[height-2] = popupContentRow("[Esc] 关闭  [↑↓/滚轮] 滚动", innerWidth)
+	footer := "[Esc] 关闭  [↑↓] 选择  [Enter] 确认"
+	if content.Kind != PopupQuestList {
+		footer = "[Esc] 关闭  [↑↓/滚轮] 滚动"
+	}
+	rows[height-2] = popupContentRow(footer, innerWidth)
 	rows[height-1] = "╚" + strings.Repeat("═", width-2) + "╝"
 	return rows
 }
@@ -415,7 +422,7 @@ func questPaneBlock(model Model) layout.Block {
 func eventHistoryBlock(model Model, catalog content.ClientCatalog) layout.Block {
 	blocks := make([]layout.Block, 0, len(model.Events))
 	for _, event := range model.Events {
-		if event.Name == "room" || event.Name == "quest" {
+		if event.Name == "room" || event.Name == "quest" || event.Name == "quest_list" {
 			continue
 		}
 		blocks = append(blocks, render.RenderBlock(event, catalog))

@@ -11,7 +11,7 @@ func (w *World) GetItem(roomID RoomID, targetItemID ItemID, playerID PlayerID) (
 			continue
 		}
 
-		w.itemLocations[itemID] = InventoryItemLocation{PlayerID: playerID}
+		w.itemLocations[itemID] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
 		return itemID, true
 	}
 
@@ -35,7 +35,7 @@ func (w *World) DropItem(roomID RoomID, itemID ItemID) bool {
 }
 
 func (w *World) DropInventoryItem(roomID RoomID, targetItemID ItemID, playerID PlayerID) (ItemID, bool) {
-	for _, itemID := range w.itemsInInventory(playerID) {
+	for _, itemID := range w.itemsInContainer(PlayerContainerID(playerID)) {
 		if itemID != targetItemID {
 			continue
 		}
@@ -74,7 +74,7 @@ func (w *World) ResolveRoomItemPhrase(roomID RoomID, phrase string) ItemResoluti
 }
 
 func (w *World) ResolveInventoryItemPhrase(playerID PlayerID, phrase string) ItemResolution {
-	return w.resolveItemPhrase(w.itemsInInventory(playerID), phrase)
+	return w.resolveItemPhrase(w.itemsInContainer(PlayerContainerID(playerID)), phrase)
 }
 
 func (w *World) ResolveVisibleItemPhrase(roomID RoomID, playerID PlayerID, phrase string) ItemResolution {
@@ -145,11 +145,11 @@ func (w *World) ItemNames(itemIDs []ItemID) []string {
 }
 
 func (w *World) Inventory(playerID PlayerID) []string {
-	return w.itemNames(w.itemsInInventory(playerID))
+	return w.itemNames(w.itemsInContainer(PlayerContainerID(playerID)))
 }
 
 func (w *World) InventoryItemIDs(playerID PlayerID) []ItemID {
-	return w.itemsInInventory(playerID)
+	return w.itemsInContainer(PlayerContainerID(playerID))
 }
 
 func (w *World) itemNames(itemIDs []ItemID) []string {
@@ -178,14 +178,14 @@ func (w *World) itemsInRoom(roomID RoomID) []ItemID {
 	return itemIDs
 }
 
-func (w *World) itemsInInventory(playerID PlayerID) []ItemID {
+func (w *World) itemsInContainer(containerID string) []ItemID {
 	itemIDs := make([]ItemID, 0)
 	for itemID, location := range w.itemLocations {
-		inventoryLocation, ok := location.(InventoryItemLocation)
+		cl, ok := location.(ContainerItemLocation)
 		if !ok {
 			continue
 		}
-		if inventoryLocation.PlayerID == playerID {
+		if cl.ContainerID == containerID {
 			itemIDs = append(itemIDs, itemID)
 		}
 	}
@@ -194,7 +194,7 @@ func (w *World) itemsInInventory(playerID PlayerID) []ItemID {
 
 func (w *World) visibleItemIDs(roomID RoomID, playerID PlayerID) []ItemID {
 	itemIDs := w.itemsInRoom(roomID)
-	itemIDs = append(itemIDs, w.itemsInInventory(playerID)...)
+	itemIDs = append(itemIDs, w.itemsInContainer(PlayerContainerID(playerID))...)
 	return itemIDs
 }
 

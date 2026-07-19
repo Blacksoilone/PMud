@@ -63,9 +63,12 @@ type Command struct {
 }
 
 type PopupContent struct {
-	Kind  PopupKind
-	Title string
-	Lines []string
+	Kind      PopupKind
+	Title     string
+	Lines     []string
+	QuestIDs  []string // quest IDs for quest list popup (in display order)
+	Cursor    int      // currently selected line index
+	TrackedID string   // currently tracked quest ID
 }
 
 type PopupKind int
@@ -74,6 +77,7 @@ const (
 	PopupNone PopupKind = iota
 	PopupHelp
 	PopupInventory
+	PopupQuestList
 )
 
 type PopupState struct {
@@ -97,7 +101,16 @@ func ApplyEvent(model Model, event protocol.Event) Model {
 	model.Events = events
 	model.Regions.Log = events
 	model.Regions = applyRegionEvent(model.Regions, event)
+	model = applyEventToModel(model, event)
 	model.HistoryLimit = limit
+	return model
+}
+
+func applyEventToModel(model Model, event protocol.Event) Model {
+	if event.Name == "quest_list" {
+		content := QuestListPopupContent(event.Fields)
+		return OpenPopup(model, content)
+	}
 	return model
 }
 

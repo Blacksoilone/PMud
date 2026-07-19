@@ -50,6 +50,15 @@ func (e QuestStatusEvent) EventKind() string {
 	return "QuestStatusEvent"
 }
 
+type QuestListEvent struct {
+	Quests  []QuestStatusEvent
+	Tracked string // tracked quest ID
+}
+
+func (e QuestListEvent) EventKind() string {
+	return "QuestListEvent"
+}
+
 type ItemObservationEvent struct {
 	Item           string
 	NameKey        string

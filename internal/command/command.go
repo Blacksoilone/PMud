@@ -17,7 +17,27 @@ const (
 	ItemVerbDrop    ItemVerb = "drop"
 	ItemVerbExamine ItemVerb = "examine"
 	ItemVerbLook    ItemVerb = "look"
+	ItemVerbOpen    ItemVerb = "open"
+	ItemVerbClose   ItemVerb = "close"
 )
+
+type PutCommand struct {
+	ItemTarget      string
+	ContainerTarget string
+}
+
+func (PutCommand) clientCommand() {}
+
+func (PutCommand) serverCommand() {}
+
+type GetFromCommand struct {
+	ItemTarget      string
+	ContainerTarget string
+}
+
+func (GetFromCommand) clientCommand() {}
+
+func (GetFromCommand) serverCommand() {}
 
 type ItemCommand struct {
 	Verb   ItemVerb
@@ -48,7 +68,9 @@ func (InventoryCommand) clientCommand() {}
 
 func (InventoryCommand) serverCommand() {}
 
-type QuestCommand struct{}
+type QuestCommand struct {
+	QuestID string // empty = list all, non-empty = switch tracked quest
+}
 
 func (QuestCommand) clientCommand() {}
 
@@ -124,7 +146,7 @@ func ParseClientInput(input string) ClientCommand {
 		return InventoryCommand{}
 	}
 	if verb == "quest" {
-		return QuestCommand{}
+		return QuestCommand{QuestID: target}
 	}
 	if verb == "verb" || verb == "verbs" {
 		return VerbCommand{}
@@ -144,11 +166,26 @@ func ParseClientInput(input string) ClientCommand {
 		}
 		return UnknownCommand{Input: input}
 	}
+	if verb == "open" {
+		return clientItemCommand(input, target, ItemVerbOpen)
+	}
+	if verb == "close" {
+		return clientItemCommand(input, target, ItemVerbClose)
+	}
 	if verb == "get" {
+		if item, container, found := strings.Cut(target, " from "); found && container != "" {
+			return GetFromCommand{ItemTarget: strings.TrimSpace(item), ContainerTarget: strings.TrimSpace(container)}
+		}
 		return clientItemCommand(input, target, ItemVerbGet)
 	}
 	if verb == "take" {
 		return clientItemCommand(input, target, ItemVerbGet)
+	}
+	if verb == "put" {
+		if item, container, found := strings.Cut(target, " in "); found && container != "" {
+			return PutCommand{ItemTarget: strings.TrimSpace(item), ContainerTarget: strings.TrimSpace(container)}
+		}
+		return UnknownCommand{Input: input}
 	}
 	if verb == "drop" {
 		return clientItemCommand(input, target, ItemVerbDrop)
@@ -178,7 +215,7 @@ func ParseServerInput(input string) ServerCommand {
 		return InventoryCommand{}
 	}
 	if verb == "quest" {
-		return QuestCommand{}
+		return QuestCommand{QuestID: target}
 	}
 	if verb == "verb" || verb == "verbs" {
 		return VerbCommand{}
@@ -195,8 +232,23 @@ func ParseServerInput(input string) ServerCommand {
 		}
 		return UnknownCommand{Input: input}
 	}
+	if verb == "open" {
+		return serverItemCommand(input, target, ItemVerbOpen)
+	}
+	if verb == "close" {
+		return serverItemCommand(input, target, ItemVerbClose)
+	}
 	if verb == "get" {
+		if item, container, found := strings.Cut(target, " from "); found && container != "" {
+			return GetFromCommand{ItemTarget: strings.TrimSpace(item), ContainerTarget: strings.TrimSpace(container)}
+		}
 		return serverItemCommand(input, target, ItemVerbGet)
+	}
+	if verb == "put" {
+		if item, container, found := strings.Cut(target, " in "); found && container != "" {
+			return PutCommand{ItemTarget: strings.TrimSpace(item), ContainerTarget: strings.TrimSpace(container)}
+		}
+		return UnknownCommand{Input: input}
 	}
 	if verb == "drop" {
 		return serverItemCommand(input, target, ItemVerbDrop)

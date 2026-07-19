@@ -16,57 +16,69 @@ func TestSessionQuest_reportsTutorialStatus(t *testing.T) {
 
 	event := requireSingleSessionEvent(t, state.handleLine("quest"))
 
-	quest, ok := event.(presentation.QuestStatusEvent)
+	list, ok := event.(presentation.QuestListEvent)
 	if !ok {
-		t.Fatalf("expected quest status, got %T", event)
+		t.Fatalf("expected quest list, got %T", event)
 	}
-	if quest.QuestID != "quest.tutorial.first_steps" {
-		t.Fatalf("quest id = %q", quest.QuestID)
+	if len(list.Quests) == 0 {
+		t.Fatal("expected at least one quest")
 	}
-	if quest.QuestName != "教程任务" {
-		t.Fatalf("quest name = %q", quest.QuestName)
+	q := list.Quests[0]
+	if q.QuestID != "quest.tutorial.first_steps" {
+		t.Fatalf("quest id = %q", q.QuestID)
 	}
-	if quest.StageID != "quest.tutorial.first_steps.stage.get_lantern" {
-		t.Fatalf("stage id = %q", quest.StageID)
+	if q.QuestName != "教程任务" {
+		t.Fatalf("quest name = %q", q.QuestName)
 	}
-	if quest.StageText != "拿起旧油灯。" {
-		t.Fatalf("stage text = %q", quest.StageText)
+	if q.StageID != "quest.tutorial.first_steps.stage.get_lantern" {
+		t.Fatalf("stage id = %q", q.StageID)
 	}
-	if len(quest.Conditions) != 1 || quest.Conditions[0] != "获取旧油灯" {
-		t.Fatalf("conditions = %#v", quest.Conditions)
+	if q.StageText != "拿起旧油灯。" {
+		t.Fatalf("stage text = %q", q.StageText)
 	}
-	if quest.State != "active" {
-		t.Fatalf("state = %q", quest.State)
+	if len(q.Conditions) != 1 || q.Conditions[0] != "获取旧油灯" {
+		t.Fatalf("conditions = %#v", q.Conditions)
+	}
+	if q.State != "active" {
+		t.Fatalf("state = %q", q.State)
 	}
 }
 
 func TestSessionActions_advanceTutorialQuest(t *testing.T) {
 	state := newTestSessionState()
 
-	state.handleLine("go east")
-	state.handleLine("get 旧油灯")
-	afterGet := requireSingleSessionEvent(t, state.handleLine("quest")).(presentation.QuestStatusEvent)
-	if afterGet.StageID != "quest.tutorial.first_steps.stage.enter_yard" {
-		t.Fatalf("stage after get = %q", afterGet.StageID)
+	state.handleLine("go east")      // hall → lock_hall
+	state.handleLine("get 旧油灯")     // get_lantern → enter_chamber
+	afterGetList := requireSingleSessionEvent(t, state.handleLine("quest")).(presentation.QuestListEvent)
+	if len(afterGetList.Quests) == 0 {
+		t.Fatal("expected quests in list")
+	}
+	if afterGetList.Quests[0].StageID != "quest.tutorial.first_steps.stage.enter_chamber" {
+		t.Fatalf("stage after get = %q", afterGetList.Quests[0].StageID)
 	}
 
-	state.handleLine("go west")
-	state.handleLine("go north")
-	afterMove := requireSingleSessionEvent(t, state.handleLine("quest")).(presentation.QuestStatusEvent)
-	if afterMove.StageID != "quest.tutorial.first_steps.stage.examine_sword" {
-		t.Fatalf("stage after move = %q", afterMove.StageID)
+	state.handleLine("go east")      // lock_hall → lock_chamber (trigger moved_room → examine_relic)
+	afterMoveList := requireSingleSessionEvent(t, state.handleLine("quest")).(presentation.QuestListEvent)
+	if len(afterMoveList.Quests) == 0 {
+		t.Fatal("expected quests in list")
 	}
-	if afterMove.State != "active" {
-		t.Fatalf("state after move = %q", afterMove.State)
+	if afterMoveList.Quests[0].StageID != "quest.tutorial.first_steps.stage.examine_relic" {
+		t.Fatalf("stage after move = %q", afterMoveList.Quests[0].StageID)
+	}
+	if afterMoveList.Quests[0].State != "active" {
+		t.Fatalf("state after move = %q", afterMoveList.Quests[0].State)
 	}
 
-	state.handleLine("examine 练习木剑")
-	afterExamine := requireSingleSessionEvent(t, state.handleLine("quest")).(presentation.QuestStatusEvent)
-	if afterExamine.StageID != "quest.tutorial.first_steps.stage.examine_sword" {
-		t.Fatalf("stage after examine = %q", afterExamine.StageID)
+	state.handleLine("examine 练功徽章")
+	afterExamineList := requireSingleSessionEvent(t, state.handleLine("quest")).(presentation.QuestListEvent)
+	if len(afterExamineList.Quests) == 0 {
+		t.Fatal("expected quests in list")
 	}
-	if afterExamine.State != "completed" {
-		t.Fatalf("state after examine = %q", afterExamine.State)
+	if afterExamineList.Quests[0].StageID != "quest.tutorial.first_steps.stage.examine_relic" {
+		t.Fatalf("stage after examine = %q", afterExamineList.Quests[0].StageID)
+	}
+	if afterExamineList.Quests[0].State != "completed" {
+		t.Fatalf("state after examine = %q", afterExamineList.Quests[0].State)
 	}
 }
 
@@ -76,8 +88,8 @@ func TestSessionActions_returnQuestProgressNotificationAfterAdvancingQuest(t *te
 	state.handleLine("go east")
 	events := state.handleLine("get 旧油灯")
 
-	if len(events) != 2 {
-		t.Fatalf("event count = %d, want 2", len(events))
+	if len(events) != 3 {
+		t.Fatalf("event count = %d, want 3", len(events))
 	}
 	taken, ok := events[0].(presentation.SystemMessageEvent)
 	if !ok {
@@ -86,38 +98,43 @@ func TestSessionActions_returnQuestProgressNotificationAfterAdvancingQuest(t *te
 	if taken.MessageKey != "system.item.taken" {
 		t.Fatalf("first message key = %q, want system.item.taken", taken.MessageKey)
 	}
-	assertQuestProgressEvent(t, events[1], "quest.tutorial.first_steps.stage.enter_yard", "active")
+	assertQuestProgressEvent(t, events[1], "quest.tutorial.first_steps.stage.enter_chamber", "active")
+	if _, ok := events[2].(presentation.QuestStatusEvent); !ok {
+		t.Fatalf("third event type = %T, want presentation.QuestStatusEvent", events[2])
+	}
 }
 
 func TestSessionActions_returnQuestCompletedNotificationAfterFinalStage(t *testing.T) {
 	state := newTestSessionState()
-	state.handleLine("go east")
-	state.handleLine("get 旧油灯")
-	state.handleLine("go west")
-	state.handleLine("go north")
+	state.handleLine("go east")      // hall → lock_hall
+	state.handleLine("get 旧油灯")     // get_lantern → enter_chamber
+	state.handleLine("go east")      // lock_hall → lock_chamber, enter_chamber → examine_relic
 
-	events := state.handleLine("examine 练习木剑")
+	events := state.handleLine("examine 练功徽章")
 
-	if len(events) != 2 {
-		t.Fatalf("event count = %d, want 2", len(events))
+	if len(events) != 3 {
+		t.Fatalf("event count = %d, want 3", len(events))
 	}
 	item, ok := events[0].(presentation.ItemObservationEvent)
 	if !ok {
 		t.Fatalf("first event type = %T, want presentation.ItemObservationEvent", events[0])
 	}
-	if item.Item != "item.tutorial.practice_sword" {
-		t.Fatalf("item = %q, want item.tutorial.practice_sword", item.Item)
+	if item.Item != "item.tutorial.training_relic" {
+		t.Fatalf("item = %q, want item.tutorial.training_relic", item.Item)
 	}
-	assertQuestProgressEvent(t, events[1], "quest.tutorial.first_steps.stage.examine_sword", "completed")
+	assertQuestProgressEvent(t, events[1], "quest.tutorial.first_steps.stage.examine_relic", "completed")
+	if _, ok := events[2].(presentation.QuestStatusEvent); !ok {
+		t.Fatalf("third event type = %T, want presentation.QuestStatusEvent", events[2])
+	}
 }
 
 func TestSessionActions_doNotReturnQuestProgressNotificationWhenQuestDoesNotAdvance(t *testing.T) {
 	state := newTestSessionState()
 
-	state.handleLine("go east")   // move to lock_hall
-	state.handleLine("get 旧油灯") // get_lantern -> enter_yard
+	state.handleLine("go east")   // hall → lock_hall
+	state.handleLine("get 旧油灯") // get_lantern → enter_chamber (needs moved_room to lock_chamber)
 	state.handleLine("go west")   // back to hall
-	state.handleLine("go north")  // enter_yard -> examine_sword, now in item_yard
+	state.handleLine("go north")  // hall → item_yard (does NOT trigger enter_chamber)
 
 	events := state.handleLine("go south")
 	if len(events) != 1 {

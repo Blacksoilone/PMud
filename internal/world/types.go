@@ -67,11 +67,17 @@ type RoomItemLocation struct {
 
 func (RoomItemLocation) itemLocation() {}
 
-type InventoryItemLocation struct {
-	PlayerID PlayerID
+type ContainerItemLocation struct {
+	ContainerID string
 }
 
-func (InventoryItemLocation) itemLocation() {}
+func (ContainerItemLocation) itemLocation() {}
+
+// PlayerContainerID 返回玩家背包的容器 ID
+func PlayerContainerID(pid PlayerID) string { return "player:" + string(pid) }
+
+// ItemContainerID 返回物品容器（箱子/收纳袋）的容器 ID
+func ItemContainerID(iid ItemID) string { return "item:" + string(iid) }
 
 type PlayerEntity struct {
 	ID     PlayerID
@@ -87,4 +93,6 @@ type World struct {
 	players                map[PlayerID]PlayerEntity
 	tagDefinitions         map[TagID]TagDefinition
 	contentVerbs           map[string]VerbEntry
+	trackedQuests          map[PlayerID]string
+	containerOpen          map[ItemID]bool
 }

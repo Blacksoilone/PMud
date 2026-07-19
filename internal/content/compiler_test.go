@@ -248,8 +248,8 @@ func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
 	if len(compiled.Server.Rooms) != 5 {
 		t.Fatalf("expected 5 rooms, got %d", len(compiled.Server.Rooms))
 	}
-	if len(compiled.Server.Items) != 11 {
-		t.Fatalf("expected 11 items (8 exits + 3 game items), got %d", len(compiled.Server.Items))
+	if len(compiled.Server.Items) != 12 {
+		t.Fatalf("expected 12 items (8 exits + 3 game items + 1 chest), got %d", len(compiled.Server.Items))
 	}
 	exitTargets := map[ItemID]RoomID{
 		"item.hall.north":          "room.tutorial.item_yard",

@@ -13,6 +13,7 @@ func (w *World) EnterWorld(playerID PlayerID) (RoomID, bool) {
 
 func (w *World) LeaveWorld(playerID PlayerID) {
 	delete(w.players, playerID)
+	delete(w.trackedQuests, playerID)
 }
 
 func (w *World) PlayerCurrentRoom(playerID PlayerID) RoomID {
@@ -62,10 +63,21 @@ func (w *World) MovePlayer(playerID PlayerID, direction string) (RoomID, bool) {
 }
 
 func (w *World) PlayerHasItem(playerID PlayerID, itemID ItemID) bool {
-	for _, id := range w.itemsInInventory(playerID) {
+	for _, id := range w.itemsInContainer(PlayerContainerID(playerID)) {
 		if id == itemID {
 			return true
 		}
 	}
 	return false
+}
+
+func (w *World) TrackedQuest(playerID PlayerID) string {
+	if id, ok := w.trackedQuests[playerID]; ok && id != "" {
+		return id
+	}
+	return ""
+}
+
+func (w *World) SetTrackedQuest(playerID PlayerID, questID string) {
+	w.trackedQuests[playerID] = questID
 }

@@ -2,6 +2,7 @@ package world
 
 import (
 	"log"
+	"strings"
 	"sync"
 
 	"PMud/internal/presentation"
@@ -20,6 +21,10 @@ func (l *Loop) registerBuiltinVerbs() {
 	l.RegisterVerb("inventory", handleInventory)
 	l.RegisterVerb("quest", handleQuest)
 	l.RegisterVerb("verb", handleVerbList)
+	l.RegisterVerb("open", handleOpen)
+	l.RegisterVerb("close", handleClose)
+	l.RegisterVerb("put", handlePut)
+	l.RegisterVerb("get-from", handleGetFrom)
 
 	// 注册内置动词到注册表
 	for name := range l.verbHandlers {
@@ -462,6 +467,15 @@ func handleEnterWorld(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
+	tracked := l.world.TrackedQuest(ctx.PlayerID)
+	if tracked == "" {
+		for _, s := range l.progression.AllStatuses(string(ctx.PlayerID)) {
+			if s.State == progression.QuestStateActive {
+				l.world.SetTrackedQuest(ctx.PlayerID, s.QuestID)
+				break
+			}
+		}
+	}
 	ctx.NewRoom = startRoom
 }
 
@@ -620,43 +634,271 @@ func handleInventory(l *Loop, ctx *AttemptContext) {
 
 func handleQuest(l *Loop, ctx *AttemptContext) {
 	pid := string(ctx.PlayerID)
-	status, ok := l.progression.Status(pid)
-	if !ok {
+	if ctx.Input != "" {
+		l.world.SetTrackedQuest(ctx.PlayerID, ctx.Input)
+		status, ok := l.progression.Status(pid, ctx.Input)
+		if !ok {
+			ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.quest.none"})
+			ctx.Blocked = true
+			return
+		}
+		ctx.Events = append(ctx.Events, presentation.QuestStatusEvent{
+			QuestID:    status.QuestID,
+			QuestName:  status.QuestName,
+			StageID:    status.StageID,
+			StageText:  status.StageText,
+			Conditions: status.Conditions,
+			State:      string(status.State),
+		})
+		return
+	}
+	allStatuses := l.progression.AllStatuses(pid)
+	if len(allStatuses) == 0 {
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.quest.none"})
 		ctx.Blocked = true
 		return
 	}
-	ctx.Events = append(ctx.Events, presentation.QuestStatusEvent{
-		QuestID:    status.QuestID,
-		QuestName:  status.QuestName,
-		StageID:    status.StageID,
-		StageText:  status.StageText,
-		Conditions: status.Conditions,
-		State:      string(status.State),
+	tracked := l.world.TrackedQuest(ctx.PlayerID)
+	quests := make([]presentation.QuestStatusEvent, 0, len(allStatuses))
+	for _, s := range allStatuses {
+		quests = append(quests, presentation.QuestStatusEvent{
+			QuestID:    s.QuestID,
+			QuestName:  s.QuestName,
+			StageID:    s.StageID,
+			StageText:  s.StageText,
+			Conditions: s.Conditions,
+			State:      string(s.State),
+		})
+	}
+	ctx.Events = append(ctx.Events, presentation.QuestListEvent{
+		Quests:  quests,
+		Tracked: tracked,
 	})
 }
 
 func (l *Loop) applyProgression(playerID PlayerID, trigger progression.Trigger) []presentation.Event {
-	status, advanced := l.progression.Apply(string(playerID), trigger)
-	if !advanced {
+	statuses := l.progression.Apply(string(playerID), trigger)
+	if len(statuses) == 0 {
 		return nil
 	}
-	if status.State == progression.QuestStateRewardPending {
-		resolvedStatus, resolved := l.progression.ResolveRewards(string(playerID))
-		if resolved {
-			status = resolvedStatus
+	var events []presentation.Event
+	for _, status := range statuses {
+		if status.State == progression.QuestStateRewardPending {
+			resolvedStatus, resolved := l.progression.ResolveRewards(string(playerID))
+			if resolved {
+				status = resolvedStatus
+			}
+		}
+		events = append(events,
+			presentation.SystemMessageEvent{
+				MessageKey: "system.quest.progress",
+				Fields: map[string]string{
+					"quest_id": status.QuestID,
+					"stage_id": status.StageID,
+					"state":    string(status.State),
+				},
+			},
+			presentation.QuestStatusEvent{
+				QuestID:    status.QuestID,
+				QuestName:  status.QuestName,
+				StageID:    status.StageID,
+				StageText:  status.StageText,
+				Conditions: status.Conditions,
+				State:      string(status.State),
+			},
+		)
+	}
+	// Auto-advance tracked quest if current tracked quest completed
+	tracked := l.world.TrackedQuest(playerID)
+	if tracked != "" {
+		s, ok := l.progression.Status(string(playerID), tracked)
+		if ok && s.State == progression.QuestStateCompleted {
+			// Find next active quest to track
+			for _, qs := range l.progression.AllStatuses(string(playerID)) {
+				if qs.State == progression.QuestStateActive {
+					l.world.SetTrackedQuest(playerID, qs.QuestID)
+					break
+				}
+			}
 		}
 	}
-	return []presentation.Event{
-		presentation.SystemMessageEvent{
-			MessageKey: "system.quest.progress",
-			Fields: map[string]string{
-				"quest_id": status.QuestID,
-				"stage_id": status.StageID,
-				"state":    string(status.State),
-			},
-		},
+	return events
+}
+
+func handleOpen(l *Loop, ctx *AttemptContext) {
+	resolution := l.world.ResolveVisibleItemPhrase(l.world.PlayerCurrentRoom(ctx.PlayerID), ctx.PlayerID, ctx.Input)
+	if len(resolution.AmbiguousItemIDs) > 0 {
+		ctx.Events = ambiguousItemsEvent(l.world, resolution.AmbiguousItemIDs)
+		return
 	}
+	if !resolution.Found {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
+		ctx.Blocked = true
+		return
+	}
+	if !l.world.OpenContainer(resolution.ItemID) {
+		item, _ := l.world.items[resolution.ItemID]
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+			MessageKey: "system.container.cant_open",
+			Fields:     map[string]string{"item": item.Name},
+		})
+		ctx.Blocked = true
+		return
+	}
+	item, _ := l.world.items[resolution.ItemID]
+	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+		MessageKey: "system.container.now_open",
+		Fields:     map[string]string{"item": item.Name},
+	})
+}
+
+func handleClose(l *Loop, ctx *AttemptContext) {
+	resolution := l.world.ResolveVisibleItemPhrase(l.world.PlayerCurrentRoom(ctx.PlayerID), ctx.PlayerID, ctx.Input)
+	if len(resolution.AmbiguousItemIDs) > 0 {
+		ctx.Events = ambiguousItemsEvent(l.world, resolution.AmbiguousItemIDs)
+		return
+	}
+	if !resolution.Found {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
+		ctx.Blocked = true
+		return
+	}
+	if !l.world.CloseContainer(resolution.ItemID) {
+		item, _ := l.world.items[resolution.ItemID]
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+			MessageKey: "system.container.cant_close",
+			Fields:     map[string]string{"item": item.Name},
+		})
+		ctx.Blocked = true
+		return
+	}
+	item, _ := l.world.items[resolution.ItemID]
+	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+		MessageKey: "system.container.now_closed",
+		Fields:     map[string]string{"item": item.Name},
+	})
+}
+
+func handlePut(l *Loop, ctx *AttemptContext) {
+	itemPhrase, containerPhrase, ok := strings.Cut(ctx.Input, "|")
+	if !ok || itemPhrase == "" || containerPhrase == "" {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.unknown_command"})
+		ctx.Blocked = true
+		return
+	}
+	// 解析要放的物品（在玩家背包中）
+	itemResolution := l.world.ResolveInventoryItemPhrase(ctx.PlayerID, itemPhrase)
+	if len(itemResolution.AmbiguousItemIDs) > 0 {
+		ctx.Events = ambiguousItemsEvent(l.world, itemResolution.AmbiguousItemIDs)
+		return
+	}
+	if !itemResolution.Found {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.item.not_carried"})
+		ctx.Blocked = true
+		return
+	}
+	// 解析目标容器（在房间或背包中）
+	containerResolution := l.world.ResolveVisibleItemPhrase(l.world.PlayerCurrentRoom(ctx.PlayerID), ctx.PlayerID, containerPhrase)
+	if len(containerResolution.AmbiguousItemIDs) > 0 {
+		ctx.Events = ambiguousItemsEvent(l.world, containerResolution.AmbiguousItemIDs)
+		return
+	}
+	if !containerResolution.Found {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
+		ctx.Blocked = true
+		return
+	}
+	err := l.world.PutItemInContainer(itemResolution.ItemID, containerResolution.ItemID, ctx.PlayerID)
+	if err != nil {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+			MessageKey: "system.container.put_fail",
+			Fields:     map[string]string{"error": err.Error()},
+		})
+		ctx.Blocked = true
+		return
+	}
+	item, _ := l.world.items[itemResolution.ItemID]
+	container, _ := l.world.items[containerResolution.ItemID]
+	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+		MessageKey: "system.container.put_success",
+		Fields: map[string]string{
+			"item":      item.Name,
+			"container": container.Name,
+		},
+	})
+}
+
+func handleGetFrom(l *Loop, ctx *AttemptContext) {
+	itemPhrase, containerPhrase, ok := strings.Cut(ctx.Input, "|")
+	if !ok || itemPhrase == "" || containerPhrase == "" {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.unknown_command"})
+		ctx.Blocked = true
+		return
+	}
+	// 解析容器（在房间或背包中）
+	containerResolution := l.world.ResolveVisibleItemPhrase(l.world.PlayerCurrentRoom(ctx.PlayerID), ctx.PlayerID, containerPhrase)
+	if len(containerResolution.AmbiguousItemIDs) > 0 {
+		ctx.Events = ambiguousItemsEvent(l.world, containerResolution.AmbiguousItemIDs)
+		return
+	}
+	if !containerResolution.Found {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
+		ctx.Blocked = true
+		return
+	}
+	// 解析要取的物品（在容器中）— 先检查容器打开
+	if !l.world.ContainerIsOpen(containerResolution.ItemID) {
+		container, _ := l.world.items[containerResolution.ItemID]
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+			MessageKey: "system.container.closed",
+			Fields:     map[string]string{"container": container.Name},
+		})
+		ctx.Blocked = true
+		return
+	}
+	// 在容器内容中按短语匹配
+	contents := l.world.ContainerContents(containerResolution.ItemID)
+	var matches []ItemID
+	for _, id := range contents {
+		item, ok := l.world.items[id]
+		if !ok {
+			continue
+		}
+		if item.matchesPhrase(id, itemPhrase) {
+			matches = append(matches, id)
+		}
+	}
+	if len(matches) > 1 {
+		ctx.Events = ambiguousItemsEvent(l.world, matches)
+		return
+	}
+	if len(matches) == 0 {
+		container, _ := l.world.items[containerResolution.ItemID]
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+			MessageKey: "system.item.not_in_container",
+			Fields:     map[string]string{"container": container.Name},
+		})
+		ctx.Blocked = true
+		return
+	}
+	err := l.world.GetItemFromContainer(containerResolution.ItemID, matches[0], ctx.PlayerID)
+	if err != nil {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+			MessageKey: "system.container.get_fail",
+			Fields:     map[string]string{"error": err.Error()},
+		})
+		ctx.Blocked = true
+		return
+	}
+	item, _ := l.world.items[matches[0]]
+	container, _ := l.world.items[containerResolution.ItemID]
+	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+		MessageKey: "system.container.get_success",
+		Fields: map[string]string{
+			"item":      item.Name,
+			"container": container.Name,
+		},
+	})
 }
 
 func oppositeDirection(dir string) string {

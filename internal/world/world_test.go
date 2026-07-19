@@ -329,7 +329,7 @@ func TestWorldDropInventoryItemRejectsDuplicateExitDirection(t *testing.T) {
 			{DefinitionID: "tag.carryable", Params: map[string]any{}},
 		},
 	}
-	game.itemLocations["item.tutorial.moving_north"] = InventoryItemLocation{PlayerID: playerID}
+	game.itemLocations["item.tutorial.moving_north"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
 
 	itemID, dropped := game.DropInventoryItem(startRoom, "item.tutorial.moving_north", playerID)
 	if dropped || itemID != "" {
@@ -716,5 +716,149 @@ func TestContainerTag_compilePipeline(t *testing.T) {
 	capacity, ok := params["capacity"].(int)
 	if !ok || capacity != 3 {
 		t.Fatalf("capacity = %v, want 3", params["capacity"])
+	}
+}
+
+func TestContainer_OpenClose(t *testing.T) {
+	w := New()
+	w.items = map[ItemID]Item{
+		"item.box": {
+			Name: "箱子",
+			Tags: []TagInstance{{DefinitionID: "tag.container", Params: map[string]any{"capacity": 2}}},
+		},
+	}
+	w.itemLocations["item.box"] = RoomItemLocation{RoomID: w.startRoom}
+	if w.ContainerIsOpen("item.box") {
+		t.Fatal("container should start closed")
+	}
+	if !w.OpenContainer("item.box") {
+		t.Fatal("expected open to succeed")
+	}
+	if !w.ContainerIsOpen("item.box") {
+		t.Fatal("container should be open after open")
+	}
+	if !w.CloseContainer("item.box") {
+		t.Fatal("expected close to succeed")
+	}
+	if w.ContainerIsOpen("item.box") {
+		t.Fatal("container should be closed after close")
+	}
+	// 非容器物品拒绝操作
+	w.items["item.rock"] = Item{Name: "石头"}
+	if w.OpenContainer("item.rock") {
+		t.Fatal("non-container should not open")
+	}
+}
+
+func TestContainer_PutAndGet(t *testing.T) {
+	w := New()
+	playerID := PlayerID("test")
+	w.players[playerID] = PlayerEntity{RoomID: w.startRoom}
+	// 准备容器
+	w.items["item.box"] = Item{
+		Name: "箱子",
+		Tags: []TagInstance{{DefinitionID: "tag.container", Params: map[string]any{"capacity": 2}}},
+	}
+	w.itemLocations["item.box"] = RoomItemLocation{RoomID: w.startRoom}
+	w.OpenContainer("item.box")
+	// 准备物品（在玩家背包中）
+	w.items["item.apple"] = Item{Name: "苹果"}
+	w.itemLocations["item.apple"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
+	// put apple in box
+	err := w.PutItemInContainer("item.apple", "item.box", playerID)
+	if err != nil {
+		t.Fatalf("PutItemInContainer: %v", err)
+	}
+	// 验证苹果在容器中
+	contents := w.ContainerContents("item.box")
+	if len(contents) != 1 || contents[0] != "item.apple" {
+		t.Fatalf("contents = %v, want [item.apple]", contents)
+	}
+	// get apple from box
+	err = w.GetItemFromContainer("item.box", "item.apple", playerID)
+	if err != nil {
+		t.Fatalf("GetItemFromContainer: %v", err)
+	}
+	// 验证苹果回到了玩家背包
+	inventory := w.itemsInContainer(PlayerContainerID(playerID))
+	if len(inventory) != 1 || inventory[0] != "item.apple" {
+		t.Fatalf("inventory = %v, want [item.apple]", inventory)
+	}
+}
+
+func TestContainer_CapacityLimit(t *testing.T) {
+	w := New()
+	playerID := PlayerID("test")
+	w.players[playerID] = PlayerEntity{RoomID: w.startRoom}
+	w.items["item.box"] = Item{
+		Name: "箱子",
+		Tags: []TagInstance{{DefinitionID: "tag.container", Params: map[string]any{"capacity": 1}}},
+	}
+	w.itemLocations["item.box"] = RoomItemLocation{RoomID: w.startRoom}
+	w.OpenContainer("item.box")
+	w.items["item.a"] = Item{Name: "A"}
+	w.items["item.b"] = Item{Name: "B"}
+	w.itemLocations["item.a"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
+	w.itemLocations["item.b"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
+	if err := w.PutItemInContainer("item.a", "item.box", playerID); err != nil {
+		t.Fatalf("first put: %v", err)
+	}
+	err := w.PutItemInContainer("item.b", "item.box", playerID)
+	if err == nil {
+		t.Fatal("expected capacity error on second put")
+	}
+}
+
+func TestContainer_NestingRule(t *testing.T) {
+	w := New()
+	playerID := PlayerID("test")
+	w.players[playerID] = PlayerEntity{RoomID: w.startRoom}
+	// 便携容器（收纳袋）— carryable + container
+	w.items["item.bag"] = Item{
+		Name: "收纳袋",
+		Tags: []TagInstance{
+			{DefinitionID: "tag.carryable", Params: map[string]any{}},
+			{DefinitionID: "tag.container", Params: map[string]any{"capacity": 5}},
+		},
+	}
+	w.itemLocations["item.bag"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
+	// 另一个 carryable 容器 — 应该不能放入收纳袋
+	w.items["item.pouch"] = Item{
+		Name: "小袋",
+		Tags: []TagInstance{
+			{DefinitionID: "tag.carryable", Params: map[string]any{}},
+			{DefinitionID: "tag.container", Params: map[string]any{"capacity": 3}},
+		},
+	}
+	w.itemLocations["item.pouch"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
+	// 打开收纳袋
+	w.OpenContainer("item.bag")
+	// 尝试把小袋放进收纳袋
+	err := w.PutItemInContainer("item.pouch", "item.bag", playerID)
+	if err == nil {
+		t.Fatal("expected nesting rejection: carryable container in carryable container")
+	}
+}
+
+func TestContainer_ClosedRejectsPut(t *testing.T) {
+	w := New()
+	playerID := PlayerID("test")
+	w.players[playerID] = PlayerEntity{RoomID: w.startRoom}
+	w.items["item.box"] = Item{
+		Name: "箱子",
+		Tags: []TagInstance{{DefinitionID: "tag.container", Params: map[string]any{"capacity": 5}}},
+	}
+	w.itemLocations["item.box"] = RoomItemLocation{RoomID: w.startRoom}
+	// 不打开
+	w.items["item.apple"] = Item{Name: "苹果"}
+	w.itemLocations["item.apple"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
+	err := w.PutItemInContainer("item.apple", "item.box", playerID)
+	if err == nil {
+		t.Fatal("expected rejection: container is closed")
+	}
+	// 从关闭的容器中取也不行
+	err = w.GetItemFromContainer("item.box", "item.apple", playerID)
+	if err == nil {
+		t.Fatal("expected rejection: container is closed")
 	}
 }

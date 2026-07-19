@@ -3,61 +3,57 @@ package progression
 import "testing"
 
 func TestEngine_advancesTutorialQuestStages(t *testing.T) {
-	// Given
 	engine := NewEngine(tutorialDefinitions())
 	playerID := "player.local"
 
-	// When
-	status, advanced := engine.Apply(playerID, Trigger{Kind: TriggerGotItem, ItemID: "item.tutorial.old_lantern"})
+	// When — get lantern
+	statuses := engine.Apply(playerID, Trigger{Kind: TriggerGotItem, ItemID: "item.tutorial.old_lantern"})
 
 	// Then
-	if !advanced {
-		t.Fatal("expected first trigger to advance quest")
+	if len(statuses) != 1 {
+		t.Fatalf("expected 1 advanced quest, got %d", len(statuses))
 	}
-	if status.StageID != "quest.tutorial.first_steps.stage.enter_yard" {
-		t.Fatalf("stage after get = %q", status.StageID)
+	if statuses[0].StageID != "quest.tutorial.first_steps.stage.enter_yard" {
+		t.Fatalf("stage after get = %q", statuses[0].StageID)
 	}
-	if status.State != QuestStateActive {
-		t.Fatalf("state after get = %q", status.State)
-	}
-
-	// When
-	status, advanced = engine.Apply(playerID, Trigger{Kind: TriggerMovedRoom, RoomID: "room.tutorial.yard"})
-
-	// Then
-	if !advanced {
-		t.Fatal("expected move trigger to advance quest")
-	}
-	if status.StageID != "quest.tutorial.first_steps.stage.examine_sword" {
-		t.Fatalf("stage after move = %q", status.StageID)
-	}
-	if status.State != QuestStateActive {
-		t.Fatalf("state after move = %q", status.State)
+	if statuses[0].State != QuestStateActive {
+		t.Fatalf("state after get = %q", statuses[0].State)
 	}
 
-	// When
-	status, advanced = engine.Apply(playerID, Trigger{Kind: TriggerExaminedItem, ItemID: "item.tutorial.practice_sword"})
+	// When — move to yard
+	statuses = engine.Apply(playerID, Trigger{Kind: TriggerMovedRoom, RoomID: "room.tutorial.yard"})
 
 	// Then
-	if !advanced {
-		t.Fatal("expected examine trigger to advance quest")
+	if len(statuses) != 1 {
+		t.Fatalf("expected 1 advanced quest, got %d", len(statuses))
 	}
-	if status.StageID != "quest.tutorial.first_steps.stage.examine_sword" {
-		t.Fatalf("final stage id = %q", status.StageID)
+	if statuses[0].StageID != "quest.tutorial.first_steps.stage.examine_sword" {
+		t.Fatalf("stage after move = %q", statuses[0].StageID)
 	}
-	if status.State != QuestStateRewardPending {
-		t.Fatalf("final state = %q", status.State)
+	if statuses[0].State != QuestStateActive {
+		t.Fatalf("state after move = %q", statuses[0].State)
+	}
+
+	// When — examine sword
+	statuses = engine.Apply(playerID, Trigger{Kind: TriggerExaminedItem, ItemID: "item.tutorial.practice_sword"})
+
+	// Then
+	if len(statuses) != 1 {
+		t.Fatalf("expected 1 advanced quest, got %d", len(statuses))
+	}
+	if statuses[0].StageID != "quest.tutorial.first_steps.stage.examine_sword" {
+		t.Fatalf("final stage id = %q", statuses[0].StageID)
+	}
+	if statuses[0].State != QuestStateRewardPending {
+		t.Fatalf("final state = %q", statuses[0].State)
 	}
 }
 
 func TestEngine_statusReportsCurrentStage(t *testing.T) {
-	// Given
 	engine := NewEngine(tutorialDefinitions())
 
-	// When
-	status, ok := engine.Status("player.local")
+	status, ok := engine.Status("player.local", "quest.tutorial.first_steps")
 
-	// Then
 	if !ok {
 		t.Fatal("expected tutorial quest status")
 	}
@@ -82,37 +78,28 @@ func TestEngine_statusReportsCurrentStage(t *testing.T) {
 }
 
 func TestEngine_ignoresUnmatchedTriggers(t *testing.T) {
-	// Given
 	engine := NewEngine(tutorialDefinitions())
 	playerID := "player.local"
 
-	// When
-	status, advanced := engine.Apply(playerID, Trigger{Kind: TriggerExaminedItem, ItemID: "item.tutorial.practice_sword"})
+	statuses := engine.Apply(playerID, Trigger{Kind: TriggerExaminedItem, ItemID: "item.tutorial.practice_sword"})
 
-	// Then
-	if advanced {
-		t.Fatal("expected unmatched trigger not to advance quest")
-	}
-	if status.StageID != "quest.tutorial.first_steps.stage.get_lantern" {
-		t.Fatalf("stage id = %q", status.StageID)
+	if len(statuses) != 0 {
+		t.Fatal("expected unmatched trigger not to advance any quest")
 	}
 }
 
 func TestEngine_resolvesPendingRewardsToCompleted(t *testing.T) {
-	// Given
 	engine := NewEngine(tutorialDefinitions())
 	playerID := "player.local"
 	engine.Apply(playerID, Trigger{Kind: TriggerGotItem, ItemID: "item.tutorial.old_lantern"})
 	engine.Apply(playerID, Trigger{Kind: TriggerMovedRoom, RoomID: "room.tutorial.yard"})
-	status, _ := engine.Apply(playerID, Trigger{Kind: TriggerExaminedItem, ItemID: "item.tutorial.practice_sword"})
-	if status.State != QuestStateRewardPending {
-		t.Fatalf("state before reward resolution = %q", status.State)
+	statuses := engine.Apply(playerID, Trigger{Kind: TriggerExaminedItem, ItemID: "item.tutorial.practice_sword"})
+	if len(statuses) != 1 || statuses[0].State != QuestStateRewardPending {
+		t.Fatalf("state before reward resolution = %q", statuses[0].State)
 	}
 
-	// When
 	status, resolved := engine.ResolveRewards(playerID)
 
-	// Then
 	if !resolved {
 		t.Fatal("expected pending rewards to resolve")
 	}
@@ -125,14 +112,11 @@ func TestEngine_resolvesPendingRewardsToCompleted(t *testing.T) {
 }
 
 func TestEngine_doesNotResolveRewardsBeforeRewardPending(t *testing.T) {
-	// Given
 	engine := NewEngine(tutorialDefinitions())
 	playerID := "player.local"
 
-	// When
 	status, resolved := engine.ResolveRewards(playerID)
 
-	// Then
 	if resolved {
 		t.Fatal("expected active quest rewards not to resolve")
 	}
@@ -142,11 +126,12 @@ func TestEngine_doesNotResolveRewardsBeforeRewardPending(t *testing.T) {
 }
 
 func TestEngine_customConditionChecker_registersExternally(t *testing.T) {
-	// Given — a quest with a custom condition kind
 	defs := Definitions{
-		Quest: QuestDefinition{
-			ID: "quest.custom", Name: "自定义",
-			StageIDs: []string{"stage.kill"},
+		Quests: map[string]QuestDefinition{
+			"quest.custom": {
+				ID: "quest.custom", Name: "自定义",
+				StageIDs: []string{"stage.kill"},
+			},
 		},
 		Stages: map[string]StageDefinition{
 			"stage.kill": {
@@ -159,32 +144,44 @@ func TestEngine_customConditionChecker_registersExternally(t *testing.T) {
 	}
 	engine := NewEngine(defs)
 
-	// Register a custom checker — 5 rat kills required
 	engine.RegisterConditionChecker("killed_monster", func(c ConditionDefinition, t Trigger) bool {
 		return t.Kind == TriggerGotItem && c.ItemID == t.ItemID
 	})
 
-	// When — first kill
-	status, advanced := engine.Apply("p1", Trigger{Kind: TriggerGotItem, ItemID: "monster.rat"})
+	statuses := engine.Apply("p1", Trigger{Kind: TriggerGotItem, ItemID: "monster.rat"})
 
-	// Then
-	if !advanced {
-		t.Fatal("expected custom condition to match on first kill")
+	if len(statuses) != 1 {
+		t.Fatalf("expected 1 advanced quest, got %d", len(statuses))
 	}
-	if status.State != QuestStateRewardPending {
-		t.Fatalf("state after kill = %q", status.State)
+	if statuses[0].State != QuestStateRewardPending {
+		t.Fatalf("state after kill = %q", statuses[0].State)
+	}
+}
+
+func TestEngine_AllStatuses_returnsAllQuests(t *testing.T) {
+	engine := NewEngine(tutorialDefinitions())
+
+	statuses := engine.AllStatuses("player.local")
+
+	if len(statuses) != 1 {
+		t.Fatalf("expected 1 quest status, got %d", len(statuses))
+	}
+	if statuses[0].QuestID != "quest.tutorial.first_steps" {
+		t.Fatalf("quest id = %q", statuses[0].QuestID)
 	}
 }
 
 func tutorialDefinitions() Definitions {
 	return Definitions{
-		Quest: QuestDefinition{
-			ID:   "quest.tutorial.first_steps",
-			Name: "教程任务",
-			StageIDs: []string{
-				"quest.tutorial.first_steps.stage.get_lantern",
-				"quest.tutorial.first_steps.stage.enter_yard",
-				"quest.tutorial.first_steps.stage.examine_sword",
+		Quests: map[string]QuestDefinition{
+			"quest.tutorial.first_steps": {
+				ID:   "quest.tutorial.first_steps",
+				Name: "教程任务",
+				StageIDs: []string{
+					"quest.tutorial.first_steps.stage.get_lantern",
+					"quest.tutorial.first_steps.stage.enter_yard",
+					"quest.tutorial.first_steps.stage.examine_sword",
+				},
 			},
 		},
 		Stages: map[string]StageDefinition{

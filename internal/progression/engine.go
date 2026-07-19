@@ -1,15 +1,18 @@
 package progression
 
+import "sort"
+
 type Engine struct {
 	definitions Definitions
-	runtime     map[string]questRuntime
-	checkers    map[string]ConditionChecker
+	// runtime[playerID][questID] = runtime
+	runtime  map[string]map[string]questRuntime
+	checkers map[string]ConditionChecker
 }
 
 func NewEngine(definitions Definitions) *Engine {
 	e := &Engine{
 		definitions: definitions,
-		runtime:     make(map[string]questRuntime),
+		runtime:     make(map[string]map[string]questRuntime),
 		checkers:    make(map[string]ConditionChecker),
 	}
 	e.registerBuiltinCheckers()
@@ -32,66 +35,118 @@ func (e *Engine) registerBuiltinCheckers() {
 	}
 }
 
-func (e *Engine) Apply(playerID string, trigger Trigger) (Status, bool) {
-	runtime := e.runtimeFor(playerID)
-	if runtime.state != QuestStateActive {
-		return e.status(runtime), false
+// questIDs returns sorted quest IDs from definitions.
+func (e *Engine) questIDs() []string {
+	ids := make([]string, 0, len(e.definitions.Quests))
+	for id := range e.definitions.Quests {
+		ids = append(ids, id)
 	}
-	stage := e.definitions.Stages[runtime.currentStageID]
-	if !stage.matches(trigger, e.checkers) {
-		return e.status(runtime), false
-	}
-	if stage.NextID == "" {
-		runtime.state = QuestStateRewardPending
-	} else {
-		runtime.currentStageID = stage.NextID
-	}
-	e.runtime[playerID] = runtime
-	return e.status(runtime), true
+	sort.Strings(ids)
+	return ids
 }
 
-func (e *Engine) Status(playerID string) (Status, bool) {
-	if e.definitions.Quest.ID == "" || len(e.definitions.Quest.StageIDs) == 0 {
+// Apply checks all active quests for the given player and advances any
+// whose current stage conditions are satisfied by the trigger.
+// Returns statuses for every quest that advanced.
+func (e *Engine) Apply(playerID string, trigger Trigger) []Status {
+	playerRuntime := e.playerRuntime(playerID)
+	var advanced []Status
+	for _, questID := range e.questIDs() {
+		rt := playerRuntime[questID]
+		if rt.state != QuestStateActive {
+			continue
+		}
+		stage := e.definitions.Stages[rt.currentStageID]
+		if !stage.matches(trigger, e.checkers) {
+			continue
+		}
+		if stage.NextID == "" {
+			rt.state = QuestStateRewardPending
+		} else {
+			rt.currentStageID = stage.NextID
+		}
+		playerRuntime[questID] = rt
+		advanced = append(advanced, e.status(questID, rt))
+	}
+	if len(advanced) > 0 {
+		e.runtime[playerID] = playerRuntime
+	}
+	return advanced
+}
+
+// AllStatuses returns the full status list for every quest.
+func (e *Engine) AllStatuses(playerID string) []Status {
+	playerRuntime := e.playerRuntime(playerID)
+	result := make([]Status, 0, len(e.definitions.Quests))
+	for _, questID := range e.questIDs() {
+		rt := playerRuntime[questID]
+		result = append(result, e.status(questID, rt))
+	}
+	return result
+}
+
+// Status returns the status for a single quest.
+func (e *Engine) Status(playerID string, questID string) (Status, bool) {
+	playerRuntime := e.playerRuntime(playerID)
+	rt, ok := playerRuntime[questID]
+	if !ok {
 		return Status{}, false
 	}
-	return e.status(e.runtimeFor(playerID)), true
+	return e.status(questID, rt), true
 }
 
 func (e *Engine) ResolveRewards(playerID string) (Status, bool) {
-	runtime := e.runtimeFor(playerID)
-	if runtime.state != QuestStateRewardPending {
-		return e.status(runtime), false
+	playerRuntime := e.playerRuntime(playerID)
+	for _, questID := range e.questIDs() {
+		rt := playerRuntime[questID]
+		if rt.state != QuestStateRewardPending {
+			continue
+		}
+		rt.state = QuestStateCompleted
+		playerRuntime[questID] = rt
+		e.runtime[playerID] = playerRuntime
+		return e.status(questID, rt), true
 	}
-	runtime.state = QuestStateCompleted
-	e.runtime[playerID] = runtime
-	return e.status(runtime), true
+	ids := e.questIDs()
+	if len(ids) > 0 {
+		return e.status(ids[0], playerRuntime[ids[0]]), false
+	}
+	return Status{}, false
 }
 
-func (e *Engine) runtimeFor(playerID string) questRuntime {
-	if runtime, ok := e.runtime[playerID]; ok {
-		return runtime
+func (e *Engine) playerRuntime(playerID string) map[string]questRuntime {
+	if rt, ok := e.runtime[playerID]; ok {
+		return rt
 	}
-	runtime := questRuntime{
-		currentStageID: e.definitions.Quest.StageIDs[0],
-		state:          QuestStateActive,
+	rt := make(map[string]questRuntime, len(e.definitions.Quests))
+	for _, questID := range e.questIDs() {
+		quest := e.definitions.Quests[questID]
+		if len(quest.StageIDs) == 0 {
+			continue
+		}
+		rt[questID] = questRuntime{
+			currentStageID: quest.StageIDs[0],
+			state:          QuestStateActive,
+		}
 	}
-	e.runtime[playerID] = runtime
-	return runtime
+	e.runtime[playerID] = rt
+	return rt
 }
 
-func (e *Engine) status(runtime questRuntime) Status {
-	stage := e.definitions.Stages[runtime.currentStageID]
+func (e *Engine) status(questID string, rt questRuntime) Status {
+	quest := e.definitions.Quests[questID]
+	stage := e.definitions.Stages[rt.currentStageID]
 	conditions := make([]string, 0, len(stage.Conditions))
 	for _, condition := range stage.Conditions {
 		conditions = append(conditions, condition.Text)
 	}
 	return Status{
-		QuestID:    e.definitions.Quest.ID,
-		QuestName:  e.definitions.Quest.Name,
-		StageID:    runtime.currentStageID,
+		QuestID:    questID,
+		QuestName:  quest.Name,
+		StageID:    rt.currentStageID,
 		StageText:  stage.Text,
 		Conditions: conditions,
-		State:      runtime.state,
+		State:      rt.state,
 	}
 }
 

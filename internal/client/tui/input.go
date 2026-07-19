@@ -42,9 +42,20 @@ func ApplyInput(model Model, input Input) (Model, Command) {
 		case InputCancel:
 			return ClosePopup(model), Command{}
 		case InputHistoryPrevious, InputScrollUp:
+			if model.Popup.Content.Kind == PopupQuestList {
+				return MoveCursorPopup(model, -1), Command{}
+			}
 			return ScrollPopup(model, -1, 1), Command{}
 		case InputHistoryNext, InputScrollDown:
+			if model.Popup.Content.Kind == PopupQuestList {
+				return MoveCursorPopup(model, 1), Command{}
+			}
 			return ScrollPopup(model, 1, 1), Command{}
+		case InputSubmit:
+			if model.Popup.Content.Kind == PopupQuestList {
+				return submitQuestSelection(model)
+			}
+			return model, Command{}
 		case InputPageUp:
 			return ScrollPopup(model, -8, 1), Command{}
 		case InputPageDown:

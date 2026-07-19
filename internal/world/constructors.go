@@ -1,8 +1,6 @@
 package world
 
 import (
-	"slices"
-
 	"PMud/internal/content"
 	"PMud/internal/progression"
 )
@@ -97,6 +95,12 @@ func New() *World {
 				Aliases: []string{"lianximujian"},
 				Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
 			},
+			"item.tutorial.training_relic": {
+				NameKey: "item.tutorial.training_relic.name", InnerName: "training relic", DescriptionKey: "item.tutorial.training_relic.description",
+				Name: "练功徽章", Description: "一枚金属徽章，上面刻着\"练功有成\"四个字。",
+				Aliases: []string{"liangonghuizhang", "training_relic"},
+				Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+			},
 		},
 		itemLocations: map[ItemID]ItemLocation{
 			"item.hall.north":        RoomItemLocation{RoomID: "room.tutorial.hall"},
@@ -109,11 +113,14 @@ func New() *World {
 			"item.quest_start.portal":  RoomItemLocation{RoomID: "room.tutorial.quest_start"},
 			"item.tutorial.old_lantern": RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
 			"item.tutorial.practice_sword": RoomItemLocation{RoomID: "room.tutorial.item_yard"},
+			"item.tutorial.training_relic": RoomItemLocation{RoomID: "room.tutorial.lock_chamber"},
 		},
 		progressionDefinitions: tutorialProgressionDefinitions(),
 		players:                make(map[PlayerID]PlayerEntity),
 		tagDefinitions:         make(map[TagID]TagDefinition),
 		contentVerbs:           make(map[string]VerbEntry),
+		trackedQuests:          make(map[PlayerID]string),
+		containerOpen:          make(map[ItemID]bool),
 	}
 	initBuiltinTags(w)
 	return w
@@ -168,6 +175,8 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 		players:                make(map[PlayerID]PlayerEntity),
 		tagDefinitions:         make(map[TagID]TagDefinition),
 		contentVerbs:           make(map[string]VerbEntry, len(snapshot.Verbs)),
+		trackedQuests:          make(map[PlayerID]string),
+		containerOpen:          make(map[ItemID]bool),
 	}
 	for verbID, sv := range snapshot.Verbs {
 		w.contentVerbs[string(verbID)] = VerbEntry{
@@ -231,33 +240,26 @@ func (w *World) ProgressionDefinitions() progression.Definitions {
 }
 
 func progressionDefinitionsFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCatalog) progression.Definitions {
-	questIDs := make([]content.QuestID, 0, len(snapshot.Quests))
-	for questID := range snapshot.Quests {
-		questIDs = append(questIDs, questID)
+	defs := progression.Definitions{
+		Quests: make(map[string]progression.QuestDefinition, len(snapshot.Quests)),
+		Stages: make(map[string]progression.StageDefinition, len(snapshot.QuestStages)),
 	}
-	slices.Sort(questIDs)
-	if len(questIDs) == 0 {
-		return progression.Definitions{}
-	}
-	questID := questIDs[0]
-	quest := snapshot.Quests[questID]
-	definitions := progression.Definitions{
-		Quest: progression.QuestDefinition{
+	for questID, quest := range snapshot.Quests {
+		defs.Quests[string(questID)] = progression.QuestDefinition{
 			ID:       string(questID),
 			Name:     catalog.Text[quest.NameKey],
 			StageIDs: questStageIDsToStrings(quest.StageIDs),
-		},
-		Stages: make(map[string]progression.StageDefinition, len(snapshot.QuestStages)),
+		}
 	}
 	for stageID, stage := range snapshot.QuestStages {
-		definitions.Stages[string(stageID)] = progression.StageDefinition{
+		defs.Stages[string(stageID)] = progression.StageDefinition{
 			ID:         string(stageID),
 			Text:       catalog.Text[stage.TextKey],
 			Conditions: progressionConditions(stage.FinishConditions),
 			NextID:     string(stage.NextStageID),
 		}
 	}
-	return definitions
+	return defs
 }
 
 func questStageIDsToStrings(ids []content.QuestStageID) []string {
@@ -284,11 +286,20 @@ func progressionConditions(conditions []content.ServerQuestCondition) []progress
 func conditionText(condition content.ServerQuestCondition) string {
 	switch condition.Kind {
 	case content.QuestConditionGotItem:
-		return "获取旧油灯"
+		if condition.ItemID != "" {
+			return "获取 " + string(condition.ItemID)
+		}
+		return "获取物品"
 	case content.QuestConditionMovedRoom:
-		return "到达物品庭院"
+		if condition.RoomID != "" {
+			return "到达 " + string(condition.RoomID)
+		}
+		return "到达指定地点"
 	case content.QuestConditionExaminedItem:
-		return "查看练习木剑"
+		if condition.ItemID != "" {
+			return "查看 " + string(condition.ItemID)
+		}
+		return "查看物品"
 	default:
 		return string(condition.Kind)
 	}
@@ -296,37 +307,62 @@ func conditionText(condition content.ServerQuestCondition) string {
 
 func tutorialProgressionDefinitions() progression.Definitions {
 	return progression.Definitions{
-		Quest: progression.QuestDefinition{
-			ID:   "quest.tutorial.first_steps",
-			Name: "教程任务",
-			StageIDs: []string{
-				"quest.tutorial.first_steps.stage.get_lantern",
-				"quest.tutorial.first_steps.stage.enter_yard",
-				"quest.tutorial.first_steps.stage.examine_sword",
+		Quests: map[string]progression.QuestDefinition{
+			"quest.tutorial.first_steps": {
+				ID:   "quest.tutorial.first_steps",
+				Name: "教程任务",
+				StageIDs: []string{
+					"quest.tutorial.first_steps.stage.get_lantern",
+					"quest.tutorial.first_steps.stage.enter_chamber",
+					"quest.tutorial.first_steps.stage.examine_relic",
+				},
+			},
+			"quest.tutorial.practice_sword": {
+				ID:   "quest.tutorial.practice_sword",
+				Name: "练剑任务",
+				StageIDs: []string{
+					"quest.tutorial.practice_sword.stage.get_sword",
+					"quest.tutorial.practice_sword.stage.examine_sword",
+				},
 			},
 		},
 		Stages: map[string]progression.StageDefinition{
 			"quest.tutorial.first_steps.stage.get_lantern": {
 				ID:     "quest.tutorial.first_steps.stage.get_lantern",
 				Text:   "拿起旧油灯。",
-				NextID: "quest.tutorial.first_steps.stage.enter_yard",
-		Conditions: []progression.ConditionDefinition{
-				{Kind: string(progression.TriggerGotItem), ItemID: "item.tutorial.old_lantern", Text: "获取旧油灯"},
-			},
-			},
-			"quest.tutorial.first_steps.stage.enter_yard": {
-				ID:     "quest.tutorial.first_steps.stage.enter_yard",
-				Text:   "前往物品庭院。",
-				NextID: "quest.tutorial.first_steps.stage.examine_sword",
+				NextID: "quest.tutorial.first_steps.stage.enter_chamber",
 				Conditions: []progression.ConditionDefinition{
-				{Kind: string(progression.TriggerMovedRoom), RoomID: "room.tutorial.item_yard", Text: "到达物品庭院"},
+					{Kind: string(progression.TriggerGotItem), ItemID: "item.tutorial.old_lantern", Text: "获取旧油灯"},
+				},
 			},
-		},
-		"quest.tutorial.first_steps.stage.examine_sword": {
-			ID:   "quest.tutorial.first_steps.stage.examine_sword",
-			Text: "查看练习木剑。",
-			Conditions: []progression.ConditionDefinition{
-				{Kind: string(progression.TriggerExaminedItem), ItemID: "item.tutorial.practice_sword", Text: "查看练习木剑"},
+			"quest.tutorial.first_steps.stage.enter_chamber": {
+				ID:     "quest.tutorial.first_steps.stage.enter_chamber",
+				Text:   "进入密室。",
+				NextID: "quest.tutorial.first_steps.stage.examine_relic",
+				Conditions: []progression.ConditionDefinition{
+					{Kind: string(progression.TriggerMovedRoom), RoomID: "room.tutorial.lock_chamber", Text: "进入密室"},
+				},
+			},
+			"quest.tutorial.first_steps.stage.examine_relic": {
+				ID:   "quest.tutorial.first_steps.stage.examine_relic",
+				Text: "查看练功徽章。",
+				Conditions: []progression.ConditionDefinition{
+					{Kind: string(progression.TriggerExaminedItem), ItemID: "item.tutorial.training_relic", Text: "查看练功徽章"},
+				},
+			},
+			"quest.tutorial.practice_sword.stage.get_sword": {
+				ID:     "quest.tutorial.practice_sword.stage.get_sword",
+				Text:   "拿起练习木剑。",
+				NextID: "quest.tutorial.practice_sword.stage.examine_sword",
+				Conditions: []progression.ConditionDefinition{
+					{Kind: string(progression.TriggerGotItem), ItemID: "item.tutorial.practice_sword", Text: "获取练习木剑"},
+				},
+			},
+			"quest.tutorial.practice_sword.stage.examine_sword": {
+				ID:   "quest.tutorial.practice_sword.stage.examine_sword",
+				Text: "查看练习木剑。",
+				Conditions: []progression.ConditionDefinition{
+					{Kind: string(progression.TriggerExaminedItem), ItemID: "item.tutorial.practice_sword", Text: "查看练习木剑"},
 				},
 			},
 		},
