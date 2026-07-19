@@ -261,7 +261,6 @@ func TestParseServerInput_preservesUnknownAndClientOnlyAliases(t *testing.T) {
 		{name: "client examine alias", input: "x item.tutorial.old_lantern"},
 		{name: "client inventory alias", input: "i"},
 		{name: "bare direction", input: "nw"},
-		{name: "special exit", input: "go trapdoor"},
 		{name: "go missing direction", input: "go"},
 		{name: "get missing item", input: "get"},
 		{name: "drop missing item", input: "drop"},

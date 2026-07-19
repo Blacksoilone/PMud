@@ -139,6 +139,9 @@ func ParseClientInput(input string) ClientCommand {
 		if direction, ok := CanonicalDirection(target); ok {
 			return MoveCommand{Direction: direction}
 		}
+		if target != "" {
+			return MoveCommand{Direction: target}
+		}
 		return UnknownCommand{Input: input}
 	}
 	if verb == "get" {
@@ -186,6 +189,9 @@ func ParseServerInput(input string) ServerCommand {
 	if verb == "go" {
 		if direction, ok := CanonicalDirection(target); ok {
 			return MoveCommand{Direction: direction}
+		}
+		if target != "" {
+			return MoveCommand{Direction: target}
 		}
 		return UnknownCommand{Input: input}
 	}
