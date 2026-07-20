@@ -35,7 +35,7 @@ func TestWorld_NewFromSnapshotPreservesTutorialBehavior(t *testing.T) {
 		t.Fatalf("expected item_yard, got %q", nextRoom)
 	}
 	// get old lantern from lock_hall
-	itemID, ok := game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", playerID)
+	itemID, ok, _ := game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", playerID)
 	if !ok {
 		t.Fatal("expected to get old lantern from lock_hall")
 	}
@@ -69,7 +69,7 @@ func TestWorldLookSeparatesExitsFromOrdinaryItems(t *testing.T) {
 	game := New()
 	startRoom := game.StartRoom()
 	observation, ok := game.Look(startRoom)
-	_, gotExit := game.GetItem(startRoom, "item.hall.north", "player.local")
+	_, gotExit, _ := game.GetItem(startRoom, "item.hall.north", "player.local")
 	if !ok {
 		t.Fatal("expected room observation")
 	}
@@ -92,7 +92,7 @@ func TestWorld_ItemMovesBetweenRoomAndInventory(t *testing.T) {
 	playerID := PlayerID("player.local")
 	lanternRoom := RoomID("room.tutorial.lock_hall")
 
-	itemID, ok := game.GetItem(lanternRoom, "item.tutorial.old_lantern", playerID)
+	itemID, ok, _ := game.GetItem(lanternRoom, "item.tutorial.old_lantern", playerID)
 	if !ok {
 		t.Fatal("expected to get old lantern")
 	}
@@ -312,7 +312,7 @@ func TestWorldGetItemAllowsCarryableExit(t *testing.T) {
 	}
 	game.itemLocations["item.hall.test_portal"] = RoomItemLocation{RoomID: startRoom}
 
-	itemID, got := game.GetItem(startRoom, "item.hall.test_portal", "player.local")
+	itemID, got, _ := game.GetItem(startRoom, "item.hall.test_portal", "player.local")
 	if !got || itemID != "item.hall.test_portal" {
 		t.Fatalf("GetItem carryable exit = %q, %v", itemID, got)
 	}
@@ -357,14 +357,14 @@ func TestTwoPlayersHaveIndependentInventories(t *testing.T) {
 	}
 
 	// A picks up lantern from lock_hall (physics-based; no movement needed for this world-level test)
-	_, ok = game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", "player.a")
+	_, ok, _ = game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", "player.a")
 	if !ok {
 		t.Fatal("A should get the lantern")
 	}
 
 	// B should not see lantern in lock_hall (checked by same item state)
 	// after A picked it up, it's in A's inventory — no longer visible from any room
-	_, ok = game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", "player.b")
+	_, ok, _ = game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", "player.b")
 	if ok {
 		t.Fatal("B should not be able to get lantern that A has")
 	}
@@ -405,7 +405,7 @@ func TestTwoPlayersMoveIndependently(t *testing.T) {
 	if !ok {
 		t.Fatal("A should be able to move east to lock_hall")
 	}
-	_, ok = game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", "player.a")
+	_, ok, _ = game.GetItem("room.tutorial.lock_hall", "item.tutorial.old_lantern", "player.a")
 	if !ok {
 		t.Fatal("A should be able to get old lantern in lock_hall")
 	}
@@ -860,5 +860,86 @@ func TestContainer_ClosedRejectsPut(t *testing.T) {
 	err = w.GetItemFromContainer("item.box", "item.apple", playerID)
 	if err == nil {
 		t.Fatal("expected rejection: container is closed")
+	}
+}
+
+func TestCarryableContainer_WeightAndVolume(t *testing.T) {
+	w := New()
+	playerID := PlayerID("test")
+	w.EnterWorld(playerID)
+
+	// 准备便携容器
+	w.items["item.bag"] = Item{
+		Name: "收纳袋",
+		Tags: []TagInstance{
+			{DefinitionID: "tag.carryable", Params: map[string]any{}},
+			{DefinitionID: "tag.container", Params: map[string]any{"capacity": 5}},
+		},
+		Weight: 2, Volume: 1,
+	}
+	w.itemLocations["item.bag"] = RoomItemLocation{RoomID: w.PlayerCurrentRoom(playerID)}
+
+	// 准备内容物
+	w.items["item.coin"] = Item{
+		Name:   "金币",
+		Tags:   []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+		Weight: 1, Volume: 1,
+	}
+	w.itemLocations["item.coin"] = RoomItemLocation{RoomID: w.PlayerCurrentRoom(playerID)}
+
+	// 1. 拿起收纳袋 — 体积+1，重量+2
+	_, ok, _ := w.GetItem(w.PlayerCurrentRoom(playerID), "item.bag", playerID)
+	if !ok {
+		t.Fatal("expected to pick up carryable container")
+	}
+	if wt, _ := w.PlayerWeightRatio(playerID); wt != 2 {
+		t.Fatalf("weight after pickup = %d, want 2", wt)
+	}
+	if _, vol := w.PlayerVolumeRatio(playerID); vol != 10 {
+		t.Fatalf("max volume = %d, want 10 (player default)", vol)
+	}
+	if cur, _ := w.PlayerVolumeRatio(playerID); cur != 1 {
+		t.Fatalf("volume after pickup = %d, want 1 (pouch volume, not contents)", cur)
+	}
+
+	// 2. 捡起金币，打开袋子，把金币放进去
+	_, ok, _ = w.GetItem(w.PlayerCurrentRoom(playerID), "item.coin", playerID)
+	if !ok {
+		t.Fatal("expected to pick up coin")
+	}
+	w.OpenContainer("item.bag")
+	err := w.PutItemInContainer("item.coin", "item.bag", playerID)
+	if err != nil {
+		t.Fatalf("PutItemInContainer: %v", err)
+	}
+
+	// 3. 重量增加了（含内容物），体积不变（内容物不占背包体积）
+	if wt, _ := w.PlayerWeightRatio(playerID); wt != 3 {
+		t.Fatalf("weight after putting coin in bag = %d, want 3 (bag 2 + coin 1)", wt)
+	}
+	if cur, _ := w.PlayerVolumeRatio(playerID); cur != 1 {
+		t.Fatalf("volume with coin in bag = %d, want 1 (only bag volume)", cur)
+	}
+
+	// 4. 从袋子里取出金币 — 重量不变（仍在背包里），体积增加（金币本身占体积）
+	_ = w.GetItemFromContainer("item.bag", "item.coin", playerID)
+	if wt, _ := w.PlayerWeightRatio(playerID); wt != 3 {
+		t.Fatalf("weight after removing coin = %d, want 3 (bag %d + coin %d)", wt, 2, 1)
+	}
+	// 现在金币在背包里，体积要计入
+	if cur, _ := w.PlayerVolumeRatio(playerID); cur != 2 {
+		t.Fatalf("volume after removing coin = %d, want 2 (bag %d + coin %d)", cur, 1, 1)
+	}
+
+	// 5. 把金币放回袋子 — 重量不变，体积减少
+	err = w.PutItemInContainer("item.coin", "item.bag", playerID)
+	if err != nil {
+		t.Fatalf("PutItemInContainer: %v", err)
+	}
+	if wt, _ := w.PlayerWeightRatio(playerID); wt != 3 {
+		t.Fatalf("weight after putting coin back = %d, want 3", wt)
+	}
+	if cur, _ := w.PlayerVolumeRatio(playerID); cur != 1 {
+		t.Fatalf("volume after putting coin back = %d, want 1 (bag only)", cur)
 	}
 }

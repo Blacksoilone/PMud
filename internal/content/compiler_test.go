@@ -245,11 +245,11 @@ func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
 	if compiled.Server.StartRoomID != "room.tutorial.hall" {
 		t.Fatalf("expected tutorial start room, got %q", compiled.Server.StartRoomID)
 	}
-	if len(compiled.Server.Rooms) != 5 {
-		t.Fatalf("expected 5 rooms, got %d", len(compiled.Server.Rooms))
+	if len(compiled.Server.Rooms) != 7 {
+		t.Fatalf("expected 7 rooms, got %d", len(compiled.Server.Rooms))
 	}
-	if len(compiled.Server.Items) != 12 {
-		t.Fatalf("expected 12 items (8 exits + 3 game items + 1 chest), got %d", len(compiled.Server.Items))
+	if len(compiled.Server.Items) != 25 {
+		t.Fatalf("expected 25 items (12 exits + 3 game items + 1 chest + 7 weight room items + 1 portable container + 1 dark cave treasure chest), got %d", len(compiled.Server.Items))
 	}
 	exitTargets := map[ItemID]RoomID{
 		"item.hall.north":          "room.tutorial.item_yard",
@@ -260,6 +260,10 @@ func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
 		"item.lock_hall.east":      "room.tutorial.lock_chamber",
 		"item.lock_chamber.west":   "room.tutorial.lock_hall",
 		"item.quest_start.portal":  "room.tutorial.hall",
+		"item.yard.east":           "room.tutorial.weight_room",
+		"item.weight_room.west":    "room.tutorial.item_yard",
+		"item.weight_room.north":   "room.tutorial.dark_cave",
+		"item.dark_cave.south":     "room.tutorial.weight_room",
 	}
 	for itemID, targetRoomID := range exitTargets {
 		item, ok := compiled.Server.Items[itemID]

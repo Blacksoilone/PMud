@@ -70,7 +70,7 @@ func TestTextRenderer_RenderInventoryEvent_withItemsAsStructuredLine(t *testing.
 	got := renderer.Render(event)
 
 	// Then
-	want := "event=inventory\titems=item.tutorial.old_lantern,item.tutorial.practice_sword\n"
+	want := "event=inventory\titems=item.tutorial.old_lantern,item.tutorial.practice_sword\tweight=0/0\tvolume=0/0\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}
@@ -85,7 +85,7 @@ func TestTextRenderer_RenderInventoryEvent_withoutItemsAsStructuredLine(t *testi
 	got := renderer.Render(event)
 
 	// Then
-	want := "event=inventory\titems=\n"
+	want := "event=inventory\titems=\tweight=0/0\tvolume=0/0\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}

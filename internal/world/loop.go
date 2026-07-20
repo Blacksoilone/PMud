@@ -25,6 +25,7 @@ func (l *Loop) registerBuiltinVerbs() {
 	l.RegisterVerb("close", handleClose)
 	l.RegisterVerb("put", handlePut)
 	l.RegisterVerb("get-from", handleGetFrom)
+	l.RegisterVerb("light", handleLight)
 
 	// 注册内置动词到注册表
 	for name := range l.verbHandlers {
@@ -40,6 +41,11 @@ func (l *Loop) registerBuiltinVerbs() {
 	l.RegisterItemResolver("examine", resolveVisibleItemByPhrase)
 	l.RegisterItemResolver("look-item", resolveVisibleItemByPhrase)
 	l.RegisterItemResolver("drop", resolveInventoryItemByPhrase)
+	l.RegisterItemResolver("open", resolveVisibleItemByPhrase)
+	l.RegisterItemResolver("close", resolveVisibleItemByPhrase)
+	l.RegisterItemResolver("put", resolvePutItems)
+	l.RegisterItemResolver("get-from", resolveGetFromItems)
+	l.RegisterItemResolver("light", resolveVisibleItemByPhrase)
 }
 
 // Verbs 返回当前注册表快照中的全部动词。
@@ -175,6 +181,57 @@ func resolveInventoryItemByPhrase(l *Loop, ctx *AttemptContext) []Item {
 		}
 	}
 	return nil
+}
+
+// resolvePutItems 返回放物品动作涉及的所有物品（物品+容器）
+func resolvePutItems(l *Loop, ctx *AttemptContext) []Item {
+	itemPhrase, containerPhrase, ok := strings.Cut(ctx.Input, "|")
+	if !ok || itemPhrase == "" || containerPhrase == "" {
+		return nil
+	}
+	var result []Item
+	if item := resolveInventoryItemByPhrase(l, &AttemptContext{
+		PlayerID: ctx.PlayerID, Input: itemPhrase,
+	}); item != nil {
+		result = append(result, item...)
+	}
+	roomID := l.world.PlayerCurrentRoom(ctx.PlayerID)
+	containerRes := l.world.ResolveVisibleItemPhrase(roomID, ctx.PlayerID, containerPhrase)
+	if containerRes.Found {
+		if item, ok := l.world.items[containerRes.ItemID]; ok {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+// resolveGetFromItems 返回从容器取物品动作涉及的所有物品（容器+内部物品）
+func resolveGetFromItems(l *Loop, ctx *AttemptContext) []Item {
+	itemPhrase, containerPhrase, ok := strings.Cut(ctx.Input, "|")
+	if !ok || itemPhrase == "" || containerPhrase == "" {
+		return nil
+	}
+	var result []Item
+	roomID := l.world.PlayerCurrentRoom(ctx.PlayerID)
+	containerRes := l.world.ResolveVisibleItemPhrase(roomID, ctx.PlayerID, containerPhrase)
+	if !containerRes.Found {
+		return nil
+	}
+	if container, ok := l.world.items[containerRes.ItemID]; ok {
+		result = append(result, container)
+	}
+	// 也在容器内容中找匹配的物品
+	for _, id := range l.world.ContainerContents(containerRes.ItemID) {
+		item, ok := l.world.items[id]
+		if !ok {
+			continue
+		}
+		if item.matchesPhrase(id, itemPhrase) {
+			result = append(result, item)
+			break
+		}
+	}
+	return result
 }
 
 type ActionResult struct {
@@ -484,6 +541,11 @@ func handleLeaveWorld(l *Loop, ctx *AttemptContext) {
 }
 
 func handleMove(l *Loop, ctx *AttemptContext) {
+	if l.world.IsOverWeight(ctx.PlayerID) {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.move.overweight"})
+		ctx.Blocked = true
+		return
+	}
 	nextRoom, ok := l.world.MovePlayer(ctx.PlayerID, ctx.Input)
 	if !ok {
 		ctx.Blocked = true
@@ -494,7 +556,11 @@ func handleMove(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
-	ctx.Events = append(ctx.Events, newRoomObservationEvent(obs))
+	if obs.Dark && !l.world.RoomIsLit(nextRoom, ctx.PlayerID) {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.room.dark"})
+	} else {
+		ctx.Events = append(ctx.Events, newRoomObservationEvent(obs))
+	}
 	progEvents := l.applyProgression(ctx.PlayerID, progression.Trigger{
 		Kind: progression.TriggerMovedRoom, RoomID: string(nextRoom),
 	})
@@ -510,6 +576,11 @@ func handleLook(l *Loop, ctx *AttemptContext) {
 	if !ok {
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.player.not_found"})
 		ctx.Blocked = true
+		return
+	}
+	if !l.world.RoomIsLit(roomID, ctx.PlayerID) {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.room.dark"})
+		ctx.NewRoom = roomID
 		return
 	}
 	obs, ok := l.world.Look(roomID)
@@ -536,8 +607,13 @@ func handleGet(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
-	itemID, ok := l.world.GetItem(l.world.PlayerCurrentRoom(ctx.PlayerID), resolution.ItemID, ctx.PlayerID)
+	itemID, ok, volumeOk := l.world.GetItem(l.world.PlayerCurrentRoom(ctx.PlayerID), resolution.ItemID, ctx.PlayerID)
 	if !ok {
+		if !volumeOk {
+			ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.item.inventory_full"})
+			ctx.Blocked = true
+			return
+		}
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
 		ctx.Blocked = true
 		return
@@ -552,6 +628,47 @@ func handleGet(l *Loop, ctx *AttemptContext) {
 		Kind: progression.TriggerGotItem, ItemID: string(itemID),
 	})
 	ctx.Events = append(ctx.Events, progEvents...)
+}
+
+func handleLight(l *Loop, ctx *AttemptContext) {
+	resolution := l.world.ResolveVisibleItemPhrase(l.world.PlayerCurrentRoom(ctx.PlayerID), ctx.PlayerID, ctx.Input)
+	if len(resolution.AmbiguousItemIDs) > 0 {
+		ctx.Events = ambiguousItemsEvent(l.world, resolution.AmbiguousItemIDs)
+		return
+	}
+	if !resolution.Found {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
+		ctx.Blocked = true
+		return
+	}
+	itemID := resolution.ItemID
+	item, ok := l.world.items[itemID]
+	if !ok {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
+		ctx.Blocked = true
+		return
+	}
+	_, hasLightable := item.tagParams("tag.lightable")
+	if !hasLightable {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.light.not_lightable"})
+		ctx.Blocked = true
+		return
+	}
+	if !l.world.PlayerHasItem(ctx.PlayerID, itemID) {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.light.not_carried"})
+		ctx.Blocked = true
+		return
+	}
+	if l.world.IsItemLit(itemID) {
+		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.light.already_lit"})
+		ctx.Blocked = true
+		return
+	}
+	l.world.LightItem(itemID)
+	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
+		MessageKey: "verb.light.default",
+		Fields:     map[string]string{"item": item.Name},
+	})
 }
 
 func handleDrop(l *Loop, ctx *AttemptContext) {
@@ -629,7 +746,15 @@ func handleInventory(l *Loop, ctx *AttemptContext) {
 	for _, id := range itemIDs {
 		items = append(items, string(id))
 	}
-	ctx.Events = append(ctx.Events, presentation.InventoryEvent{Items: items})
+	wtCur, wtMax := l.world.PlayerWeightRatio(ctx.PlayerID)
+	volCur, volMax := l.world.PlayerVolumeRatio(ctx.PlayerID)
+	ctx.Events = append(ctx.Events, presentation.InventoryEvent{
+		Items:         items,
+		WeightCurrent: wtCur,
+		WeightMax:     wtMax,
+		VolumeCurrent: volCur,
+		VolumeMax:     volMax,
+	})
 }
 
 func handleQuest(l *Loop, ctx *AttemptContext) {
@@ -899,6 +1024,10 @@ func handleGetFrom(l *Loop, ctx *AttemptContext) {
 			"container": container.Name,
 		},
 	})
+	progEvents := l.applyProgression(ctx.PlayerID, progression.Trigger{
+		Kind: progression.TriggerGotItem, ItemID: string(matches[0]),
+	})
+	ctx.Events = append(ctx.Events, progEvents...)
 }
 
 func oppositeDirection(dir string) string {

@@ -34,6 +34,7 @@ func (w *World) Look(roomID RoomID) (RoomObservation, bool) {
 		Neighbors:      neighbors,
 		ItemIDs:        itemIDs,
 		Items:          items,
+		Dark:           room.Dark,
 	}, true
 }
 

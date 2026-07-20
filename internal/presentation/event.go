@@ -30,7 +30,11 @@ func (e RoomObservationEvent) EventKind() string {
 }
 
 type InventoryEvent struct {
-	Items []string
+	Items         []string
+	WeightCurrent int
+	WeightMax     int
+	VolumeCurrent int
+	VolumeMax     int
 }
 
 func (e InventoryEvent) EventKind() string {
@@ -65,6 +69,8 @@ type ItemObservationEvent struct {
 	DescriptionKey string
 	Name           string
 	Description    string
+	Tags           []string
+	PartTags       map[string][]string
 }
 
 func (e ItemObservationEvent) EventKind() string {

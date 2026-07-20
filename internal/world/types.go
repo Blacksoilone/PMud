@@ -12,6 +12,7 @@ type RoomObservation struct {
 	Neighbors      map[string]RoomID
 	ItemIDs        []ItemID
 	Items          []string
+	Dark           bool
 }
 
 type ItemObservation struct {
@@ -20,6 +21,8 @@ type ItemObservation struct {
 	DescriptionKey string
 	Name           string
 	Description    string
+	Tags           []string // 可见 tag 描述文本
+	PartTags       map[string][]string // part名 → 可见 tag 描述文本
 }
 
 type (
@@ -33,6 +36,11 @@ type Room struct {
 	DescriptionKey string
 	Name           string
 	Description    string
+	Dark           bool
+}
+
+type ItemPart struct {
+	Tags []TagInstance
 }
 
 type Item struct {
@@ -43,6 +51,9 @@ type Item struct {
 	Description    string
 	Aliases        []string
 	Tags           []TagInstance
+	Parts          map[string]ItemPart
+	Weight         int
+	Volume         int
 }
 
 // Exit 是一个纯值类型，从 tag.exit 的 TagInstance 中提取
@@ -80,8 +91,10 @@ func PlayerContainerID(pid PlayerID) string { return "player:" + string(pid) }
 func ItemContainerID(iid ItemID) string { return "item:" + string(iid) }
 
 type PlayerEntity struct {
-	ID     PlayerID
-	RoomID RoomID
+	ID        PlayerID
+	RoomID    RoomID
+	MaxWeight int
+	MaxVolume int
 }
 
 type World struct {
@@ -95,4 +108,5 @@ type World struct {
 	contentVerbs           map[string]VerbEntry
 	trackedQuests          map[PlayerID]string
 	containerOpen          map[ItemID]bool
+	litItems               map[ItemID]bool
 }

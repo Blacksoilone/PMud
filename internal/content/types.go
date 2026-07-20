@@ -45,6 +45,13 @@ type RoomSource struct {
 	ID             RoomID
 	NameKey        TextKey
 	DescriptionKey TextKey
+	Dark           bool
+}
+
+type PartID string
+
+type PartSource struct {
+	SourceTags []SourceTag
 }
 
 type ItemSource struct {
@@ -55,11 +62,36 @@ type ItemSource struct {
 	Aliases        []TextKey
 	InitialRoom    RoomID
 	Tags           []SourceTag
+	Parts          map[PartID]PartSource
+	Weight         int
+	Volume         int
 }
 
 type SourceTag struct {
 	ID     TagID
 	Params map[string]string
+}
+
+type ServerPart struct {
+	Tags []ServerTag
+}
+
+type RawTag struct {
+	ID     TagID
+	Params map[string]string
+}
+
+// ServerTag 使用鉴别联合体：命中的已知 tag 填入对应字段，
+// 未知 tag 通过 GenericID/GenericParams 透传。
+type ServerTag struct {
+	Exit      *ExitTag
+	Carryable bool
+	Lightable bool
+	Container *ContainerTag
+	Lockable  *LockableTag
+	// 通用透传：当 tag ID 不属于上述已知类型时存入此处
+	GenericID     TagID
+	GenericParams map[string]string
 }
 
 type QuestSource struct {
@@ -101,6 +133,7 @@ type ServerSnapshot struct {
 }
 
 type ServerRoom struct {
+	Dark bool
 }
 
 type ServerItem struct {
@@ -109,14 +142,9 @@ type ServerItem struct {
 	DescriptionKey TextKey
 	Aliases        []TextKey
 	Tags           []ServerTag
-}
-
-type ServerTag struct {
-	Exit      *ExitTag
-	Carryable bool
-	Lightable bool
-	Container *ContainerTag
-	Lockable  *LockableTag
+	Parts          map[PartID]ServerPart
+	Weight         int
+	Volume         int
 }
 
 type ExitTag struct {

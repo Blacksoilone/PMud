@@ -5,8 +5,10 @@ func (w *World) EnterWorld(playerID PlayerID) (RoomID, bool) {
 		return "", false
 	}
 	w.players[playerID] = PlayerEntity{
-		ID:     playerID,
-		RoomID: w.startRoom,
+		ID:        playerID,
+		RoomID:    w.startRoom,
+		MaxWeight: 20,
+		MaxVolume: 10,
 	}
 	return w.startRoom, true
 }

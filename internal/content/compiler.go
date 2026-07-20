@@ -27,7 +27,7 @@ func Compile(source ContentSource) (CompiledContent, error) {
 	}
 
 	for _, room := range source.Rooms {
-		server.Rooms[room.ID] = ServerRoom{}
+		server.Rooms[room.ID] = ServerRoom{Dark: room.Dark}
 		client.RoomNames[room.ID] = room.NameKey
 		client.RoomDescriptions[room.ID] = room.DescriptionKey
 	}
@@ -38,12 +38,19 @@ func Compile(source ContentSource) (CompiledContent, error) {
 		if err != nil {
 			return CompiledContent{}, err
 		}
+		parts, err := compileParts(item, source.Text)
+		if err != nil {
+			return CompiledContent{}, err
+		}
 		server.Items[item.ID] = ServerItem{
 			DisplayNameKey: item.DisplayNameKey,
 			InnerNameKey:   item.InnerNameKey,
 			DescriptionKey: item.DescriptionKey,
 			Aliases:        append([]TextKey(nil), item.Aliases...),
 			Tags:           tags,
+			Parts:          parts,
+			Weight:         item.Weight,
+			Volume:         item.Volume,
 		}
 		for _, tag := range tags {
 			if tag.Exit == nil || tag.Exit.Direction == "" {
@@ -105,50 +112,76 @@ func Compile(source ContentSource) (CompiledContent, error) {
 func compileTags(item ItemSource, rooms []RoomSource, text map[TextKey]string) ([]ServerTag, error) {
 	result := make([]ServerTag, 0, len(item.Tags))
 	for _, tag := range item.Tags {
-		switch tag.ID {
-		case TagCarryable:
-			if len(tag.Params) != 0 {
-				return nil, fmt.Errorf("item %q: carryable tag accepts no parameters", item.ID)
-			}
-			result = append(result, ServerTag{Carryable: true})
-			continue
-		case TagLightable:
-			if len(tag.Params) != 0 {
-				return nil, fmt.Errorf("item %q: lightable tag accepts no parameters", item.ID)
-			}
-			result = append(result, ServerTag{Lightable: true})
-			continue
-		case TagContainer:
-			capacity := 1
-			if capStr, ok := tag.Params["capacity"]; ok {
-				if _, err := fmt.Sscanf(capStr, "%d", &capacity); err != nil {
-					return nil, fmt.Errorf("item %q: container tag capacity must be an integer, got %q", item.ID, capStr)
-				}
-			}
-			result = append(result, ServerTag{Container: &ContainerTag{Capacity: capacity}})
-			continue
-		case TagLockable:
-			keyID, ok := tag.Params["key_item_id"]
-			if !ok || keyID == "" {
-				return nil, fmt.Errorf("item %q: lockable tag requires key_item_id", item.ID)
-			}
-			result = append(result, ServerTag{Lockable: &LockableTag{KeyItemID: ItemID(keyID)}})
-			continue
-		case TagExit:
-		default:
-			return nil, fmt.Errorf("item %q: unknown tag %q", item.ID, tag.ID)
+		compiled, err := compileOneTag(item.ID, tag, rooms, text[item.InnerNameKey])
+		if err != nil {
+			return nil, err
 		}
+		result = append(result, compiled)
+	}
+	return result, nil
+}
+
+func compileOneTag(itemID ItemID, tag SourceTag, rooms []RoomSource, innerName string) (ServerTag, error) {
+	switch tag.ID {
+	case TagCarryable:
+		if len(tag.Params) != 0 {
+			return ServerTag{}, fmt.Errorf("item %q: carryable tag accepts no parameters", itemID)
+		}
+		return ServerTag{Carryable: true}, nil
+	case TagLightable:
+		if len(tag.Params) != 0 {
+			return ServerTag{}, fmt.Errorf("item %q: lightable tag accepts no parameters", itemID)
+		}
+		return ServerTag{Lightable: true}, nil
+	case TagContainer:
+		capacity := 1
+		if capStr, ok := tag.Params["capacity"]; ok {
+			if _, err := fmt.Sscanf(capStr, "%d", &capacity); err != nil {
+				return ServerTag{}, fmt.Errorf("item %q: container tag capacity must be an integer, got %q", itemID, capStr)
+			}
+		}
+		return ServerTag{Container: &ContainerTag{Capacity: capacity}}, nil
+	case TagLockable:
+		keyID, ok := tag.Params["key_item_id"]
+		if !ok || keyID == "" {
+			return ServerTag{}, fmt.Errorf("item %q: lockable tag requires key_item_id", itemID)
+		}
+		return ServerTag{Lockable: &LockableTag{KeyItemID: ItemID(keyID)}}, nil
+	case TagExit:
 		target, ok := tag.Params["target_room_id"]
 		if !ok || target == "" {
-			return nil, fmt.Errorf("item %q: exit tag requires target_room_id", item.ID)
+			return ServerTag{}, fmt.Errorf("item %q: exit tag requires target_room_id", itemID)
 		}
 		if !hasRoom(rooms, RoomID(target)) {
-			return nil, fmt.Errorf("item %q: exit target room %q does not exist", item.ID, target)
+			return ServerTag{}, fmt.Errorf("item %q: exit target room %q does not exist", itemID, target)
 		}
-		result = append(result, ServerTag{Exit: &ExitTag{
-			Direction:    inferDirection(text[item.InnerNameKey]),
+		return ServerTag{Exit: &ExitTag{
+			Direction:    inferDirection(innerName),
 			TargetRoomID: RoomID(target),
-		}})
+		}}, nil
+	default:
+		return ServerTag{
+			GenericID:     tag.ID,
+			GenericParams: tag.Params,
+		}, nil
+	}
+}
+
+func compileParts(item ItemSource, text map[TextKey]string) (map[PartID]ServerPart, error) {
+	if len(item.Parts) == 0 {
+		return nil, nil
+	}
+	result := make(map[PartID]ServerPart, len(item.Parts))
+	for partID, part := range item.Parts {
+		tags := make([]ServerTag, 0, len(part.SourceTags))
+		for _, srcTag := range part.SourceTags {
+			compiled, err := compileOneTag(item.ID, srcTag, nil, text[item.InnerNameKey])
+			if err != nil {
+				return nil, fmt.Errorf("item %q part %q: %v", item.ID, partID, err)
+			}
+			tags = append(tags, compiled)
+		}
+		result[partID] = ServerPart{Tags: tags}
 	}
 	return result, nil
 }

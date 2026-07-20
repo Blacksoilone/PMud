@@ -5,17 +5,21 @@ import (
 	"strings"
 )
 
-func (w *World) GetItem(roomID RoomID, targetItemID ItemID, playerID PlayerID) (ItemID, bool) {
+func (w *World) GetItem(roomID RoomID, targetItemID ItemID, playerID PlayerID) (ItemID, bool, bool) {
+	// volumeOk 用于通知调用方（给 handleGet 提示）
 	for _, itemID := range w.carryableItemsInRoom(roomID) {
 		if itemID != targetItemID {
 			continue
 		}
-
+		volOk, _ := w.CanAddItem(playerID, itemID)
+		if !volOk {
+			return itemID, false, false
+		}
 		w.itemLocations[itemID] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
-		return itemID, true
+		return itemID, true, true
 	}
 
-	return "", false
+	return "", false, true
 }
 
 func (w *World) DropItem(roomID RoomID, itemID ItemID) bool {
@@ -50,6 +54,9 @@ func (w *World) DropInventoryItem(roomID RoomID, targetItemID ItemID, playerID P
 }
 
 func (w *World) ExamineItem(roomID RoomID, targetItemID ItemID, playerID PlayerID) (ItemObservation, bool) {
+	if !w.RoomIsLit(roomID, playerID) {
+		return ItemObservation{}, false
+	}
 	for _, itemID := range w.visibleItemIDs(roomID, playerID) {
 		if itemID != targetItemID {
 			continue
@@ -58,12 +65,15 @@ func (w *World) ExamineItem(roomID RoomID, targetItemID ItemID, playerID PlayerI
 		if !ok {
 			return ItemObservation{}, false
 		}
+		rootTags, partTags := item.ObservableTagDescriptions(w)
 		return ItemObservation{
 			Item:           itemID,
 			NameKey:        item.NameKey,
 			DescriptionKey: item.DescriptionKey,
 			Name:           item.Name,
 			Description:    item.Description,
+			Tags:           rootTags,
+			PartTags:       partTags,
 		}, true
 	}
 	return ItemObservation{}, false
@@ -150,6 +160,82 @@ func (w *World) Inventory(playerID PlayerID) []string {
 
 func (w *World) InventoryItemIDs(playerID PlayerID) []ItemID {
 	return w.itemsInContainer(PlayerContainerID(playerID))
+}
+
+// itemTotalWeight 递归计算物品的总重量，如果物品是容器则包含其内容物
+func (w *World) itemTotalWeight(itemID ItemID) int {
+	item, ok := w.items[itemID]
+	if !ok {
+		return 0
+	}
+	total := item.Weight
+	for _, contentID := range w.itemsInContainer(ItemContainerID(itemID)) {
+		total += w.itemTotalWeight(contentID)
+	}
+	return total
+}
+
+func (w *World) PlayerCurrentWeight(playerID PlayerID) int {
+	total := 0
+	for _, itemID := range w.itemsInContainer(PlayerContainerID(playerID)) {
+		total += w.itemTotalWeight(itemID)
+	}
+	return total
+}
+
+func (w *World) PlayerCurrentVolume(playerID PlayerID) int {
+	total := 0
+	for _, itemID := range w.itemsInContainer(PlayerContainerID(playerID)) {
+		item, ok := w.items[itemID]
+		if !ok {
+			continue
+		}
+		total += item.Volume
+	}
+	return total
+}
+
+func (w *World) CanAddItem(playerID PlayerID, itemID ItemID) (volumeOk bool, weightOk bool) {
+	player, ok := w.players[playerID]
+	if !ok {
+		return true, true
+	}
+	item, ok := w.items[itemID]
+	if !ok {
+		return false, false
+	}
+	newVol := w.PlayerCurrentVolume(playerID) + item.Volume
+	volumeOk = player.MaxVolume <= 0 || newVol <= player.MaxVolume
+	newWt := w.PlayerCurrentWeight(playerID) + w.itemTotalWeight(itemID)
+	weightOk = player.MaxWeight <= 0 || newWt <= player.MaxWeight
+	return
+}
+
+func (w *World) IsOverWeight(playerID PlayerID) bool {
+	player, ok := w.players[playerID]
+	if !ok {
+		return false
+	}
+	if player.MaxWeight <= 0 {
+		return false
+	}
+	return w.PlayerCurrentWeight(playerID) > player.MaxWeight
+}
+
+func (w *World) PlayerWeightRatio(playerID PlayerID) (current, max int) {
+	player, ok := w.players[playerID]
+	if !ok {
+		return 0, 0
+	}
+	return w.PlayerCurrentWeight(playerID), player.MaxWeight
+}
+
+func (w *World) PlayerVolumeRatio(playerID PlayerID) (current, max int) {
+	player, ok := w.players[playerID]
+	if !ok {
+		return 0, 0
+	}
+	return w.PlayerCurrentVolume(playerID), player.MaxVolume
 }
 
 func (w *World) itemNames(itemIDs []ItemID) []string {

@@ -41,7 +41,13 @@ func (TextRenderer) Render(event Event) string {
 			field("items", strings.Join(e.Items, ",")),
 		)
 	case InventoryEvent:
-		return line("inventory", field("items", strings.Join(e.Items, ",")))
+		wt := strconv.Itoa(e.WeightCurrent) + "/" + strconv.Itoa(e.WeightMax)
+		vol := strconv.Itoa(e.VolumeCurrent) + "/" + strconv.Itoa(e.VolumeMax)
+		return line("inventory",
+			field("items", strings.Join(e.Items, ",")),
+			field("weight", wt),
+			field("volume", vol),
+		)
 	case QuestStatusEvent:
 		return line(
 			"quest",
@@ -64,11 +70,24 @@ func (TextRenderer) Render(event Event) string {
 			optionalField("tracked", e.Tracked),
 		)
 	case ItemObservationEvent:
+		tags := strings.Join(e.Tags, ",")
+		partStrs := make([]string, 0, len(e.PartTags))
+		partKeys := make([]string, 0, len(e.PartTags))
+		for k := range e.PartTags {
+			partKeys = append(partKeys, k)
+		}
+		slices.Sort(partKeys)
+		for _, k := range partKeys {
+			partStrs = append(partStrs, k+":"+strings.Join(e.PartTags[k], ","))
+		}
+		partField := strings.Join(partStrs, ";")
 		return line(
 			"item",
 			field("item", e.Item),
 			field("name_key", e.NameKey),
 			field("description_key", e.DescriptionKey),
+			optionalField("tags", tags),
+			optionalField("part_tags", partField),
 		)
 	default:
 		return line("unknown", field("kind", event.EventKind()))

@@ -512,7 +512,7 @@ func TestHandleConn_acceptsExistingCommandsAndWritesStructuredResponses(t *testi
 		t.Fatalf("expected inventory output, got %v", err)
 	}
 	output := string(buffer[:n])
-	if output != "event=inventory\titems=\n" {
+	if output != "event=inventory\titems=\tweight=0/20\tvolume=0/10\n" {
 		t.Fatalf("expected structured empty inventory output, got %q", output)
 	}
 

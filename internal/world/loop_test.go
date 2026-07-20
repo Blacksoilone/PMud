@@ -98,11 +98,11 @@ func TestLoop_relevantItemsFallback_visibleItemsWithMatchingHooks(t *testing.T) 
 
 	const testBlockReason = "fallback hook blocked"
 
-	// 在 tag.lightable 上加一个 hook 匹配动词 "light"
+	// 在 tag.lightable 上加一个 hook 匹配动词 "testfallback"（无 resolver 的动词）
 	origDef, _ := w.TagDefinition("tag.lightable")
 	origDef.Hooks = append(origDef.Hooks, TagHook{
 		Phase: HookPreAction,
-		Verbs: []string{"light"},
+		Verbs: []string{"testfallback"},
 		Handler: func(ctx *AttemptContext, params map[string]any) {
 			ctx.Blocked = true
 			ctx.BlockReason = testBlockReason
@@ -111,8 +111,8 @@ func TestLoop_relevantItemsFallback_visibleItemsWithMatchingHooks(t *testing.T) 
 	})
 	w.tagDefinitions["tag.lightable"] = origDef
 
-	// 注册 "light" 动词（无 resolver → 走 fallback）
-	l.RegisterVerb("light", func(l2 *Loop, ctx *AttemptContext) {
+	// 注册测试动词（无 resolver → 走 fallback）
+	l.RegisterVerb("testfallback", func(l2 *Loop, ctx *AttemptContext) {
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "light.executed"})
 	})
 	l.Start()
@@ -121,7 +121,7 @@ func TestLoop_relevantItemsFallback_visibleItemsWithMatchingHooks(t *testing.T) 
 	l.world.players["player.test"] = PlayerEntity{ID: "player.test", RoomID: "room.tutorial.lock_hall"}
 
 	resp := make(chan ActionResult, 1)
-	l.Submit(Action{PlayerID: "player.test", Verb: "light", Resp: resp})
+	l.Submit(Action{PlayerID: "player.test", Verb: "testfallback", Resp: resp})
 
 	result := <-resp
 	if len(result.Events) == 0 {

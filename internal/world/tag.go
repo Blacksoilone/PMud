@@ -46,6 +46,7 @@ type TagDefinition struct {
 	Scopes      []TagScope
 	Fields      []TagField
 	Hooks       []TagHook
+	Observable  bool // 设为 true 时，该 tag 会在 examine 中展示
 }
 
 type TagInstance struct {
@@ -60,6 +61,54 @@ func (i Item) tagParams(tagID TagID) (map[string]any, bool) {
 		}
 	}
 	return nil, false
+}
+
+// PartTag 检查指定 part 上是否存在指定 tag。
+func (i Item) PartTag(partID string, tagID TagID) bool {
+	part, ok := i.Parts[partID]
+	if !ok {
+		return false
+	}
+	for _, inst := range part.Tags {
+		if inst.DefinitionID == tagID {
+			return true
+		}
+	}
+	return false
+}
+
+// AnyPartTag 检查任意 part 上是否存在指定 tag。
+func (i Item) AnyPartTag(tagID TagID) bool {
+	for _, part := range i.Parts {
+		for _, inst := range part.Tags {
+			if inst.DefinitionID == tagID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ObservableTagDescriptions 收集 item 根和所有 part 上 Observable=true 的 tag 描述文本。
+func (i Item) ObservableTagDescriptions(w *World) (rootTags []string, partTags map[string][]string) {
+	for _, inst := range i.Tags {
+		def, ok := w.TagDefinition(inst.DefinitionID)
+		if ok && def.Observable {
+			rootTags = append(rootTags, def.Description)
+		}
+	}
+	for partID, part := range i.Parts {
+		for _, inst := range part.Tags {
+			def, ok := w.TagDefinition(inst.DefinitionID)
+			if ok && def.Observable {
+				if partTags == nil {
+					partTags = make(map[string][]string)
+				}
+				partTags[partID] = append(partTags[partID], def.Description)
+			}
+		}
+	}
+	return
 }
 
 func (w *World) RegisterTag(def TagDefinition) error {

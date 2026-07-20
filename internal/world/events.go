@@ -16,12 +16,22 @@ func newRoomObservationEvent(obs RoomObservation) presentation.Event {
 }
 
 func newItemObservationEvent(obs ItemObservation) presentation.Event {
+	tags := make([]string, len(obs.Tags))
+	copy(tags, obs.Tags)
+	partTags := make(map[string][]string, len(obs.PartTags))
+	for k, v := range obs.PartTags {
+		pt := make([]string, len(v))
+		copy(pt, v)
+		partTags[k] = pt
+	}
 	return presentation.ItemObservationEvent{
 		Item:           string(obs.Item),
 		NameKey:        obs.NameKey,
 		DescriptionKey: obs.DescriptionKey,
 		Name:           obs.Name,
 		Description:    obs.Description,
+		Tags:           tags,
+		PartTags:       partTags,
 	}
 }
 
