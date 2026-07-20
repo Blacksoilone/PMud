@@ -69,7 +69,8 @@ func (InventoryCommand) clientCommand() {}
 func (InventoryCommand) serverCommand() {}
 
 type QuestCommand struct {
-	QuestID string // empty = list all, non-empty = switch tracked quest
+	QuestID string
+	Accept  bool
 }
 
 func (QuestCommand) clientCommand() {}
@@ -146,6 +147,9 @@ func ParseClientInput(input string) ClientCommand {
 		return InventoryCommand{}
 	}
 	if verb == "quest" {
+		if action, questID, ok := strings.Cut(target, " "); ok && strings.EqualFold(action, "accept") {
+			return QuestCommand{QuestID: strings.TrimSpace(questID), Accept: true}
+		}
 		return QuestCommand{QuestID: target}
 	}
 	if verb == "verb" || verb == "verbs" {
@@ -215,6 +219,9 @@ func ParseServerInput(input string) ServerCommand {
 		return InventoryCommand{}
 	}
 	if verb == "quest" {
+		if action, questID, ok := strings.Cut(target, " "); ok && strings.EqualFold(action, "accept") {
+			return QuestCommand{QuestID: strings.TrimSpace(questID), Accept: true}
+		}
 		return QuestCommand{QuestID: target}
 	}
 	if verb == "verb" || verb == "verbs" {

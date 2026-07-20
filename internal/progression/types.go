@@ -11,9 +11,21 @@ const (
 type QuestState string
 
 const (
-	QuestStateActive        QuestState = "active"
-	QuestStateRewardPending QuestState = "reward_pending"
-	QuestStateCompleted     QuestState = "completed"
+	QuestStateHidden         QuestState = "hidden"
+	QuestStateUnlocked       QuestState = "unlocked"
+	QuestStateActive         QuestState = "active"
+	QuestStateRewardPending  QuestState = "reward_pending"
+	QuestStateCompleted      QuestState = "completed"
+	QuestStateWaitingRefresh QuestState = "waiting_refresh"
+	QuestStateRetryWait      QuestState = "retry_wait"
+)
+
+type ActivationMode string
+
+const (
+	ActivationManualAccept ActivationMode = "manual_accept"
+	ActivationAutoOnEvent  ActivationMode = "auto_on_event"
+	ActivationAlwaysActive ActivationMode = "always_active"
 )
 
 type Trigger struct {
@@ -29,9 +41,12 @@ type Definitions struct {
 }
 
 type QuestDefinition struct {
-	ID       string
-	Name     string
-	StageIDs []string
+	ID                   string
+	Name                 string
+	StageIDs             []string
+	Activation           ActivationMode
+	ActivationConditions []ConditionDefinition
+	Repeatable           bool
 }
 
 type StageDefinition struct {

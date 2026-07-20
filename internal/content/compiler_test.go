@@ -72,6 +72,65 @@ func TestCompile_rejectsDuplicateStandardDirectionInRoom(t *testing.T) {
 	}
 }
 
+func TestCompile_rejectsUnknownTag(t *testing.T) {
+	source := testContentSource()
+	source.Items[0].Tags = []SourceTag{{ID: "typo_carryable"}}
+
+	if _, err := Compile(source); err == nil {
+		t.Fatal("expected unknown tag to fail compilation")
+	}
+}
+
+func TestCompile_rejectsUnknownTagParameter(t *testing.T) {
+	source := testContentSource()
+	source.Items[0].Tags = []SourceTag{{
+		ID:     TagCarryable,
+		Params: map[string]string{"unexpected": "value"},
+	}}
+
+	if _, err := Compile(source); err == nil {
+		t.Fatal("expected unknown tag parameter to fail compilation")
+	}
+}
+
+func TestCompile_rejectsMissingLockableKey(t *testing.T) {
+	source := testContentSource()
+	source.Items[0].Tags = []SourceTag{{ID: TagLockable}}
+
+	if _, err := Compile(source); err == nil {
+		t.Fatal("expected missing lockable key to fail compilation")
+	}
+}
+
+func TestCompile_defaultsQuestActivationToAlwaysActive(t *testing.T) {
+	compiled, err := Compile(testContentSource())
+	if err != nil {
+		t.Fatal(err)
+	}
+	quest := compiled.Server.Quests["quest.tutorial.first_steps"]
+	if quest.Activation != QuestActivationAlwaysActive {
+		t.Fatalf("activation = %q, want always_active", quest.Activation)
+	}
+}
+
+func TestCompile_rejectsAutoOnEventQuestWithoutConditions(t *testing.T) {
+	source := testContentSource()
+	source.Quests[0].Activation = QuestActivationAutoOnEvent
+
+	if _, err := Compile(source); err == nil {
+		t.Fatal("expected auto_on_event without conditions to fail")
+	}
+}
+
+func TestCompile_rejectsUnknownQuestActivation(t *testing.T) {
+	source := testContentSource()
+	source.Quests[0].Activation = "sometimes"
+
+	if _, err := Compile(source); err == nil {
+		t.Fatal("expected unknown quest activation to fail")
+	}
+}
+
 func TestCompile_projectsClientCatalog(t *testing.T) {
 	// Given
 	source := testContentSource()
@@ -252,18 +311,18 @@ func TestTutorialSource_compilesCurrentTinyWorldFixture(t *testing.T) {
 		t.Fatalf("expected 25 items (12 exits + 3 game items + 1 chest + 7 weight room items + 1 portable container + 1 dark cave treasure chest), got %d", len(compiled.Server.Items))
 	}
 	exitTargets := map[ItemID]RoomID{
-		"item.hall.north":          "room.tutorial.item_yard",
-		"item.hall.east":           "room.tutorial.lock_hall",
-		"item.hall.portal":         "room.tutorial.quest_start",
-		"item.yard.south":          "room.tutorial.hall",
-		"item.lock_hall.west":      "room.tutorial.hall",
-		"item.lock_hall.east":      "room.tutorial.lock_chamber",
-		"item.lock_chamber.west":   "room.tutorial.lock_hall",
-		"item.quest_start.portal":  "room.tutorial.hall",
-		"item.yard.east":           "room.tutorial.weight_room",
-		"item.weight_room.west":    "room.tutorial.item_yard",
-		"item.weight_room.north":   "room.tutorial.dark_cave",
-		"item.dark_cave.south":     "room.tutorial.weight_room",
+		"item.hall.north":         "room.tutorial.item_yard",
+		"item.hall.east":          "room.tutorial.lock_hall",
+		"item.hall.portal":        "room.tutorial.quest_start",
+		"item.yard.south":         "room.tutorial.hall",
+		"item.lock_hall.west":     "room.tutorial.hall",
+		"item.lock_hall.east":     "room.tutorial.lock_chamber",
+		"item.lock_chamber.west":  "room.tutorial.lock_hall",
+		"item.quest_start.portal": "room.tutorial.hall",
+		"item.yard.east":          "room.tutorial.weight_room",
+		"item.weight_room.west":   "room.tutorial.item_yard",
+		"item.weight_room.north":  "room.tutorial.dark_cave",
+		"item.dark_cave.south":    "room.tutorial.weight_room",
 	}
 	for itemID, targetRoomID := range exitTargets {
 		item, ok := compiled.Server.Items[itemID]

@@ -1,6 +1,9 @@
 package presentation
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestTextRenderer_RenderSystemMessageEvent_asStructuredLine(t *testing.T) {
 	// Given
@@ -129,5 +132,17 @@ func TestTextRenderer_RenderEscapesFieldSeparators(t *testing.T) {
 	want := "event=system\tmessage_key=system.escaped\tinput=第一行\\n第二行\\t反斜杠\\\\\n"
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestTextRenderer_RenderQuestListEscapesStructuredText(t *testing.T) {
+	line := (TextRenderer{}).Render(QuestListEvent{Quests: []QuestStatusEvent{{
+		QuestID:   "quest.one",
+		QuestName: "任务,一|特别",
+		StageText: "阶段\n说明",
+		State:     "active",
+	}}})
+	if !strings.Contains(line, `items=[{"id":"quest.one","name":"任务,一|特别","stage":"阶段\\n说明","state":"active"}]`) {
+		t.Fatalf("quest list line = %q", line)
 	}
 }

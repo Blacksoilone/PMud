@@ -52,7 +52,14 @@ func (e *Engine) Apply(playerID string, trigger Trigger) []Status {
 	playerRuntime := e.playerRuntime(playerID)
 	var advanced []Status
 	for _, questID := range e.questIDs() {
+		quest := e.definitions.Quests[questID]
 		rt := playerRuntime[questID]
+		if rt.state == QuestStateHidden && quest.Activation == ActivationAutoOnEvent && matchesConditions(quest.ActivationConditions, trigger, e.checkers) {
+			rt.state = QuestStateActive
+			playerRuntime[questID] = rt
+			advanced = append(advanced, e.status(questID, rt))
+			continue
+		}
 		if rt.state != QuestStateActive {
 			continue
 		}
@@ -95,23 +102,23 @@ func (e *Engine) Status(playerID string, questID string) (Status, bool) {
 	return e.status(questID, rt), true
 }
 
-func (e *Engine) ResolveRewards(playerID string) (Status, bool) {
+func (e *Engine) ResolveRewards(playerID string, questID string) (Status, bool) {
 	playerRuntime := e.playerRuntime(playerID)
-	for _, questID := range e.questIDs() {
-		rt := playerRuntime[questID]
-		if rt.state != QuestStateRewardPending {
-			continue
-		}
+	rt, ok := playerRuntime[questID]
+	if !ok {
+		return Status{}, false
+	}
+	if rt.state != QuestStateRewardPending {
+		return e.status(questID, rt), false
+	}
+	if e.definitions.Quests[questID].Repeatable {
+		rt.state = QuestStateWaitingRefresh
+	} else {
 		rt.state = QuestStateCompleted
-		playerRuntime[questID] = rt
-		e.runtime[playerID] = playerRuntime
-		return e.status(questID, rt), true
 	}
-	ids := e.questIDs()
-	if len(ids) > 0 {
-		return e.status(ids[0], playerRuntime[ids[0]]), false
-	}
-	return Status{}, false
+	playerRuntime[questID] = rt
+	e.runtime[playerID] = playerRuntime
+	return e.status(questID, rt), true
 }
 
 func (e *Engine) playerRuntime(playerID string) map[string]questRuntime {
@@ -124,13 +131,71 @@ func (e *Engine) playerRuntime(playerID string) map[string]questRuntime {
 		if len(quest.StageIDs) == 0 {
 			continue
 		}
+		state := QuestStateActive
+		switch quest.Activation {
+		case ActivationManualAccept:
+			state = QuestStateUnlocked
+		case ActivationAutoOnEvent:
+			state = QuestStateHidden
+		case ActivationAlwaysActive, "":
+		default:
+			state = QuestStateHidden
+		}
 		rt[questID] = questRuntime{
 			currentStageID: quest.StageIDs[0],
-			state:          QuestStateActive,
+			state:          state,
 		}
 	}
 	e.runtime[playerID] = rt
 	return rt
+}
+
+func (e *Engine) ActivateQuest(playerID string, questID string) (Status, bool) {
+	runtime := e.playerRuntime(playerID)
+	state, ok := runtime[questID]
+	if !ok || state.state != QuestStateUnlocked {
+		return Status{}, false
+	}
+	state.state = QuestStateActive
+	runtime[questID] = state
+	e.runtime[playerID] = runtime
+	return e.status(questID, state), true
+}
+
+func (e *Engine) RefreshQuest(playerID string, questID string) (Status, bool) {
+	runtime := e.playerRuntime(playerID)
+	state, ok := runtime[questID]
+	quest, defined := e.definitions.Quests[questID]
+	if !ok || !defined || state.state != QuestStateWaitingRefresh || len(quest.StageIDs) == 0 {
+		return Status{}, false
+	}
+	state.currentStageID = quest.StageIDs[0]
+	switch quest.Activation {
+	case ActivationManualAccept:
+		state.state = QuestStateUnlocked
+	case ActivationAutoOnEvent:
+		state.state = QuestStateHidden
+	case ActivationAlwaysActive, "":
+		state.state = QuestStateActive
+	default:
+		return Status{}, false
+	}
+	runtime[questID] = state
+	e.runtime[playerID] = runtime
+	return e.status(questID, state), true
+}
+
+func matchesConditions(conditions []ConditionDefinition, trigger Trigger, checkers map[string]ConditionChecker) bool {
+	if len(conditions) == 0 {
+		return false
+	}
+	for _, condition := range conditions {
+		checker, ok := checkers[condition.Kind]
+		if !ok || !checker(condition, trigger) {
+			return false
+		}
+	}
+	return true
 }
 
 func (e *Engine) status(questID string, rt questRuntime) Status {

@@ -83,9 +83,29 @@ func Compile(source ContentSource) (CompiledContent, error) {
 	}
 
 	for _, quest := range source.Quests {
+		activation := quest.Activation
+		if activation == "" {
+			activation = QuestActivationAlwaysActive
+		}
+		switch activation {
+		case QuestActivationManualAccept, QuestActivationAlwaysActive:
+		case QuestActivationAutoOnEvent:
+			if len(quest.ActivationConditions) == 0 {
+				return CompiledContent{}, fmt.Errorf("quest %q: auto_on_event requires activation conditions", quest.ID)
+			}
+		default:
+			return CompiledContent{}, fmt.Errorf("quest %q: unknown activation %q", quest.ID, activation)
+		}
+		activationConditions := make([]ServerQuestCondition, 0, len(quest.ActivationConditions))
+		for _, condition := range quest.ActivationConditions {
+			activationConditions = append(activationConditions, ServerQuestCondition(condition))
+		}
 		server.Quests[quest.ID] = ServerQuest{
-			NameKey:  quest.NameKey,
-			StageIDs: append([]QuestStageID(nil), quest.StageIDs...),
+			NameKey:              quest.NameKey,
+			StageIDs:             append([]QuestStageID(nil), quest.StageIDs...),
+			Activation:           activation,
+			ActivationConditions: activationConditions,
+			Repeatable:           quest.Repeatable,
 		}
 	}
 
@@ -160,10 +180,7 @@ func compileOneTag(itemID ItemID, tag SourceTag, rooms []RoomSource, innerName s
 			TargetRoomID: RoomID(target),
 		}}, nil
 	default:
-		return ServerTag{
-			GenericID:     tag.ID,
-			GenericParams: tag.Params,
-		}, nil
+		return ServerTag{}, fmt.Errorf("item %q: unknown tag %q", itemID, tag.ID)
 	}
 }
 

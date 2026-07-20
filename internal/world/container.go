@@ -135,6 +135,10 @@ func (w *World) GetItemFromContainer(containerID ItemID, itemID ItemID, playerID
 	if !inContainer {
 		return fmt.Errorf("%s 里没有那个物品", w.items[containerID].Name)
 	}
+	volumeOK, _ := w.CanAddItem(playerID, itemID)
+	if !volumeOK {
+		return fmt.Errorf("背包空间不足")
+	}
 	w.itemLocations[itemID] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
 	return nil
 }

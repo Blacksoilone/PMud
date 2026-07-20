@@ -143,7 +143,7 @@ func resolveMoveItem(l *Loop, ctx *AttemptContext) []Item {
 	roomID := l.world.PlayerCurrentRoom(ctx.PlayerID)
 	for _, itemID := range l.world.exitItemIDs(roomID) {
 		exit, ok := l.world.itemExit(itemID)
-		if ok && exit.Direction == ctx.Input {
+		if ok && (exit.Direction == ctx.Input || l.world.items[itemID].matchesPhrase(itemID, ctx.Input)) {
 			return []Item{l.world.items[itemID]}
 		}
 	}
@@ -760,13 +760,30 @@ func handleInventory(l *Loop, ctx *AttemptContext) {
 func handleQuest(l *Loop, ctx *AttemptContext) {
 	pid := string(ctx.PlayerID)
 	if ctx.Input != "" {
-		l.world.SetTrackedQuest(ctx.PlayerID, ctx.Input)
+		if strings.HasPrefix(ctx.Input, "accept ") {
+			questID := strings.TrimSpace(strings.TrimPrefix(ctx.Input, "accept "))
+			status, ok := l.progression.ActivateQuest(pid, questID)
+			if !ok {
+				ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.quest.not_unlocked"})
+				ctx.Blocked = true
+				return
+			}
+			l.world.SetTrackedQuest(ctx.PlayerID, questID)
+			ctx.Events = append(ctx.Events, presentation.QuestStatusEvent{QuestID: status.QuestID, QuestName: status.QuestName, StageID: status.StageID, StageText: status.StageText, Conditions: status.Conditions, State: string(status.State)})
+			return
+		}
 		status, ok := l.progression.Status(pid, ctx.Input)
 		if !ok {
 			ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.quest.none"})
 			ctx.Blocked = true
 			return
 		}
+		if status.State == progression.QuestStateHidden {
+			ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.quest.none"})
+			ctx.Blocked = true
+			return
+		}
+		l.world.SetTrackedQuest(ctx.PlayerID, ctx.Input)
 		ctx.Events = append(ctx.Events, presentation.QuestStatusEvent{
 			QuestID:    status.QuestID,
 			QuestName:  status.QuestName,
@@ -786,6 +803,9 @@ func handleQuest(l *Loop, ctx *AttemptContext) {
 	tracked := l.world.TrackedQuest(ctx.PlayerID)
 	quests := make([]presentation.QuestStatusEvent, 0, len(allStatuses))
 	for _, s := range allStatuses {
+		if s.State == progression.QuestStateHidden {
+			continue
+		}
 		quests = append(quests, presentation.QuestStatusEvent{
 			QuestID:    s.QuestID,
 			QuestName:  s.QuestName,
@@ -809,7 +829,7 @@ func (l *Loop) applyProgression(playerID PlayerID, trigger progression.Trigger) 
 	var events []presentation.Event
 	for _, status := range statuses {
 		if status.State == progression.QuestStateRewardPending {
-			resolvedStatus, resolved := l.progression.ResolveRewards(string(playerID))
+			resolvedStatus, resolved := l.progression.ResolveRewards(string(playerID), status.QuestID)
 			if resolved {
 				status = resolvedStatus
 			}
@@ -862,7 +882,7 @@ func handleOpen(l *Loop, ctx *AttemptContext) {
 		return
 	}
 	if !l.world.OpenContainer(resolution.ItemID) {
-		item, _ := l.world.items[resolution.ItemID]
+		item := l.world.items[resolution.ItemID]
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 			MessageKey: "system.container.cant_open",
 			Fields:     map[string]string{"item": item.Name},
@@ -870,7 +890,7 @@ func handleOpen(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
-	item, _ := l.world.items[resolution.ItemID]
+	item := l.world.items[resolution.ItemID]
 	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 		MessageKey: "system.container.now_open",
 		Fields:     map[string]string{"item": item.Name},
@@ -889,7 +909,7 @@ func handleClose(l *Loop, ctx *AttemptContext) {
 		return
 	}
 	if !l.world.CloseContainer(resolution.ItemID) {
-		item, _ := l.world.items[resolution.ItemID]
+		item := l.world.items[resolution.ItemID]
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 			MessageKey: "system.container.cant_close",
 			Fields:     map[string]string{"item": item.Name},
@@ -897,7 +917,7 @@ func handleClose(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
-	item, _ := l.world.items[resolution.ItemID]
+	item := l.world.items[resolution.ItemID]
 	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 		MessageKey: "system.container.now_closed",
 		Fields:     map[string]string{"item": item.Name},
@@ -942,8 +962,8 @@ func handlePut(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
-	item, _ := l.world.items[itemResolution.ItemID]
-	container, _ := l.world.items[containerResolution.ItemID]
+	item := l.world.items[itemResolution.ItemID]
+	container := l.world.items[containerResolution.ItemID]
 	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 		MessageKey: "system.container.put_success",
 		Fields: map[string]string{
@@ -973,7 +993,7 @@ func handleGetFrom(l *Loop, ctx *AttemptContext) {
 	}
 	// 解析要取的物品（在容器中）— 先检查容器打开
 	if !l.world.ContainerIsOpen(containerResolution.ItemID) {
-		container, _ := l.world.items[containerResolution.ItemID]
+		container := l.world.items[containerResolution.ItemID]
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 			MessageKey: "system.container.closed",
 			Fields:     map[string]string{"container": container.Name},
@@ -998,7 +1018,7 @@ func handleGetFrom(l *Loop, ctx *AttemptContext) {
 		return
 	}
 	if len(matches) == 0 {
-		container, _ := l.world.items[containerResolution.ItemID]
+		container := l.world.items[containerResolution.ItemID]
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 			MessageKey: "system.item.not_in_container",
 			Fields:     map[string]string{"container": container.Name},
@@ -1015,8 +1035,8 @@ func handleGetFrom(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
-	item, _ := l.world.items[matches[0]]
-	container, _ := l.world.items[containerResolution.ItemID]
+	item := l.world.items[matches[0]]
+	container := l.world.items[containerResolution.ItemID]
 	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 		MessageKey: "system.container.get_success",
 		Fields: map[string]string{

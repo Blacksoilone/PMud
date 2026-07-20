@@ -104,14 +104,14 @@ func New() *World {
 				Name: "练习木剑", Description: "一把被许多人握过的木剑，剑柄已经磨得发亮。",
 				Aliases: []string{"lianximujian"},
 				Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-				Weight: 3, Volume: 3,
+				Weight:  3, Volume: 3,
 			},
 			"item.tutorial.training_relic": {
 				NameKey: "item.tutorial.training_relic.name", InnerName: "training relic", DescriptionKey: "item.tutorial.training_relic.description",
 				Name: "练功徽章", Description: "一枚金属徽章，上面刻着\"练功有成\"四个字。",
 				Aliases: []string{"liangonghuizhang", "training_relic"},
 				Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-				Weight: 1, Volume: 1,
+				Weight:  1, Volume: 1,
 			},
 			// 测重房出口
 			"item.yard.east": {
@@ -137,7 +137,7 @@ func New() *World {
 			"item.tutorial.treasure_chest": {
 				NameKey: "item.tutorial.treasure_chest.name", InnerName: "treasure chest", DescriptionKey: "item.tutorial.treasure_chest.description",
 				Name: "宝藏箱", Description: "一个小巧的宝箱，里面装满了宝石。",
-				Tags: []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+				Tags:   []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
 				Weight: 2, Volume: 1,
 			},
 			// 测重房物品
@@ -196,30 +196,30 @@ func New() *World {
 			},
 		},
 		itemLocations: map[ItemID]ItemLocation{
-			"item.hall.north":        RoomItemLocation{RoomID: "room.tutorial.hall"},
-			"item.hall.east":         RoomItemLocation{RoomID: "room.tutorial.hall"},
-			"item.hall.portal":       RoomItemLocation{RoomID: "room.tutorial.hall"},
-			"item.yard.south":        RoomItemLocation{RoomID: "room.tutorial.item_yard"},
-			"item.lock_hall.west":    RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
-			"item.lock_hall.east":    RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
-			"item.lock_chamber.west": RoomItemLocation{RoomID: "room.tutorial.lock_chamber"},
-			"item.quest_start.portal":  RoomItemLocation{RoomID: "room.tutorial.quest_start"},
-			"item.tutorial.old_lantern": RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
+			"item.hall.north":              RoomItemLocation{RoomID: "room.tutorial.hall"},
+			"item.hall.east":               RoomItemLocation{RoomID: "room.tutorial.hall"},
+			"item.hall.portal":             RoomItemLocation{RoomID: "room.tutorial.hall"},
+			"item.yard.south":              RoomItemLocation{RoomID: "room.tutorial.item_yard"},
+			"item.lock_hall.west":          RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
+			"item.lock_hall.east":          RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
+			"item.lock_chamber.west":       RoomItemLocation{RoomID: "room.tutorial.lock_chamber"},
+			"item.quest_start.portal":      RoomItemLocation{RoomID: "room.tutorial.quest_start"},
+			"item.tutorial.old_lantern":    RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
 			"item.tutorial.practice_sword": RoomItemLocation{RoomID: "room.tutorial.item_yard"},
 			"item.tutorial.training_relic": RoomItemLocation{RoomID: "room.tutorial.lock_chamber"},
-			"item.yard.east":              RoomItemLocation{RoomID: "room.tutorial.item_yard"},
-			"item.weight_room.west":       RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.weight_room.north":      RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.dark_cave.south":        RoomItemLocation{RoomID: "room.tutorial.dark_cave"},
+			"item.yard.east":               RoomItemLocation{RoomID: "room.tutorial.item_yard"},
+			"item.weight_room.west":        RoomItemLocation{RoomID: "room.tutorial.weight_room"},
+			"item.weight_room.north":       RoomItemLocation{RoomID: "room.tutorial.weight_room"},
+			"item.dark_cave.south":         RoomItemLocation{RoomID: "room.tutorial.dark_cave"},
 			"item.tutorial.treasure_chest": RoomItemLocation{RoomID: "room.tutorial.dark_cave"},
-			"item.tutorial.small_weight":  RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.medium_weight": RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.large_weight":  RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.iron_ingot":    RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.cotton_bale":   RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.barbell":       RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.boulder":       RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.storage_pouch": RoomItemLocation{RoomID: "room.tutorial.weight_room"},
+			"item.tutorial.small_weight":   RoomItemLocation{RoomID: "room.tutorial.weight_room"},
+			"item.tutorial.medium_weight":  RoomItemLocation{RoomID: "room.tutorial.weight_room"},
+			"item.tutorial.large_weight":   RoomItemLocation{RoomID: "room.tutorial.weight_room"},
+			"item.tutorial.iron_ingot":     RoomItemLocation{RoomID: "room.tutorial.weight_room"},
+			"item.tutorial.cotton_bale":    RoomItemLocation{RoomID: "room.tutorial.weight_room"},
+			"item.tutorial.barbell":        RoomItemLocation{RoomID: "room.tutorial.weight_room"},
+			"item.tutorial.boulder":        RoomItemLocation{RoomID: "room.tutorial.weight_room"},
+			"item.tutorial.storage_pouch":  RoomItemLocation{RoomID: "room.tutorial.weight_room"},
 		},
 		progressionDefinitions: tutorialProgressionDefinitions(),
 		players:                make(map[PlayerID]PlayerEntity),
@@ -235,7 +235,7 @@ func New() *World {
 
 func initBuiltinTags(w *World) {
 	for _, def := range builtinTagDefs() {
-		w.RegisterTag(def)
+		w.tagDefinitions[def.ID] = def
 	}
 }
 
@@ -332,17 +332,6 @@ func worldTags(tags []content.ServerTag) []TagInstance {
 			})
 			continue
 		}
-		if tag.GenericID != "" {
-			params := make(map[string]any, len(tag.GenericParams))
-			for k, v := range tag.GenericParams {
-				params[k] = v
-			}
-			result = append(result, TagInstance{
-				DefinitionID: TagID(tag.GenericID),
-				Params:       params,
-			})
-			continue
-		}
 		if tag.Exit == nil {
 			continue
 		}
@@ -382,9 +371,12 @@ func progressionDefinitionsFromSnapshot(snapshot content.ServerSnapshot, catalog
 	}
 	for questID, quest := range snapshot.Quests {
 		defs.Quests[string(questID)] = progression.QuestDefinition{
-			ID:       string(questID),
-			Name:     catalog.Text[quest.NameKey],
-			StageIDs: questStageIDsToStrings(quest.StageIDs),
+			ID:                   string(questID),
+			Name:                 catalog.Text[quest.NameKey],
+			StageIDs:             questStageIDsToStrings(quest.StageIDs),
+			Activation:           progression.ActivationMode(quest.Activation),
+			ActivationConditions: progressionConditions(quest.ActivationConditions),
+			Repeatable:           quest.Repeatable,
 		}
 	}
 	for stageID, stage := range snapshot.QuestStages {

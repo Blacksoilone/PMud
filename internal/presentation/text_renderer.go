@@ -1,6 +1,7 @@
 package presentation
 
 import (
+	"encoding/json"
 	"slices"
 	"strconv"
 	"strings"
@@ -59,14 +60,24 @@ func (TextRenderer) Render(event Event) string {
 			field("state", e.State),
 		)
 	case QuestListEvent:
-		items := make([]string, 0, len(e.Quests))
+		type questListItem struct {
+			ID    string `json:"id"`
+			Name  string `json:"name"`
+			Stage string `json:"stage"`
+			State string `json:"state"`
+		}
+		items := make([]questListItem, 0, len(e.Quests))
 		for _, q := range e.Quests {
-			items = append(items, q.QuestID+"|"+q.QuestName+"|"+q.StageText+"|"+q.State)
+			items = append(items, questListItem{ID: q.QuestID, Name: q.QuestName, Stage: q.StageText, State: q.State})
+		}
+		encoded, err := json.Marshal(items)
+		if err != nil {
+			return line("quest_list", field("count", strconv.Itoa(len(e.Quests))))
 		}
 		return line(
 			"quest_list",
 			field("count", strconv.Itoa(len(e.Quests))),
-			field("items", strings.Join(items, ",")),
+			field("items", string(encoded)),
 			optionalField("tracked", e.Tracked),
 		)
 	case ItemObservationEvent:

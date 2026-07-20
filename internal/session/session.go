@@ -45,7 +45,9 @@ func handleConn(conn net.Conn, loop *world.Loop) error {
 		currentRoom: initResult.NewRoom,
 		playerID:    playerID,
 	}
-	writeEvents(conn, &renderer, initResult.Events)
+	if err := writeEvents(conn, &renderer, initResult.Events); err != nil {
+		return err
+	}
 
 	type lineOrDone struct {
 		line string
@@ -105,6 +107,9 @@ func (s *sessionState) handleLine(line string) []presentation.Event {
 	case command.HelpCommand:
 		return singleEvent(presentation.SystemMessageEvent{MessageKey: "system.help"})
 	case command.QuestCommand:
+		if cmd.Accept {
+			return s.submitAction("quest", "accept "+cmd.QuestID)
+		}
 		return s.submitAction("quest", cmd.QuestID)
 	case command.VerbCommand:
 		return s.submitAction("verb", "")

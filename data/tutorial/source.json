@@ -167,6 +167,7 @@
     "system.item.not_carried": "你没有那个东西。",
     "system.item.dropped": "你放下了{item}。",
     "system.quest.progress": "任务更新: {state}",
+    "system.quest.not_unlocked": "任务尚未解锁。",
     "system.unknown_command": "未知命令: {input}",
     "system.room.missing": "你迷失在不存在的地方。",
     "system.container.cant_open": "你打不开{item}。",

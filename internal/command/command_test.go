@@ -21,6 +21,7 @@ func TestParseClientInput_mapsCommandAliases(t *testing.T) {
 		{name: "look item", input: "look practice-sword", want: ItemCommand{Verb: ItemVerbLook, Target: "practice-sword"}},
 		{name: "look alias item", input: "l practice-sword", want: ItemCommand{Verb: ItemVerbLook, Target: "practice-sword"}},
 		{name: "quest", input: "quest", want: QuestCommand{}},
+		{name: "accept quest", input: "quest accept quest.tutorial.first_steps", want: QuestCommand{QuestID: "quest.tutorial.first_steps", Accept: true}},
 		{name: "help", input: "help", want: HelpCommand{}},
 	}
 

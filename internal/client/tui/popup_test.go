@@ -153,3 +153,16 @@ func TestViewWithSizePopupScrollsBody(t *testing.T) {
 		t.Fatalf("popup footer missing controls:\n%s", got)
 	}
 }
+
+func TestQuestListPopupContentRoundTripsDelimiters(t *testing.T) {
+	content := QuestListPopupContent(map[string]string{
+		"items":   `[{"id":"quest.one","name":"任务,一|特别","stage":"阶段\n说明","state":"active"}]`,
+		"tracked": "quest.one",
+	})
+	if len(content.QuestIDs) != 1 || content.QuestIDs[0] != "quest.one" {
+		t.Fatalf("quest IDs = %v", content.QuestIDs)
+	}
+	if !strings.Contains(content.Lines[0], "任务,一|特别") {
+		t.Fatalf("quest line = %q", content.Lines[0])
+	}
+}

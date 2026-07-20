@@ -8,6 +8,7 @@ type (
 	QuestID            string
 	QuestStageID       string
 	QuestConditionKind string
+	QuestActivation    string
 	TagID              string
 	VerbID             string
 )
@@ -26,9 +27,15 @@ const (
 	QuestConditionExaminedItem QuestConditionKind = "examined_item"
 )
 
+const (
+	QuestActivationManualAccept QuestActivation = "manual_accept"
+	QuestActivationAutoOnEvent  QuestActivation = "auto_on_event"
+	QuestActivationAlwaysActive QuestActivation = "always_active"
+)
+
 type VerbSource struct {
-	ID          VerbID
-	MessageKey  TextKey
+	ID         VerbID
+	MessageKey TextKey
 }
 
 type ContentSource struct {
@@ -81,23 +88,21 @@ type RawTag struct {
 	Params map[string]string
 }
 
-// ServerTag 使用鉴别联合体：命中的已知 tag 填入对应字段，
-// 未知 tag 通过 GenericID/GenericParams 透传。
 type ServerTag struct {
 	Exit      *ExitTag
 	Carryable bool
 	Lightable bool
 	Container *ContainerTag
 	Lockable  *LockableTag
-	// 通用透传：当 tag ID 不属于上述已知类型时存入此处
-	GenericID     TagID
-	GenericParams map[string]string
 }
 
 type QuestSource struct {
-	ID       QuestID
-	NameKey  TextKey
-	StageIDs []QuestStageID
+	ID                   QuestID
+	NameKey              TextKey
+	StageIDs             []QuestStageID
+	Activation           QuestActivation
+	ActivationConditions []QuestConditionSource
+	Repeatable           bool
 }
 
 type QuestStageSource struct {
@@ -161,8 +166,11 @@ type LockableTag struct {
 }
 
 type ServerQuest struct {
-	NameKey  TextKey
-	StageIDs []QuestStageID
+	NameKey              TextKey
+	StageIDs             []QuestStageID
+	Activation           QuestActivation
+	ActivationConditions []ServerQuestCondition
+	Repeatable           bool
 }
 
 type ServerQuestStage struct {

@@ -1,8 +1,8 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 func OpenPopup(model Model, content PopupContent) Model {
@@ -83,19 +83,20 @@ func QuestListPopupContent(fields map[string]string) PopupContent {
 	questIDs := make([]string, 0)
 	lines := make([]string, 0)
 
-	// items format: id|name|stage|state,id2|name2|stage2|state2
-	parts := strings.Split(items, ",")
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		segments := strings.SplitN(part, "|", 4)
-		if len(segments) < 4 {
-			continue
-		}
-		id := segments[0]
-		name := segments[1]
-		state := segments[3]
+	type questListItem struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Stage string `json:"stage"`
+		State string `json:"state"`
+	}
+	var parsed []questListItem
+	if err := json.Unmarshal([]byte(items), &parsed); err != nil {
+		parsed = nil
+	}
+	for _, item := range parsed {
+		id := item.ID
+		name := item.Name
+		state := item.State
 
 		status := ""
 		mark := " "
@@ -117,5 +118,3 @@ func QuestListPopupContent(fields map[string]string) PopupContent {
 		TrackedID: tracked,
 	}
 }
-
-

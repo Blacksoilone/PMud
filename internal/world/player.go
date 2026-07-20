@@ -54,7 +54,7 @@ func (w *World) MovePlayer(playerID PlayerID, direction string) (RoomID, bool) {
 	}
 	for _, itemID := range w.exitItemIDs(player.RoomID) {
 		exit, ok := w.itemExit(itemID)
-		if !ok || exit.Direction != direction {
+		if !ok || (exit.Direction != direction && !w.items[itemID].matchesPhrase(itemID, direction)) {
 			continue
 		}
 		player.RoomID = exit.TargetRoomID
