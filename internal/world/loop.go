@@ -35,17 +35,16 @@ func (l *Loop) registerBuiltinVerbs() {
 		l.verbRegistry[name] = VerbEntry{Name: name, Source: VerbSourceBuiltin}
 	}
 
-	// 物品解析器 — 管线用它们找到当前 action 相关的物品
-	l.RegisterItemResolver("move", resolveMoveItem)
-	l.RegisterItemResolver("get", resolveRoomItemByPhrase)
-	l.RegisterItemResolver("examine", resolveVisibleItemByPhrase)
-	l.RegisterItemResolver("look-item", resolveVisibleItemByPhrase)
-	l.RegisterItemResolver("drop", resolveInventoryItemByPhrase)
-	l.RegisterItemResolver("open", resolveVisibleItemByPhrase)
-	l.RegisterItemResolver("close", resolveVisibleItemByPhrase)
-	l.RegisterItemResolver("put", resolvePutItems)
-	l.RegisterItemResolver("get-from", resolveGetFromItems)
-	l.RegisterItemResolver("light", resolveVisibleItemByPhrase)
+	l.RegisterItemResolver("move", resolveMoveEntity)
+	l.RegisterItemResolver("get", resolveRoomEntityByPhrase)
+	l.RegisterItemResolver("examine", resolveVisibleEntityByPhrase)
+	l.RegisterItemResolver("look-item", resolveVisibleEntityByPhrase)
+	l.RegisterItemResolver("drop", resolveInventoryEntityByPhrase)
+	l.RegisterItemResolver("open", resolveVisibleEntityByPhrase)
+	l.RegisterItemResolver("close", resolveVisibleEntityByPhrase)
+	l.RegisterItemResolver("put", resolvePutEntities)
+	l.RegisterItemResolver("get-from", resolveGetFromEntities)
+	l.RegisterItemResolver("light", resolveVisibleEntityByPhrase)
 }
 
 // Verbs 返回当前注册表快照中的全部动词。
@@ -138,96 +137,98 @@ func handleVerbList(l *Loop, ctx *AttemptContext) {
 	})
 }
 
-// resolveMoveItem 找出当前房间中匹配输入方向的那个退出门物品。
-func resolveMoveItem(l *Loop, ctx *AttemptContext) []Item {
+// resolveMoveEntity 找出当前房间中匹配输入方向的那个出口实体。
+func resolveMoveEntity(l *Loop, ctx *AttemptContext) []*Entity {
 	roomID := l.world.PlayerCurrentRoom(ctx.PlayerID)
-	for _, itemID := range l.world.exitItemIDs(roomID) {
-		exit, ok := l.world.itemExit(itemID)
-		if ok && (exit.Direction == ctx.Input || l.world.items[itemID].matchesPhrase(itemID, ctx.Input)) {
-			return []Item{l.world.items[itemID]}
+	for _, eid := range l.world.exitItemIDs(roomID) {
+		ed := l.world.store.Exit(eid)
+		if ed != nil && ed.Direction == ctx.Input {
+			if ent := l.world.store.Get(eid); ent != nil {
+				return []*Entity{ent}
+			}
+		}
 		}
 	}
 	return nil
 }
 
-// resolveRoomItemByPhrase 在当前房间中按短语匹配物品。
-func resolveRoomItemByPhrase(l *Loop, ctx *AttemptContext) []Item {
+// resolveRoomEntityByPhrase 在当前房间中按短语匹配物品。
+func resolveRoomEntityByPhrase(l *Loop, ctx *AttemptContext) []*Entity {
 	resolution := l.world.ResolveRoomItemPhrase(l.world.PlayerCurrentRoom(ctx.PlayerID), ctx.Input)
 	if resolution.Found {
-		if item, ok := l.world.items[resolution.ItemID]; ok {
-			return []Item{item}
+		if ent := l.world.store.Get(resolution.ItemID); ent != nil {
+			return []*Entity{ent}
 		}
 	}
 	return nil
 }
 
-// resolveVisibleItemByPhrase 在当前房间+玩家背包中按短语匹配物品。
-func resolveVisibleItemByPhrase(l *Loop, ctx *AttemptContext) []Item {
+// resolveVisibleEntityByPhrase 在当前房间+玩家背包中按短语匹配 item 实体。
+func resolveVisibleEntityByPhrase(l *Loop, ctx *AttemptContext) []*Entity {
 	resolution := l.world.ResolveVisibleItemPhrase(l.world.PlayerCurrentRoom(ctx.PlayerID), ctx.PlayerID, ctx.Input)
 	if resolution.Found {
-		if item, ok := l.world.items[resolution.ItemID]; ok {
-			return []Item{item}
+		if ent := l.world.store.Get(resolution.ItemID); ent != nil {
+			return []*Entity{ent}
 		}
 	}
 	return nil
 }
 
-// resolveInventoryItemByPhrase 在玩家背包中按短语匹配物品。
-func resolveInventoryItemByPhrase(l *Loop, ctx *AttemptContext) []Item {
+// resolveInventoryEntityByPhrase 在玩家背包中按短语匹配 item 实体。
+func resolveInventoryEntityByPhrase(l *Loop, ctx *AttemptContext) []*Entity {
 	resolution := l.world.ResolveInventoryItemPhrase(ctx.PlayerID, ctx.Input)
 	if resolution.Found {
-		if item, ok := l.world.items[resolution.ItemID]; ok {
-			return []Item{item}
+		if ent := l.world.store.Get(resolution.ItemID); ent != nil {
+			return []*Entity{ent}
 		}
 	}
 	return nil
 }
 
-// resolvePutItems 返回放物品动作涉及的所有物品（物品+容器）
-func resolvePutItems(l *Loop, ctx *AttemptContext) []Item {
+// resolvePutEntities 返回放物品动作涉及的所有 item 实体（物品+容器）
+func resolvePutEntities(l *Loop, ctx *AttemptContext) []*Entity {
 	itemPhrase, containerPhrase, ok := strings.Cut(ctx.Input, "|")
 	if !ok || itemPhrase == "" || containerPhrase == "" {
 		return nil
 	}
-	var result []Item
-	if item := resolveInventoryItemByPhrase(l, &AttemptContext{
+	var result []*Entity
+	if ents := resolveInventoryEntityByPhrase(l, &AttemptContext{
 		PlayerID: ctx.PlayerID, Input: itemPhrase,
-	}); item != nil {
-		result = append(result, item...)
+	}); ents != nil {
+		result = append(result, ents...)
 	}
 	roomID := l.world.PlayerCurrentRoom(ctx.PlayerID)
 	containerRes := l.world.ResolveVisibleItemPhrase(roomID, ctx.PlayerID, containerPhrase)
 	if containerRes.Found {
-		if item, ok := l.world.items[containerRes.ItemID]; ok {
-			result = append(result, item)
+		if ent := l.world.store.Get(containerRes.ItemID); ent != nil {
+			result = append(result, ent)
 		}
 	}
 	return result
 }
 
-// resolveGetFromItems 返回从容器取物品动作涉及的所有物品（容器+内部物品）
-func resolveGetFromItems(l *Loop, ctx *AttemptContext) []Item {
+// resolveGetFromEntities 返回从容器取物品动作涉及的所有 item 实体（容器+内部物品）
+func resolveGetFromEntities(l *Loop, ctx *AttemptContext) []*Entity {
 	itemPhrase, containerPhrase, ok := strings.Cut(ctx.Input, "|")
 	if !ok || itemPhrase == "" || containerPhrase == "" {
 		return nil
 	}
-	var result []Item
+	var result []*Entity
 	roomID := l.world.PlayerCurrentRoom(ctx.PlayerID)
 	containerRes := l.world.ResolveVisibleItemPhrase(roomID, ctx.PlayerID, containerPhrase)
 	if !containerRes.Found {
 		return nil
 	}
-	if container, ok := l.world.items[containerRes.ItemID]; ok {
-		result = append(result, container)
+	if ent := l.world.store.Get(containerRes.ItemID); ent != nil {
+		result = append(result, ent)
 	}
-	// 也在容器内容中找匹配的物品
 	for _, id := range l.world.ContainerContents(containerRes.ItemID) {
-		item, ok := l.world.items[id]
-		if !ok {
+		ent := l.world.store.Get(id)
+		if ent == nil {
 			continue
 		}
-		if item.matchesPhrase(id, itemPhrase) {
-			result = append(result, item)
+		if ent.matchesPhrase(id, itemPhrase) {
+			result = append(result, ent)
 			break
 		}
 	}
@@ -388,10 +389,9 @@ func (l *Loop) handleAction(a Action) {
 		OldRoom:  l.world.PlayerCurrentRoom(a.PlayerID),
 	}
 
-	// 1. Pre-hooks — 从相关物品 tag 定义中找前置钩子
-	items := l.relevantItems(ctx)
-	for _, item := range items {
-		for _, inst := range item.Tags {
+	entities := l.relevantEntities(ctx)
+	for _, ent := range entities {
+		for _, inst := range ent.Tags {
 			def, ok := l.world.TagDefinition(inst.DefinitionID)
 			if !ok {
 				continue
@@ -414,14 +414,12 @@ func (l *Loop) handleAction(a Action) {
 		}
 	}
 
-	// 2. Execute
 	if !ctx.Blocked {
 		handler(l, ctx)
 	}
 
-	// 3. Post-hooks — 从相关物品 tag 定义中找后置钩子
-	for _, item := range l.relevantItems(ctx) {
-		for _, inst := range item.Tags {
+	for _, ent := range l.relevantEntities(ctx) {
+		for _, inst := range ent.Tags {
 			def, ok := l.world.TagDefinition(inst.DefinitionID)
 			if !ok {
 				continue
@@ -471,40 +469,38 @@ func (l *Loop) handleAction(a Action) {
 	}
 }
 
-// relevantItems 返回当前 action 上下文相关的物品。
-// 钩子通过检查这些物品的 tag 实例来决定行为。
+// relevantEntities 返回当前 action 上下文相关的实体。
+// 钩子通过检查这些实体的 tag 实例来决定行为。
 // 优先使用注册的 ItemResolver；如果没有注册，使用通用 fallback：
-// 扫描当前房间+玩家背包中所有 hook.Verbs 匹配的物品。
-func (l *Loop) relevantItems(ctx *AttemptContext) []Item {
-	// 1. 查找已注册的 resolver
+// 扫描当前房间+玩家背包中所有 hook.Verbs 匹配的实体。
+func (l *Loop) relevantEntities(ctx *AttemptContext) []*Entity {
 	if resolver, ok := l.itemResolvers[ctx.Verb]; ok {
 		return resolver(l, ctx)
 	}
 
-	// 2. 通用 fallback：扫描可见物品中 hook.Verbs 匹配的物品
 	roomID := l.world.PlayerCurrentRoom(ctx.PlayerID)
-	return l.visibleItemsWithMatchingHooks(roomID, ctx.PlayerID, ctx.Verb)
+	return l.visibleEntitiesWithMatchingHooks(roomID, ctx.PlayerID, ctx.Verb)
 }
 
-// visibleItemsWithMatchingHooks 扫描当前房间+玩家背包，返回 tag hooks 匹配指定动词的物品。
-func (l *Loop) visibleItemsWithMatchingHooks(roomID RoomID, playerID PlayerID, verb string) []Item {
+// visibleEntitiesWithMatchingHooks 扫描当前房间+玩家背包，返回 tag hooks 匹配指定动词的实体。
+func (l *Loop) visibleEntitiesWithMatchingHooks(roomID, playerID EntityID, verb string) []*Entity {
 	itemIDs := l.world.visibleItemIDs(roomID, playerID)
-	var matched []Item
-	for _, itemID := range itemIDs {
-		item, ok := l.world.items[itemID]
-		if !ok {
+	var matched []*Entity
+	for _, eid := range itemIDs {
+		ent := l.world.store.Get(eid)
+		if ent == nil {
 			continue
 		}
-		if itemHasHookForVerb(item, l.world, verb) {
-			matched = append(matched, item)
+		if entityHasHookForVerb(ent, l.world, verb) {
+			matched = append(matched, ent)
 		}
 	}
 	return matched
 }
 
-// itemHasHookForVerb 检查物品是否有 tag 定义包含匹配指定动词的 hook。
-func itemHasHookForVerb(item Item, w *World, verb string) bool {
-	for _, inst := range item.Tags {
+// entityHasHookForVerb 检查实体是否有 tag 定义包含匹配指定动词的 hook。
+func entityHasHookForVerb(entity *Entity, w *World, verb string) bool {
+	for _, inst := range entity.Tags {
 		def, ok := w.TagDefinition(inst.DefinitionID)
 		if !ok {
 			continue
@@ -642,14 +638,13 @@ func handleLight(l *Loop, ctx *AttemptContext) {
 		return
 	}
 	itemID := resolution.ItemID
-	item, ok := l.world.items[itemID]
-	if !ok {
+	ent := l.world.store.Get(itemID)
+	if ent == nil {
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.item.not_here"})
 		ctx.Blocked = true
 		return
 	}
-	_, hasLightable := item.tagParams("tag.lightable")
-	if !hasLightable {
+	if !l.world.store.Tag(itemID, "tag.lightable") {
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "system.light.not_lightable"})
 		ctx.Blocked = true
 		return
@@ -667,7 +662,7 @@ func handleLight(l *Loop, ctx *AttemptContext) {
 	l.world.LightItem(itemID)
 	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 		MessageKey: "verb.light.default",
-		Fields:     map[string]string{"item": item.Name},
+		Fields:     map[string]string{"item": ent.Name},
 	})
 }
 
@@ -881,19 +876,18 @@ func handleOpen(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
+	itemName := l.world.ItemNameOr(resolution.ItemID)
 	if !l.world.OpenContainer(resolution.ItemID) {
-		item := l.world.items[resolution.ItemID]
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 			MessageKey: "system.container.cant_open",
-			Fields:     map[string]string{"item": item.Name},
+			Fields:     map[string]string{"item": itemName},
 		})
 		ctx.Blocked = true
 		return
 	}
-	item := l.world.items[resolution.ItemID]
 	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 		MessageKey: "system.container.now_open",
-		Fields:     map[string]string{"item": item.Name},
+		Fields:     map[string]string{"item": itemName},
 	})
 }
 
@@ -908,19 +902,18 @@ func handleClose(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
+	itemName := l.world.ItemNameOr(resolution.ItemID)
 	if !l.world.CloseContainer(resolution.ItemID) {
-		item := l.world.items[resolution.ItemID]
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 			MessageKey: "system.container.cant_close",
-			Fields:     map[string]string{"item": item.Name},
+			Fields:     map[string]string{"item": itemName},
 		})
 		ctx.Blocked = true
 		return
 	}
-	item := l.world.items[resolution.ItemID]
 	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 		MessageKey: "system.container.now_closed",
-		Fields:     map[string]string{"item": item.Name},
+		Fields:     map[string]string{"item": itemName},
 	})
 }
 
@@ -931,7 +924,6 @@ func handlePut(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
-	// 解析要放的物品（在玩家背包中）
 	itemResolution := l.world.ResolveInventoryItemPhrase(ctx.PlayerID, itemPhrase)
 	if len(itemResolution.AmbiguousItemIDs) > 0 {
 		ctx.Events = ambiguousItemsEvent(l.world, itemResolution.AmbiguousItemIDs)
@@ -942,7 +934,6 @@ func handlePut(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
-	// 解析目标容器（在房间或背包中）
 	containerResolution := l.world.ResolveVisibleItemPhrase(l.world.PlayerCurrentRoom(ctx.PlayerID), ctx.PlayerID, containerPhrase)
 	if len(containerResolution.AmbiguousItemIDs) > 0 {
 		ctx.Events = ambiguousItemsEvent(l.world, containerResolution.AmbiguousItemIDs)
@@ -962,13 +953,13 @@ func handlePut(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
-	item := l.world.items[itemResolution.ItemID]
-	container := l.world.items[containerResolution.ItemID]
+	itemName := l.world.ItemNameOr(itemResolution.ItemID)
+	containerName := l.world.ItemNameOr(containerResolution.ItemID)
 	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 		MessageKey: "system.container.put_success",
 		Fields: map[string]string{
-			"item":      item.Name,
-			"container": container.Name,
+			"item":      itemName,
+			"container": containerName,
 		},
 	})
 }
@@ -980,7 +971,6 @@ func handleGetFrom(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
-	// 解析容器（在房间或背包中）
 	containerResolution := l.world.ResolveVisibleItemPhrase(l.world.PlayerCurrentRoom(ctx.PlayerID), ctx.PlayerID, containerPhrase)
 	if len(containerResolution.AmbiguousItemIDs) > 0 {
 		ctx.Events = ambiguousItemsEvent(l.world, containerResolution.AmbiguousItemIDs)
@@ -991,25 +981,23 @@ func handleGetFrom(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
-	// 解析要取的物品（在容器中）— 先检查容器打开
+	containerName := l.world.ItemNameOr(containerResolution.ItemID)
 	if !l.world.ContainerIsOpen(containerResolution.ItemID) {
-		container := l.world.items[containerResolution.ItemID]
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 			MessageKey: "system.container.closed",
-			Fields:     map[string]string{"container": container.Name},
+			Fields:     map[string]string{"container": containerName},
 		})
 		ctx.Blocked = true
 		return
 	}
-	// 在容器内容中按短语匹配
 	contents := l.world.ContainerContents(containerResolution.ItemID)
-	var matches []ItemID
+	var matches []EntityID
 	for _, id := range contents {
-		item, ok := l.world.items[id]
-		if !ok {
+		ent := l.world.store.Get(id)
+		if ent == nil {
 			continue
 		}
-		if item.matchesPhrase(id, itemPhrase) {
+		if ent.matchesPhrase(id, itemPhrase) {
 			matches = append(matches, id)
 		}
 	}
@@ -1018,10 +1006,9 @@ func handleGetFrom(l *Loop, ctx *AttemptContext) {
 		return
 	}
 	if len(matches) == 0 {
-		container := l.world.items[containerResolution.ItemID]
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 			MessageKey: "system.item.not_in_container",
-			Fields:     map[string]string{"container": container.Name},
+			Fields:     map[string]string{"container": containerName},
 		})
 		ctx.Blocked = true
 		return
@@ -1035,13 +1022,12 @@ func handleGetFrom(l *Loop, ctx *AttemptContext) {
 		ctx.Blocked = true
 		return
 	}
-	item := l.world.items[matches[0]]
-	container := l.world.items[containerResolution.ItemID]
+	itemName := l.world.ItemNameOr(matches[0])
 	ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{
 		MessageKey: "system.container.get_success",
 		Fields: map[string]string{
-			"item":      item.Name,
-			"container": container.Name,
+			"item":      itemName,
+			"container": containerName,
 		},
 	})
 	progEvents := l.applyProgression(ctx.PlayerID, progression.Trigger{

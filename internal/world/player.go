@@ -1,71 +1,76 @@
 package world
 
-func (w *World) EnterWorld(playerID PlayerID) (RoomID, bool) {
-	if _, exists := w.players[playerID]; exists {
+func (w *World) EnterWorld(playerID PlayerID) (EntityID, bool) {
+	if w.store.Player(playerID) != nil {
 		return "", false
 	}
-	w.players[playerID] = PlayerEntity{
-		ID:        playerID,
-		RoomID:    w.startRoom,
-		MaxWeight: 20,
-		MaxVolume: 10,
+	roomID := w.startRoom
+	ent := &Entity{
+		ID:     playerID,
+		Name:   string(playerID),
+		Player: &PlayerData{MaxWeight: 20, MaxVolume: 10},
 	}
-	return w.startRoom, true
+	w.store.Add(ent)
+	w.store.PlaceInRoom(playerID, roomID)
+	return roomID, true
 }
 
 func (w *World) LeaveWorld(playerID PlayerID) {
-	delete(w.players, playerID)
-	delete(w.trackedQuests, playerID)
+	w.store.Remove(playerID)
+	delete(w.containerContents, PlayerContainerID(playerID))
+	w.trackedQuests = make(map[PlayerID]string)
 }
 
-func (w *World) PlayerCurrentRoom(playerID PlayerID) RoomID {
-	if p, ok := w.players[playerID]; ok {
-		return p.RoomID
-	}
-	return ""
+func (w *World) PlayerCurrentRoom(playerID PlayerID) EntityID {
+	return w.store.IsInRoom(playerID)
 }
 
-func (w *World) PlayerRoom(playerID PlayerID) (RoomID, bool) {
-	player, ok := w.players[playerID]
-	if !ok {
+func (w *World) PlayerRoom(playerID PlayerID) (EntityID, bool) {
+	roomID := w.store.IsInRoom(playerID)
+	if roomID == "" || w.store.Player(playerID) == nil {
 		return "", false
 	}
-	return player.RoomID, true
+	return roomID, true
 }
 
-func (w *World) PlayersInRoom(roomID RoomID) []PlayerID {
+func (w *World) PlayersInRoom(roomID EntityID) []PlayerID {
 	ids := make([]PlayerID, 0)
-	for _, p := range w.players {
-		if p.RoomID == roomID {
-			ids = append(ids, p.ID)
+	for _, eid := range w.store.EntitiesInRoom(roomID) {
+		if w.store.Player(eid) != nil {
+			ids = append(ids, eid)
 		}
 	}
 	return ids
 }
 
 func (w *World) PlayerCount() int {
-	return len(w.players)
+	count := 0
+	for _, eid := range w.store.Entities() {
+		if w.store.Player(eid) != nil {
+			count++
+		}
+	}
+	return count
 }
 
-func (w *World) MovePlayer(playerID PlayerID, direction string) (RoomID, bool) {
-	player, ok := w.players[playerID]
-	if !ok {
+func (w *World) MovePlayer(playerID EntityID, direction string) (EntityID, bool) {
+	roomID := w.store.IsInRoom(playerID)
+	if roomID == "" {
 		return "", false
 	}
-	for _, itemID := range w.exitItemIDs(player.RoomID) {
-		exit, ok := w.itemExit(itemID)
-		if !ok || (exit.Direction != direction && !w.items[itemID].matchesPhrase(itemID, direction)) {
+	for _, eid := range w.store.EntitiesInRoom(roomID) {
+		ed := w.store.Exit(eid)
+		if ed == nil || ed.Direction != direction {
 			continue
 		}
-		player.RoomID = exit.TargetRoomID
-		w.players[playerID] = player
-		return exit.TargetRoomID, true
+		w.store.PlaceInRoom(playerID, ed.TargetRoomID)
+		return ed.TargetRoomID, true
 	}
-	return player.RoomID, false
+	return roomID, false
 }
 
-func (w *World) PlayerHasItem(playerID PlayerID, itemID ItemID) bool {
-	for _, id := range w.itemsInContainer(PlayerContainerID(playerID)) {
+func (w *World) PlayerHasItem(playerID EntityID, itemID EntityID) bool {
+	for _, id := range w.containerContents[PlayerContainerID(playerID)] {
 		if id == itemID {
 			return true
 		}

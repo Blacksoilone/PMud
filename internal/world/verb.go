@@ -8,7 +8,7 @@ type VerbHandler func(l *Loop, ctx *AttemptContext)
 // ItemResolver 返回指定 action 上下文相关的物品列表。
 // 管线根据这些物品的 tag 实例来执行 hook（前置检查/后置事件）。
 // 如果某个动词没有注册 resolver，使用默认 fallback（扫描全屋+背包中 hook.Verbs 匹配的物品）。
-type ItemResolver func(l *Loop, ctx *AttemptContext) []Item
+type ItemResolver func(l *Loop, ctx *AttemptContext) []*Entity
 
 // VerbSource 标记动词的来源。
 type VerbSource string

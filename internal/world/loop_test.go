@@ -45,11 +45,10 @@ func TestLoop_customItemResolver_overridesFallback(t *testing.T) {
 
 	const testBlockReason = "custom resolver blocked"
 
-	// 注册一个自定义 resolver，返回一个带有 tag.lightable 的物品（旧油灯在教程起始房间）
-	l.RegisterItemResolver("custom", func(l2 *Loop, ctx *AttemptContext) []Item {
-		item, ok := l2.world.items["item.tutorial.old_lantern"]
-		if ok {
-			return []Item{item}
+	l.RegisterItemResolver("custom", func(l2 *Loop, ctx *AttemptContext) []*Entity {
+		ent := l2.world.store.Get("item.tutorial.old_lantern")
+		if ent != nil {
+			return []*Entity{ent}
 		}
 		return nil
 	})
@@ -74,7 +73,11 @@ func TestLoop_customItemResolver_overridesFallback(t *testing.T) {
 	l.Start()
 
 	// 把玩家放入锁钥厅（旧油灯在那里）
-	l.world.players["player.test"] = PlayerEntity{ID: "player.test", RoomID: "room.tutorial.lock_hall"}
+	l.world.store.Add(&Entity{
+		ID: "player.test",
+		Player: &PlayerData{MaxWeight: 20, MaxVolume: 10},
+	})
+	l.world.store.PlaceInRoom("player.test", "room.tutorial.lock_hall")
 
 	resp := make(chan ActionResult, 1)
 	l.Submit(Action{PlayerID: "player.test", Verb: "custom", Resp: resp})
@@ -98,7 +101,6 @@ func TestLoop_relevantItemsFallback_visibleItemsWithMatchingHooks(t *testing.T) 
 
 	const testBlockReason = "fallback hook blocked"
 
-	// 在 tag.lightable 上加一个 hook 匹配动词 "testfallback"（无 resolver 的动词）
 	origDef, _ := w.TagDefinition("tag.lightable")
 	origDef.Hooks = append(origDef.Hooks, TagHook{
 		Phase: HookPreAction,
@@ -111,14 +113,16 @@ func TestLoop_relevantItemsFallback_visibleItemsWithMatchingHooks(t *testing.T) 
 	})
 	w.tagDefinitions["tag.lightable"] = origDef
 
-	// 注册测试动词（无 resolver → 走 fallback）
 	l.RegisterVerb("testfallback", func(l2 *Loop, ctx *AttemptContext) {
 		ctx.Events = append(ctx.Events, presentation.SystemMessageEvent{MessageKey: "light.executed"})
 	})
 	l.Start()
 
-	// 把玩家放入锁钥厅（旧油灯在那里，且有 tag.lightable）
-	l.world.players["player.test"] = PlayerEntity{ID: "player.test", RoomID: "room.tutorial.lock_hall"}
+	l.world.store.Add(&Entity{
+		ID: "player.test",
+		Player: &PlayerData{MaxWeight: 20, MaxVolume: 10},
+	})
+	l.world.store.PlaceInRoom("player.test", "room.tutorial.lock_hall")
 
 	resp := make(chan ActionResult, 1)
 	l.Submit(Action{PlayerID: "player.test", Verb: "testfallback", Resp: resp})

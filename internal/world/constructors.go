@@ -6,231 +6,174 @@ import (
 )
 
 func New() *World {
-	w := &World{
-		startRoom: "room.tutorial.hall",
-		rooms: map[RoomID]Room{
-			"room.tutorial.hall": {
-				NameKey: "room.tutorial.hall.name", DescriptionKey: "room.tutorial.hall.description",
-				Name: "教学大厅", Description: "大厅宽敞明亮，四周墙壁上挂着几幅地图。这里连通着多个区域。",
-			},
-			"room.tutorial.item_yard": {
-				NameKey: "room.tutorial.item_yard.name", DescriptionKey: "room.tutorial.item_yard.description",
-				Name: "物品庭院", Description: "庭院里散落着各种练习用品，地上还有几把木剑。",
-			},
-			"room.tutorial.lock_hall": {
-				NameKey: "room.tutorial.lock_hall.name", DescriptionKey: "room.tutorial.lock_hall.description",
-				Name: "锁钥厅", Description: "墙壁上挂着一盏旧油灯，东侧有一扇厚重的铁门。",
-			},
-			"room.tutorial.lock_chamber": {
-				NameKey: "room.tutorial.lock_chamber.name", DescriptionKey: "room.tutorial.lock_chamber.description",
-				Name: "密室", Description: "一间昏暗的小室，空气中有股陈旧的灰尘味。",
-			},
-			"room.tutorial.quest_start": {
-				NameKey: "room.tutorial.quest_start.name", DescriptionKey: "room.tutorial.quest_start.description",
-				Name: "任务之门", Description: "你感到一股神秘的力量在这里流动。",
-			},
-			"room.tutorial.weight_room": {
-				NameKey: "room.tutorial.weight_room.name", DescriptionKey: "room.tutorial.weight_room.description",
-				Name: "测重房", Description: "一间摆满各种砝码和重物的房间，墙上贴着\"负重测试\"的牌子。",
-			},
-			"room.tutorial.dark_cave": {
-				NameKey: "room.tutorial.dark_cave.name", DescriptionKey: "room.tutorial.dark_cave.description",
-				Name: "黑暗洞穴", Description: "伸手不见五指的黑暗包围着你，什么也看不见。",
-				Dark: true,
-			},
-		},
-		items: map[ItemID]Item{
-			// 大厅出口
-			"item.hall.north": {
-				NameKey: "item.hall.north.name", InnerName: "north", DescriptionKey: "item.hall.north.description",
-				Name: "北方通路", Description: "一条向北延伸的石板路。",
-				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "north", "target": "room.tutorial.item_yard"}}},
-			},
-			"item.hall.east": {
-				NameKey: "item.hall.east.name", InnerName: "east", DescriptionKey: "item.hall.east.description",
-				Name: "东方通路", Description: "一条向东的走廊。",
-				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "east", "target": "room.tutorial.lock_hall"}}},
-			},
-			"item.hall.portal": {
-				NameKey: "item.hall.portal.name", InnerName: "portal", DescriptionKey: "item.hall.portal.description",
-				Name: "传送门", Description: "一扇泛着蓝光的传送门。",
-				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "portal", "target": "room.tutorial.quest_start"}}},
-			},
-			// 物品庭院出口
-			"item.yard.south": {
-				NameKey: "item.yard.south.name", InnerName: "south", DescriptionKey: "item.yard.south.description",
-				Name: "南方通路", Description: "一条向南的石板路，通向大厅。",
-				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "south", "target": "room.tutorial.hall"}}},
-			},
-			// 锁钥厅出口
-			"item.lock_hall.west": {
-				NameKey: "item.lock_hall.west.name", InnerName: "west", DescriptionKey: "item.lock_hall.west.description",
-				Name: "西方通路", Description: "向西返回大厅的通道。",
-				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "west", "target": "room.tutorial.hall"}}},
-			},
-			"item.lock_hall.east": {
-				NameKey: "item.lock_hall.east.name", InnerName: "east", DescriptionKey: "item.lock_hall.east.description",
-				Name: "铁门", Description: "一扇厚重的铁门，似乎需要什么才能打开。",
-				Tags: []TagInstance{
-					{DefinitionID: "tag.exit", Params: map[string]any{"direction": "east", "target": "room.tutorial.lock_chamber"}},
-					{DefinitionID: "tag.lockable", Params: map[string]any{"key_item_id": "item.tutorial.old_lantern"}},
-				},
-			},
-			// 密室出口
-			"item.lock_chamber.west": {
-				NameKey: "item.lock_chamber.west.name", InnerName: "west", DescriptionKey: "item.lock_chamber.west.description",
-				Name: "西方出口", Description: "向西返回锁钥厅。",
-				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "west", "target": "room.tutorial.lock_hall"}}},
-			},
-			// 任务起点出口
-			"item.quest_start.portal": {
-				NameKey: "item.quest_start.portal.name", InnerName: "portal", DescriptionKey: "item.quest_start.portal.description",
-				Name: "传送门", Description: "一扇泛着蓝光的传送门。",
-				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "portal", "target": "room.tutorial.hall"}}},
-			},
-			// 游戏物品
-			"item.tutorial.old_lantern": {
-				NameKey: "item.tutorial.old_lantern.name", InnerName: "old lantern", DescriptionKey: "item.tutorial.old_lantern.description",
-				Name: "旧油灯", Description: "灯罩上蒙着一层灰，里面还剩一点灯油。",
-				Aliases: []string{"jiuyoudeng", "old_lantern"},
-				Tags: []TagInstance{
-					{DefinitionID: "tag.carryable", Params: map[string]any{}},
-					{DefinitionID: "tag.lightable", Params: map[string]any{}},
-				},
-				Weight: 5, Volume: 2,
-			},
-			"item.tutorial.practice_sword": {
-				NameKey: "item.tutorial.practice_sword.name", InnerName: "practice sword", DescriptionKey: "item.tutorial.practice_sword.description",
-				Name: "练习木剑", Description: "一把被许多人握过的木剑，剑柄已经磨得发亮。",
-				Aliases: []string{"lianximujian"},
-				Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-				Weight:  3, Volume: 3,
-			},
-			"item.tutorial.training_relic": {
-				NameKey: "item.tutorial.training_relic.name", InnerName: "training relic", DescriptionKey: "item.tutorial.training_relic.description",
-				Name: "练功徽章", Description: "一枚金属徽章，上面刻着\"练功有成\"四个字。",
-				Aliases: []string{"liangonghuizhang", "training_relic"},
-				Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-				Weight:  1, Volume: 1,
-			},
-			// 测重房出口
-			"item.yard.east": {
-				NameKey: "item.yard.east.name", InnerName: "east", DescriptionKey: "item.yard.east.description",
-				Name: "东方通道", Description: "一条向东延伸的通道，通向测重房。",
-				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "east", "target": "room.tutorial.weight_room"}}},
-			},
-			"item.weight_room.west": {
-				NameKey: "item.weight_room.west.name", InnerName: "west", DescriptionKey: "item.weight_room.west.description",
-				Name: "西方出口", Description: "向西返回物品庭院。",
-				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "west", "target": "room.tutorial.item_yard"}}},
-			},
-			"item.weight_room.north": {
-				NameKey: "item.weight_room.north.name", InnerName: "north", DescriptionKey: "item.weight_room.north.description",
-				Name: "北方洞口", Description: "一个幽深的洞口，里面一片漆黑。",
-				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "north", "target": "room.tutorial.dark_cave"}}},
-			},
-			"item.dark_cave.south": {
-				NameKey: "item.dark_cave.south.name", InnerName: "south", DescriptionKey: "item.dark_cave.south.description",
-				Name: "南方出口", Description: "一丝光亮从南方透进来。",
-				Tags: []TagInstance{{DefinitionID: "tag.exit", Params: map[string]any{"direction": "south", "target": "room.tutorial.weight_room"}}},
-			},
-			"item.tutorial.treasure_chest": {
-				NameKey: "item.tutorial.treasure_chest.name", InnerName: "treasure chest", DescriptionKey: "item.tutorial.treasure_chest.description",
-				Name: "宝藏箱", Description: "一个小巧的宝箱，里面装满了宝石。",
-				Tags:   []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-				Weight: 2, Volume: 1,
-			},
-			// 测重房物品
-			"item.tutorial.small_weight": {
-				NameKey: "item.tutorial.small_weight.name", InnerName: "small weight", DescriptionKey: "item.tutorial.small_weight.description",
-				Name: "小砝码", Description: "一个很小的砝码，几乎感觉不到重量。",
-				Tags:   []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-				Weight: 1, Volume: 1,
-			},
-			"item.tutorial.medium_weight": {
-				NameKey: "item.tutorial.medium_weight.name", InnerName: "medium weight", DescriptionKey: "item.tutorial.medium_weight.description",
-				Name: "中砝码", Description: "一个中等大小的砝码。",
-				Tags:   []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-				Weight: 5, Volume: 2,
-			},
-			"item.tutorial.large_weight": {
-				NameKey: "item.tutorial.large_weight.name", InnerName: "large weight", DescriptionKey: "item.tutorial.large_weight.description",
-				Name: "大砝码", Description: "一个沉重的砝码，拎起来有些费劲。",
-				Tags:   []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-				Weight: 10, Volume: 5,
-			},
-			"item.tutorial.iron_ingot": {
-				NameKey: "item.tutorial.iron_ingot.name", InnerName: "iron ingot", DescriptionKey: "item.tutorial.iron_ingot.description",
-				Name: "铁锭", Description: "一块沉甸甸的铁锭，体积不大却很重。",
-				Aliases: []string{"tieding"},
-				Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-				Weight:  8, Volume: 1,
-			},
-			"item.tutorial.cotton_bale": {
-				NameKey: "item.tutorial.cotton_bale.name", InnerName: "cotton bale", DescriptionKey: "item.tutorial.cotton_bale.description",
-				Name: "棉花包", Description: "一大包棉花，占地方但很轻。",
-				Aliases: []string{"mianhuabao"},
-				Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-				Weight:  1, Volume: 8,
-			},
-			"item.tutorial.barbell": {
-				NameKey: "item.tutorial.barbell.name", InnerName: "barbell", DescriptionKey: "item.tutorial.barbell.description",
-				Name: "杠铃", Description: "一副沉重的杠铃，一般人举不动。",
-				Aliases: []string{"gangling"},
-				Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-				Weight:  15, Volume: 5,
-			},
-			"item.tutorial.boulder": {
-				NameKey: "item.tutorial.boulder.name", InnerName: "boulder", DescriptionKey: "item.tutorial.boulder.description",
-				Name: "巨石", Description: "一块嵌在地面的巨石，纹丝不动。",
-				Weight: 999, Volume: 999,
-			},
-			"item.tutorial.storage_pouch": {
-				NameKey: "item.tutorial.storage_pouch.name", InnerName: "storage pouch", DescriptionKey: "item.tutorial.storage_pouch.description",
-				Name: "收纳袋", Description: "一个轻便的收纳袋，可以把东西装进去减少占用的空间。",
-				Tags: []TagInstance{
-					{DefinitionID: "tag.carryable", Params: map[string]any{}},
-					{DefinitionID: "tag.container", Params: map[string]any{"capacity": 5}},
-				},
-				Weight: 2, Volume: 1,
-			},
-		},
-		itemLocations: map[ItemID]ItemLocation{
-			"item.hall.north":              RoomItemLocation{RoomID: "room.tutorial.hall"},
-			"item.hall.east":               RoomItemLocation{RoomID: "room.tutorial.hall"},
-			"item.hall.portal":             RoomItemLocation{RoomID: "room.tutorial.hall"},
-			"item.yard.south":              RoomItemLocation{RoomID: "room.tutorial.item_yard"},
-			"item.lock_hall.west":          RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
-			"item.lock_hall.east":          RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
-			"item.lock_chamber.west":       RoomItemLocation{RoomID: "room.tutorial.lock_chamber"},
-			"item.quest_start.portal":      RoomItemLocation{RoomID: "room.tutorial.quest_start"},
-			"item.tutorial.old_lantern":    RoomItemLocation{RoomID: "room.tutorial.lock_hall"},
-			"item.tutorial.practice_sword": RoomItemLocation{RoomID: "room.tutorial.item_yard"},
-			"item.tutorial.training_relic": RoomItemLocation{RoomID: "room.tutorial.lock_chamber"},
-			"item.yard.east":               RoomItemLocation{RoomID: "room.tutorial.item_yard"},
-			"item.weight_room.west":        RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.weight_room.north":       RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.dark_cave.south":         RoomItemLocation{RoomID: "room.tutorial.dark_cave"},
-			"item.tutorial.treasure_chest": RoomItemLocation{RoomID: "room.tutorial.dark_cave"},
-			"item.tutorial.small_weight":   RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.medium_weight":  RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.large_weight":   RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.iron_ingot":     RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.cotton_bale":    RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.barbell":        RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.boulder":        RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-			"item.tutorial.storage_pouch":  RoomItemLocation{RoomID: "room.tutorial.weight_room"},
-		},
-		progressionDefinitions: tutorialProgressionDefinitions(),
-		players:                make(map[PlayerID]PlayerEntity),
-		tagDefinitions:         make(map[TagID]TagDefinition),
-		contentVerbs:           make(map[string]VerbEntry),
-		trackedQuests:          make(map[PlayerID]string),
-		containerOpen:          make(map[ItemID]bool),
-		litItems:               make(map[ItemID]bool),
+	w := initWorld()
+
+	addRoom := func(id, nameKey, descKey, name, desc string, dark bool, tags ...TagInstance) {
+		w.store.Add(&Entity{
+			ID: id, NameKey: nameKey, DescriptionKey: descKey,
+			Name: name, Description: desc, Tags: tags,
+			Room: &RoomData{Dark: dark},
+		})
 	}
+	}
+	addRoom("room.tutorial.hall", "room.tutorial.hall.name", "room.tutorial.hall.description",
+		"教学大厅", "大厅宽敞明亮，四周墙壁上挂着几幅地图。这里连通着多个区域。", false)
+	addRoom("room.tutorial.item_yard", "room.tutorial.item_yard.name", "room.tutorial.item_yard.description",
+		"物品庭院", "庭院里散落着各种练习用品，地上还有几把木剑。", false)
+	addRoom("room.tutorial.lock_hall", "room.tutorial.lock_hall.name", "room.tutorial.lock_hall.description",
+		"锁钥厅", "墙壁上挂着一盏旧油灯，东侧有一扇厚重的铁门。", false)
+	addRoom("room.tutorial.lock_chamber", "room.tutorial.lock_chamber.name", "room.tutorial.lock_chamber.description",
+		"密室", "一间昏暗的小室，空气中有股陈旧的灰尘味。", false)
+	addRoom("room.tutorial.quest_start", "room.tutorial.quest_start.name", "room.tutorial.quest_start.description",
+		"任务之门", "你感到一股神秘的力量在这里流动。", false)
+	addRoom("room.tutorial.weight_room", "room.tutorial.weight_room.name", "room.tutorial.weight_room.description",
+		"测重房", "一间摆满各种砝码和重物的房间，墙上贴着\"负重测试\"的牌子。", false)
+	addRoom("room.tutorial.dark_cave", "room.tutorial.dark_cave.name", "room.tutorial.dark_cave.description",
+		"黑暗洞穴", "伸手不见五指的黑暗包围着你，什么也看不见。", true)
+
+	addExit := func(id, nameKey, name, desc string, tags []TagInstance, direction, target string) {
+		w.store.Add(&Entity{
+			ID: id, NameKey: nameKey, Name: name, Description: desc, Tags: tags,
+			Exit: &ExitData{Direction: direction, TargetRoomID: target},
+		})
+	}
+	addExit("exit:room.hall.north", "item.hall.north.name", "北方通路", "一条向北延伸的石板路。",
+		nil, "north", "room.tutorial.item_yard")
+	addExit("exit:room.hall.east", "item.hall.east.name", "东方通路", "一条向东的走廊。",
+		nil, "east", "room.tutorial.lock_hall")
+	addExit("exit:room.hall.portal", "item.hall.portal.name", "传送门", "一扇泛着蓝光的传送门。",
+		nil, "portal", "room.tutorial.quest_start")
+	addExit("exit:room.yard.south", "item.yard.south.name", "南方通路", "一条向南的石板路，通向大厅。",
+		nil, "south", "room.tutorial.hall")
+	addExit("exit:room.lock_hall.west", "item.lock_hall.west.name", "西方通路", "向西返回大厅的通道。",
+		nil, "west", "room.tutorial.hall")
+	addExit("exit:room.lock_hall.east", "item.lock_hall.east.name", "铁门", "一扇厚重的铁门，似乎需要什么才能打开。",
+		[]TagInstance{
+			{DefinitionID: "tag.lockable", Params: map[string]any{"key_item_id": "item.tutorial.old_lantern"}},
+		}, "east", "room.tutorial.lock_chamber")
+	addExit("exit:room.lock_chamber.west", "item.lock_chamber.west.name", "西方出口", "向西返回锁钥厅。",
+		nil, "west", "room.tutorial.lock_hall")
+	addExit("exit:room.quest_start.portal", "item.quest_start.portal.name", "传送门", "一扇泛着蓝光的传送门。",
+		nil, "portal", "room.tutorial.hall")
+	addExit("exit:room.yard.east", "item.yard.east.name", "东方通道", "一条向东延伸的通道，通向测重房。",
+		nil, "east", "room.tutorial.weight_room")
+	addExit("exit:room.weight_room.west", "item.weight_room.west.name", "西方出口", "向西返回物品庭院。",
+		nil, "west", "room.tutorial.item_yard")
+	addExit("exit:room.weight_room.north", "item.weight_room.north.name", "北方洞口", "一个幽深的洞口，里面一片漆黑。",
+		nil, "north", "room.tutorial.dark_cave")
+	addExit("exit:room.dark_cave.south", "item.dark_cave.south.name", "南方出口", "一丝光亮从南方透进来。",
+		nil, "south", "room.tutorial.weight_room")
+
+	place := func(entityID, roomID string) { w.store.PlaceInRoom(entityID, roomID) }
+	place("exit:room.hall.north", "room.tutorial.hall")
+	place("exit:room.hall.east", "room.tutorial.hall")
+	place("exit:room.hall.portal", "room.tutorial.hall")
+	place("exit:room.yard.south", "room.tutorial.item_yard")
+	place("exit:room.lock_hall.west", "room.tutorial.lock_hall")
+	place("exit:room.lock_hall.east", "room.tutorial.lock_hall")
+	place("exit:room.lock_chamber.west", "room.tutorial.lock_chamber")
+	place("exit:room.quest_start.portal", "room.tutorial.quest_start")
+	place("exit:room.yard.east", "room.tutorial.item_yard")
+	place("exit:room.weight_room.west", "room.tutorial.weight_room")
+	place("exit:room.weight_room.north", "room.tutorial.weight_room")
+	place("exit:room.dark_cave.south", "room.tutorial.dark_cave")
+
+	addItem := func(id, nameKey, innerName, descKey, name, desc string, wgt, vol int, tags []TagInstance, aliases []string) {
+		w.store.Add(&Entity{
+			ID: id, InnerName: innerName, NameKey: nameKey, DescriptionKey: descKey,
+			Name: name, Description: desc, Tags: tags, Aliases: aliases,
+			Item: &ItemData{Weight: wgt, Volume: vol},
+		})
+	}
+	addItem("item.tutorial.old_lantern", "item.tutorial.old_lantern.name", "old lantern",
+		"item.tutorial.old_lantern.description", "旧油灯", "灯罩上蒙着一层灰，里面还剩一点灯油。",
+		5, 2,
+		[]TagInstance{
+			{DefinitionID: "tag.carryable", Params: map[string]any{}},
+			{DefinitionID: "tag.lightable", Params: map[string]any{}},
+		},
+		[]string{"jiuyoudeng", "old_lantern"})
+	addItem("item.tutorial.practice_sword", "item.tutorial.practice_sword.name", "practice sword",
+		"item.tutorial.practice_sword.description", "练习木剑", "一把被许多人握过的木剑，剑柄已经磨得发亮。",
+		3, 3,
+		[]TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+		[]string{"lianximujian"})
+	addItem("item.tutorial.training_relic", "item.tutorial.training_relic.name", "training relic",
+		"item.tutorial.training_relic.description", "练功徽章", "一枚金属徽章，上面刻着\"练功有成\"四个字。",
+		1, 1,
+		[]TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+		[]string{"liangonghuizhang", "training_relic"})
+	addItem("item.tutorial.treasure_chest", "item.tutorial.treasure_chest.name", "treasure chest",
+		"item.tutorial.treasure_chest.description", "宝藏箱", "一个小巧的宝箱，里面装满了宝石。",
+		2, 1,
+		[]TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}}, nil)
+	addItem("item.tutorial.small_weight", "item.tutorial.small_weight.name", "small weight",
+		"item.tutorial.small_weight.description", "小砝码", "一个很小的砝码，几乎感觉不到重量。",
+		1, 1,
+		[]TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}}, nil)
+	addItem("item.tutorial.medium_weight", "item.tutorial.medium_weight.name", "medium weight",
+		"item.tutorial.medium_weight.description", "中砝码", "一个中等大小的砝码。",
+		5, 2,
+		[]TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}}, nil)
+	addItem("item.tutorial.large_weight", "item.tutorial.large_weight.name", "large weight",
+		"item.tutorial.large_weight.description", "大砝码", "一个沉重的砝码，拎起来有些费劲。",
+		10, 5,
+		[]TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}}, nil)
+	addItem("item.tutorial.iron_ingot", "item.tutorial.iron_ingot.name", "iron ingot",
+		"item.tutorial.iron_ingot.description", "铁锭", "一块沉甸甸的铁锭，体积不大却很重。",
+		8, 1,
+		[]TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+		[]string{"tieding"})
+	addItem("item.tutorial.cotton_bale", "item.tutorial.cotton_bale.name", "cotton bale",
+		"item.tutorial.cotton_bale.description", "棉花包", "一大包棉花，占地方但很轻。",
+		1, 8,
+		[]TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+		[]string{"mianhuabao"})
+	addItem("item.tutorial.barbell", "item.tutorial.barbell.name", "barbell",
+		"item.tutorial.barbell.description", "杠铃", "一副沉重的杠铃，一般人举不动。",
+		15, 5,
+		[]TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+		[]string{"gangling"})
+	addItem("item.tutorial.boulder", "item.tutorial.boulder.name", "boulder",
+		"item.tutorial.boulder.description", "巨石", "一块嵌在地面的巨石，纹丝不动。",
+		999, 999, nil, nil)
+	addItem("item.tutorial.storage_pouch", "item.tutorial.storage_pouch.name", "storage pouch",
+		"item.tutorial.storage_pouch.description", "收纳袋", "一个轻便的收纳袋，可以把东西装进去减少占用的空间。",
+		2, 1,
+		[]TagInstance{
+			{DefinitionID: "tag.carryable", Params: map[string]any{}},
+			{DefinitionID: "tag.container", Params: map[string]any{"capacity": 5}},
+		}, nil)
+
+	place("item.tutorial.old_lantern", "room.tutorial.lock_hall")
+	place("item.tutorial.practice_sword", "room.tutorial.item_yard")
+	place("item.tutorial.training_relic", "room.tutorial.lock_chamber")
+	place("item.tutorial.treasure_chest", "room.tutorial.dark_cave")
+	place("item.tutorial.small_weight", "room.tutorial.weight_room")
+	place("item.tutorial.medium_weight", "room.tutorial.weight_room")
+	place("item.tutorial.large_weight", "room.tutorial.weight_room")
+	place("item.tutorial.iron_ingot", "room.tutorial.weight_room")
+	place("item.tutorial.cotton_bale", "room.tutorial.weight_room")
+	place("item.tutorial.barbell", "room.tutorial.weight_room")
+	place("item.tutorial.boulder", "room.tutorial.weight_room")
+	place("item.tutorial.storage_pouch", "room.tutorial.weight_room")
+
 	initBuiltinTags(w)
 	return w
+}
+
+func initWorld() *World {
+	return &World{
+		store:                  NewEntityStore(),
+		startRoom:              "room.tutorial.hall",
+		progressionDefinitions: tutorialProgressionDefinitions(),
+		tagDefinitions:         make(map[TagID]TagDefinition),
+		contentVerbs:           make(map[string]VerbEntry),
+		containerContents:      make(map[string][]EntityID),
+		containerOpen:          make(map[EntityID]bool),
+		litItems:               make(map[EntityID]bool),
+		trackedQuests:          make(map[PlayerID]string),
+	}
 }
 
 func initBuiltinTags(w *World) {
@@ -240,56 +183,71 @@ func initBuiltinTags(w *World) {
 }
 
 func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCatalog) *World {
-	rooms := make(map[RoomID]Room, len(snapshot.Rooms))
+	w := &World{
+		store:                  NewEntityStore(),
+		startRoom:              EntityID(snapshot.StartRoomID),
+		progressionDefinitions: progressionDefinitionsFromSnapshot(snapshot, catalog),
+		tagDefinitions:         make(map[TagID]TagDefinition),
+		contentVerbs:           make(map[string]VerbEntry, len(snapshot.Verbs)),
+		containerContents:      make(map[string][]EntityID),
+		containerOpen:          make(map[EntityID]bool),
+		litItems:               make(map[EntityID]bool),
+		trackedQuests:          make(map[PlayerID]string),
+	}
+
 	for roomID, sRoom := range snapshot.Rooms {
 		nameKey := catalog.RoomNames[roomID]
 		descriptionKey := catalog.RoomDescriptions[roomID]
-		rooms[RoomID(roomID)] = Room{
-			NameKey:        string(nameKey),
-			DescriptionKey: string(descriptionKey),
-			Name:           catalog.Text[nameKey],
-			Description:    catalog.Text[descriptionKey],
-			Dark:           sRoom.Dark,
-		}
+		w.store.Add(&Entity{
+			ID: EntityID(roomID), NameKey: string(nameKey), DescriptionKey: string(descriptionKey),
+			Name: catalog.Text[nameKey], Description: catalog.Text[descriptionKey],
+			Room: &RoomData{Dark: sRoom.Dark},
+		})
 	}
 
-	items := make(map[ItemID]Item, len(snapshot.Items))
-	for itemID := range snapshot.Items {
-		serverItem := snapshot.Items[itemID]
+	// 物品与出口
+	for itemID, serverItem := range snapshot.Items {
 		nameKey := catalog.ItemDisplayNames[itemID]
 		descriptionKey := catalog.ItemDescriptions[itemID]
-		items[ItemID(itemID)] = Item{
-			NameKey:        string(nameKey),
-			InnerName:      catalog.Text[serverItem.InnerNameKey],
-			DescriptionKey: string(descriptionKey),
-			Name:           catalog.Text[nameKey],
-			Description:    catalog.Text[descriptionKey],
-			Aliases:        textKeysToStrings(catalog, serverItem.Aliases),
-			Tags:           worldTags(serverItem.Tags),
-			Parts:          worldParts(serverItem.Parts),
-			Weight:         serverItem.Weight,
-			Volume:         serverItem.Volume,
+		entityID := EntityID(itemID)
+		tags := worldTags(serverItem.Tags)
+		innerNameKey := catalog.ItemInnerNames[itemID]
+		innerName := catalog.Text[innerNameKey]
+
+		// 从 serverItem.Tags 中提取出口信息（worldTags 跳过了 exit tag）
+		var exitTarget, exitDir string
+		for _, t := range serverItem.Tags {
+			if t.Exit != nil {
+				exitTarget = string(t.Exit.TargetRoomID)
+				exitDir = string(t.Exit.Direction)
+				break
+			}
+		}
+		if exitTarget != "" {
+			w.store.Add(&Entity{
+				ID: entityID, InnerName: innerName, NameKey: string(nameKey), DescriptionKey: string(descriptionKey),
+				Name: catalog.Text[nameKey], Description: catalog.Text[descriptionKey],
+				Exit: &ExitData{Direction: exitDir, TargetRoomID: EntityID(exitTarget)},
+			})
+		} else {
+			w.store.Add(&Entity{
+				ID: entityID, InnerName: innerName, NameKey: string(nameKey), DescriptionKey: string(descriptionKey),
+				Name: catalog.Text[nameKey], Description: catalog.Text[descriptionKey],
+				Aliases: textKeysToStrings(catalog, serverItem.Aliases),
+				Tags:    tags,
+				Parts:   worldParts(serverItem.Parts),
+				Item:    &ItemData{Weight: serverItem.Weight, Volume: serverItem.Volume},
+			})
 		}
 	}
 
-	itemLocations := make(map[ItemID]ItemLocation, len(snapshot.ItemLocations))
+	// 物品位置
 	for itemID, roomID := range snapshot.ItemLocations {
-		itemLocations[ItemID(itemID)] = RoomItemLocation{RoomID: RoomID(roomID)}
+		if ent := w.store.Get(EntityID(itemID)); ent != nil {
+			w.store.PlaceInRoom(EntityID(itemID), EntityID(roomID))
+		}
 	}
 
-	w := &World{
-		startRoom:              RoomID(snapshot.StartRoomID),
-		rooms:                  rooms,
-		items:                  items,
-		itemLocations:          itemLocations,
-		progressionDefinitions: progressionDefinitionsFromSnapshot(snapshot, catalog),
-		players:                make(map[PlayerID]PlayerEntity),
-		tagDefinitions:         make(map[TagID]TagDefinition),
-		contentVerbs:           make(map[string]VerbEntry, len(snapshot.Verbs)),
-		trackedQuests:          make(map[PlayerID]string),
-		containerOpen:          make(map[ItemID]bool),
-		litItems:               make(map[ItemID]bool),
-	}
 	for verbID, sv := range snapshot.Verbs {
 		w.contentVerbs[string(verbID)] = VerbEntry{
 			Name:       string(verbID),
@@ -301,51 +259,57 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 	return w
 }
 
+// extractExitFromTags 检查 tags 中是否含 tag.exit，如果有则提取参数并从 tags 中删除。
+// 返回目标房间和方向（方向可能为空）。
+func extractExitFromTags(tags []TagInstance) (target, direction string) {
+	for i, t := range tags {
+		if t.DefinitionID == "tag.exit" {
+			target, _ = t.Params["target"].(string)
+			direction, _ = t.Params["direction"].(string)
+			// 从切片中移除该 tag
+			tags[i] = tags[len(tags)-1]
+			_ = tags[:len(tags)-1]
+			return
+		}
+	}
+	return "", ""
+}
+
 func worldTags(tags []content.ServerTag) []TagInstance {
 	result := make([]TagInstance, 0, len(tags))
 	for _, tag := range tags {
+		if tag.Exit != nil {
+			// tag.exit 由 extractExitFromTags 在 NewFromSnapshot 中处理，这里跳过
+			continue
+		}
 		if tag.Carryable {
-			result = append(result, TagInstance{
-				DefinitionID: "tag.carryable",
-				Params:       map[string]any{},
-			})
+			result = append(result, TagInstance{DefinitionID: "tag.carryable", Params: map[string]any{}})
 			continue
 		}
 		if tag.Lightable {
-			result = append(result, TagInstance{
-				DefinitionID: "tag.lightable",
-				Params:       map[string]any{},
-			})
+			result = append(result, TagInstance{DefinitionID: "tag.lightable", Params: map[string]any{}})
 			continue
 		}
 		if tag.Container != nil {
-			result = append(result, TagInstance{
-				DefinitionID: "tag.container",
-				Params:       map[string]any{"capacity": tag.Container.Capacity},
-			})
+			result = append(result, TagInstance{DefinitionID: "tag.container", Params: map[string]any{"capacity": tag.Container.Capacity}})
 			continue
 		}
 		if tag.Lockable != nil {
-			result = append(result, TagInstance{
-				DefinitionID: "tag.lockable",
-				Params:       map[string]any{"key_item_id": string(tag.Lockable.KeyItemID)},
-			})
+			result = append(result, TagInstance{DefinitionID: "tag.lockable", Params: map[string]any{"key_item_id": string(tag.Lockable.KeyItemID)}})
 			continue
 		}
-		if tag.Exit == nil {
-			continue
+		if tag.GenericID != "" {
+			params := make(map[string]any, len(tag.GenericParams))
+			for k, v := range tag.GenericParams {
+				params[k] = v
+			}
+			result = append(result, TagInstance{DefinitionID: TagID(tag.GenericID), Params: params})
 		}
-		params := map[string]any{"target": string(tag.Exit.TargetRoomID)}
-		if tag.Exit.Direction != "" {
-			params["direction"] = string(tag.Exit.Direction)
-		}
-		result = append(result, TagInstance{
-			DefinitionID: "tag.exit",
-			Params:       params,
-		})
 	}
 	return result
 }
+
+
 
 func worldParts(parts map[content.PartID]content.ServerPart) map[string]ItemPart {
 	if len(parts) == 0 {

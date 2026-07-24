@@ -270,20 +270,22 @@ func TestWorldResolveVisibleItemPhrase_matchesRoomAndInventory(t *testing.T) {
 
 func TestWorldResolveRoomItemPhrase_reportsAmbiguityOnlyWithinRoom(t *testing.T) {
 	game := New()
-	game.items["item.tutorial.second_lantern"] = Item{
-		NameKey: "item.tutorial.second_lantern.name", DescriptionKey: "item.tutorial.second_lantern.description",
-		Name: "旧油灯", InnerName: "old lantern", Description: "另一盏旧油灯。",
+	game.store.Add(&Entity{
+		ID: "item.tutorial.second_lantern", NameKey: "item.tutorial.second_lantern.name", DescriptionKey: "item.tutorial.second_lantern.description",
+		Name: "旧油灯", Description: "另一盏旧油灯。",
 		Aliases: []string{"jiuyoudeng"},
 		Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-	}
-	game.itemLocations["item.tutorial.second_lantern"] = RoomItemLocation{RoomID: "room.tutorial.lock_hall"}
-	game.items["item.tutorial.distant_lantern"] = Item{
-		NameKey: "item.tutorial.distant_lantern.name", DescriptionKey: "item.tutorial.distant_lantern.description",
-		Name: "旧油灯", InnerName: "old lantern", Description: "远处的旧油灯。",
+		Item:    &ItemData{Weight: 0, Volume: 0},
+	})
+	game.store.PlaceInRoom("item.tutorial.second_lantern", "room.tutorial.lock_hall")
+	game.store.Add(&Entity{
+		ID: "item.tutorial.distant_lantern", NameKey: "item.tutorial.distant_lantern.name", DescriptionKey: "item.tutorial.distant_lantern.description",
+		Name: "旧油灯", Description: "远处的旧油灯。",
 		Aliases: []string{"jiuyoudeng"},
 		Tags:    []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-	}
-	game.itemLocations["item.tutorial.distant_lantern"] = RoomItemLocation{RoomID: "room.tutorial.item_yard"}
+		Item:    &ItemData{Weight: 0, Volume: 0},
+	})
+	game.store.PlaceInRoom("item.tutorial.distant_lantern", "room.tutorial.item_yard")
 
 	lockHallResolution := game.ResolveRoomItemPhrase("room.tutorial.lock_hall", "旧油灯")
 	yardResolution := game.ResolveRoomItemPhrase("room.tutorial.item_yard", "旧油灯")
@@ -303,14 +305,15 @@ func TestWorldResolveRoomItemPhrase_reportsAmbiguityOnlyWithinRoom(t *testing.T)
 func TestWorldGetItemAllowsCarryableExit(t *testing.T) {
 	game := New()
 	startRoom := game.StartRoom()
-	game.items["item.hall.test_portal"] = Item{
-		Name: "传送门", InnerName: "test_portal",
+	game.store.Add(&Entity{
+		ID: "item.hall.test_portal", Name: "传送门",
 		Tags: []TagInstance{
 			{DefinitionID: "tag.exit", Params: map[string]any{"direction": "test_portal", "target": "room.tutorial.item_yard"}},
 			{DefinitionID: "tag.carryable", Params: map[string]any{}},
 		},
-	}
-	game.itemLocations["item.hall.test_portal"] = RoomItemLocation{RoomID: startRoom}
+		Item: &ItemData{Weight: 0, Volume: 0},
+	})
+	game.store.PlaceInRoom("item.hall.test_portal", startRoom)
 
 	itemID, got, _ := game.GetItem(startRoom, "item.hall.test_portal", "player.local")
 	if !got || itemID != "item.hall.test_portal" {
@@ -322,14 +325,12 @@ func TestWorldDropInventoryItemRejectsDuplicateExitDirection(t *testing.T) {
 	game := New()
 	playerID := PlayerID("player.local")
 	startRoom := game.StartRoom()
-	game.items["item.tutorial.moving_north"] = Item{
-		Name: "另一个北方", InnerName: "north",
-		Tags: []TagInstance{
-			{DefinitionID: "tag.exit", Params: map[string]any{"direction": "north", "target": "room.tutorial.lock_hall"}},
-			{DefinitionID: "tag.carryable", Params: map[string]any{}},
-		},
-	}
-	game.itemLocations["item.tutorial.moving_north"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
+	game.store.Add(&Entity{
+		ID: "item.tutorial.moving_north", Name: "另一个北方",
+		Exit: &ExitData{Direction: "north", TargetRoomID: "room.tutorial.lock_hall"},
+		Item: &ItemData{Weight: 0, Volume: 0},
+	})
+	game.containerContents[PlayerContainerID(playerID)] = append(game.containerContents[PlayerContainerID(playerID)], "item.tutorial.moving_north")
 
 	itemID, dropped := game.DropInventoryItem(startRoom, "item.tutorial.moving_north", playerID)
 	if dropped || itemID != "" {
@@ -517,143 +518,75 @@ func TestTagRegistry_listDefinitions(t *testing.T) {
 	}
 }
 
-func TestTagInstance_Params(t *testing.T) {
+func TestEntityTag_dataAccessibleViaStore(t *testing.T) {
 	w := New()
-	_ = w
-	item := Item{
-		Tags: []TagInstance{
-			{DefinitionID: "tag.exit", Params: map[string]any{"direction": "north", "target": "room.foo"}},
-			{DefinitionID: "tag.carryable", Params: map[string]any{}},
-		},
-	}
-	params, ok := item.tagParams("tag.exit")
-	if !ok {
-		t.Fatal("expected to find tag.exit params")
-	}
-	if params["direction"] != "north" {
-		t.Fatalf("direction = %q, want north", params["direction"])
-	}
-	if params["target"] != "room.foo" {
-		t.Fatalf("target = %q, want room.foo", params["target"])
-	}
-	_, ok = item.tagParams("tag.carryable")
-	if !ok {
-		t.Fatal("expected to find tag.carryable params")
-	}
-	_, ok = item.tagParams("tag.nonexistent")
-	if ok {
-		t.Fatal("unexpected tag.nonexistent params")
-	}
-}
-
-func TestExitTag_behaviorConsistency(t *testing.T) {
-	// 验证 TagInstance 到 Exit 提取与旧行为一致
-	w := New()
-	_ = w
-	item := Item{
+	w.store.Add(&Entity{
+		ID: "item.test_exit",
 		Tags: []TagInstance{
 			{DefinitionID: "tag.exit", Params: map[string]any{"direction": "north", "target": "room.test_target"}},
+			{DefinitionID: "tag.carryable", Params: map[string]any{}},
 		},
-	}
-	w.items = map[ItemID]Item{"item.test_exit": item}
+		Item: &ItemData{Weight: 0, Volume: 0},
+		Exit: &ExitData{Direction: "north", TargetRoomID: "room.test_target"},
+	})
+	w.store.Add(&Entity{
+		ID: "item.test_carryable",
+		Tags: []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+		Item: &ItemData{Weight: 1, Volume: 1},
+	})
+	w.store.Add(&Entity{
+		ID: "item.not_carryable", Name: "not carryable",
+		Item: &ItemData{Weight: 1, Volume: 1},
+	})
 
-	exit, ok := w.itemExit("item.test_exit")
-	if !ok {
-		t.Fatal("expected exit to be found")
+	if !w.store.Tag("item.test_exit", "tag.exit") {
+		t.Fatal("expected test_exit to have tag.exit")
 	}
-	if exit.Direction != "north" {
-		t.Fatalf("direction = %q, want north", exit.Direction)
+	if !w.store.Tag("item.test_exit", "tag.carryable") {
+		t.Fatal("expected test_exit to have tag.carryable")
 	}
-	if exit.TargetRoomID != "room.test_target" {
-		t.Fatalf("target = %q, want room.test_target", exit.TargetRoomID)
+	ed := w.store.Exit("item.test_exit")
+	if ed == nil || ed.Direction != "north" || ed.TargetRoomID != "room.test_target" {
+		t.Fatalf("exit data = %+v, want north→test_target", ed)
 	}
-}
-
-func TestCarryableTag_behaviorConsistency(t *testing.T) {
-	w := New()
-	_ = w
-	w.items = map[ItemID]Item{
-		"item.carryable": {
-			Tags: []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-		},
-		"item.not_carryable": {
-			Tags: nil,
-		},
-	}
-	if !w.itemIsCarryable("item.carryable") {
-		t.Fatal("expected carryable item to be carryable")
+	if !w.itemIsCarryable("item.test_carryable") {
+		t.Fatal("expected carryable item")
 	}
 	if w.itemIsCarryable("item.not_carryable") {
-		t.Fatal("expected non-carryable item to not be carryable")
+		t.Fatal("expected non-carryable item")
 	}
 }
 
 func TestLightableTag_definedAndAccessible(t *testing.T) {
-	// 从 New() 创建的教程世界验证旧油灯有 lightable
 	w := New()
-	item, ok := w.items["item.tutorial.old_lantern"]
-	if !ok {
-		t.Fatal("expected old lantern in tutorial world")
-	}
-	params, ok := item.tagParams("tag.lightable")
-	if !ok {
+	if !w.store.Tag("item.tutorial.old_lantern", "tag.lightable") {
 		t.Fatal("expected old lantern to have tag.lightable")
 	}
-	_ = params
-
-	// 从编译内容创建的世界也验证
 	compiled, err := content.Compile(content.TutorialSource())
 	if err != nil {
 		t.Fatal(err)
 	}
 	w2 := NewFromSnapshot(compiled.Server, compiled.Client)
-	item2, ok := w2.items["item.tutorial.old_lantern"]
-	if !ok {
-		t.Fatal("expected old lantern in compiled world")
-	}
-	_, ok = item2.tagParams("tag.lightable")
-	if !ok {
+	if !w2.store.Tag("item.tutorial.old_lantern", "tag.lightable") {
 		t.Fatal("expected old lantern to have tag.lightable in compiled world")
 	}
 }
 
-func TestContainerTag_registeredAndUsable(t *testing.T) {
+func TestContainerTag_definedAndAccessible(t *testing.T) {
 	w := New()
-	def, ok := w.TagDefinition("tag.container")
-	if !ok {
-		t.Fatal("expected tag.container to be registered")
-	}
-	var hasCapacity bool
-	for _, f := range def.Fields {
-		if f.Name == "capacity" {
-			hasCapacity = true
-			if f.Type != TagFieldInt {
-				t.Fatalf("capacity field type = %q, want int", f.Type)
-			}
-			defCap, ok := f.Default.(int)
-			if !ok || defCap != 1 {
-				t.Fatalf("capacity default = %v (type %T), want 1", f.Default, f.Default)
-			}
-		}
-	}
-	if !hasCapacity {
-		t.Fatal("container tag missing capacity field")
-	}
-
-	// 用 tag.container 创建物品并读取参数
-	w.items["item.test_backpack"] = Item{
-		Name: "背包",
+	w.store.Add(&Entity{
+		ID: "item.test_backpack", Name: "背包",
 		Tags: []TagInstance{
 			{DefinitionID: "tag.container", Params: map[string]any{"capacity": 5}},
 		},
+		Item: &ItemData{Weight: 1, Volume: 1},
+	})
+	if !w.itemIsContainer("item.test_backpack") {
+		t.Fatal("expected backpack to be container")
 	}
-	params, ok := w.items["item.test_backpack"].tagParams("tag.container")
-	if !ok {
-		t.Fatal("expected backpack to have tag.container")
-	}
-	capacity, ok := params["capacity"].(int)
-	if !ok || capacity != 5 {
-		t.Fatalf("capacity = %v (type %T), want 5", params["capacity"], params["capacity"])
+	capacity := w.containerCapacity("item.test_backpack")
+	if capacity != 5 {
+		t.Fatalf("capacity = %d, want 5", capacity)
 	}
 }
 
@@ -709,8 +642,20 @@ func TestContainerTag_compilePipeline(t *testing.T) {
 
 	// 再验证从 ServerSnapshot → world 也能正确转换
 	w := NewFromSnapshot(compiled.Server, compiled.Client)
-	params, ok := w.items["item.test.box"].tagParams("tag.container")
-	if !ok {
+	ent := w.store.Get("item.test.box")
+	if ent == nil {
+		t.Fatal("expected box in store")
+	}
+	var params map[string]any
+	var found bool
+	for _, inst := range ent.Tags {
+		if inst.DefinitionID == "tag.container" {
+			params = inst.Params
+			found = true
+			break
+		}
+	}
+	if !found {
 		t.Fatal("expected box to have tag.container in world")
 	}
 	capacity, ok := params["capacity"].(int)
@@ -721,13 +666,12 @@ func TestContainerTag_compilePipeline(t *testing.T) {
 
 func TestContainer_OpenClose(t *testing.T) {
 	w := New()
-	w.items = map[ItemID]Item{
-		"item.box": {
-			Name: "箱子",
-			Tags: []TagInstance{{DefinitionID: "tag.container", Params: map[string]any{"capacity": 2}}},
-		},
-	}
-	w.itemLocations["item.box"] = RoomItemLocation{RoomID: w.startRoom}
+	w.store.Add(&Entity{
+		ID: "item.box", Name: "箱子",
+		Tags: []TagInstance{{DefinitionID: "tag.container", Params: map[string]any{"capacity": 2}}},
+		Item: &ItemData{},
+	})
+	w.store.PlaceInRoom("item.box", w.startRoom)
 	if w.ContainerIsOpen("item.box") {
 		t.Fatal("container should start closed")
 	}
@@ -744,7 +688,7 @@ func TestContainer_OpenClose(t *testing.T) {
 		t.Fatal("container should be closed after close")
 	}
 	// 非容器物品拒绝操作
-	w.items["item.rock"] = Item{Name: "石头"}
+	w.store.Add(&Entity{ID: "item.rock", Name: "石头", Item: &ItemData{}})
 	if w.OpenContainer("item.rock") {
 		t.Fatal("non-container should not open")
 	}
@@ -753,17 +697,19 @@ func TestContainer_OpenClose(t *testing.T) {
 func TestContainer_PutAndGet(t *testing.T) {
 	w := New()
 	playerID := PlayerID("test")
-	w.players[playerID] = PlayerEntity{RoomID: w.startRoom}
+	w.store.Add(&Entity{ID: playerID, Name: string(playerID), Player: &PlayerData{}})
+	w.store.PlaceInRoom(playerID, w.startRoom)
 	// 准备容器
-	w.items["item.box"] = Item{
-		Name: "箱子",
+	w.store.Add(&Entity{
+		ID: "item.box", Name: "箱子",
 		Tags: []TagInstance{{DefinitionID: "tag.container", Params: map[string]any{"capacity": 2}}},
-	}
-	w.itemLocations["item.box"] = RoomItemLocation{RoomID: w.startRoom}
+		Item: &ItemData{},
+	})
+	w.store.PlaceInRoom("item.box", w.startRoom)
 	w.OpenContainer("item.box")
 	// 准备物品（在玩家背包中）
-	w.items["item.apple"] = Item{Name: "苹果"}
-	w.itemLocations["item.apple"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
+	w.store.Add(&Entity{ID: "item.apple", Name: "苹果", Item: &ItemData{}})
+	w.containerContents[PlayerContainerID(playerID)] = append(w.containerContents[PlayerContainerID(playerID)], "item.apple")
 	// put apple in box
 	err := w.PutItemInContainer("item.apple", "item.box", playerID)
 	if err != nil {
@@ -780,7 +726,7 @@ func TestContainer_PutAndGet(t *testing.T) {
 		t.Fatalf("GetItemFromContainer: %v", err)
 	}
 	// 验证苹果回到了玩家背包
-	inventory := w.itemsInContainer(PlayerContainerID(playerID))
+	inventory := w.containerContents[PlayerContainerID(playerID)]
 	if len(inventory) != 1 || inventory[0] != "item.apple" {
 		t.Fatalf("inventory = %v, want [item.apple]", inventory)
 	}
@@ -789,17 +735,18 @@ func TestContainer_PutAndGet(t *testing.T) {
 func TestContainer_CapacityLimit(t *testing.T) {
 	w := New()
 	playerID := PlayerID("test")
-	w.players[playerID] = PlayerEntity{RoomID: w.startRoom}
-	w.items["item.box"] = Item{
-		Name: "箱子",
+	w.store.Add(&Entity{ID: playerID, Name: string(playerID), Player: &PlayerData{}})
+	w.store.PlaceInRoom(playerID, w.startRoom)
+	w.store.Add(&Entity{
+		ID: "item.box", Name: "箱子",
 		Tags: []TagInstance{{DefinitionID: "tag.container", Params: map[string]any{"capacity": 1}}},
-	}
-	w.itemLocations["item.box"] = RoomItemLocation{RoomID: w.startRoom}
+		Item: &ItemData{},
+	})
+	w.store.PlaceInRoom("item.box", w.startRoom)
 	w.OpenContainer("item.box")
-	w.items["item.a"] = Item{Name: "A"}
-	w.items["item.b"] = Item{Name: "B"}
-	w.itemLocations["item.a"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
-	w.itemLocations["item.b"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
+	w.store.Add(&Entity{ID: "item.a", Name: "A", Item: &ItemData{}})
+	w.store.Add(&Entity{ID: "item.b", Name: "B", Item: &ItemData{}})
+	w.containerContents[PlayerContainerID(playerID)] = append(w.containerContents[PlayerContainerID(playerID)], "item.a", "item.b")
 	if err := w.PutItemInContainer("item.a", "item.box", playerID); err != nil {
 		t.Fatalf("first put: %v", err)
 	}
@@ -812,25 +759,28 @@ func TestContainer_CapacityLimit(t *testing.T) {
 func TestContainer_NestingRule(t *testing.T) {
 	w := New()
 	playerID := PlayerID("test")
-	w.players[playerID] = PlayerEntity{RoomID: w.startRoom}
+	w.store.Add(&Entity{ID: playerID, Name: string(playerID), Player: &PlayerData{}})
+	w.store.PlaceInRoom(playerID, w.startRoom)
 	// 便携容器（收纳袋）— carryable + container
-	w.items["item.bag"] = Item{
-		Name: "收纳袋",
+	w.store.Add(&Entity{
+		ID: "item.bag", Name: "收纳袋",
 		Tags: []TagInstance{
 			{DefinitionID: "tag.carryable", Params: map[string]any{}},
 			{DefinitionID: "tag.container", Params: map[string]any{"capacity": 5}},
 		},
-	}
-	w.itemLocations["item.bag"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
+		Item: &ItemData{},
+	})
+	w.containerContents[PlayerContainerID(playerID)] = append(w.containerContents[PlayerContainerID(playerID)], "item.bag")
 	// 另一个 carryable 容器 — 应该不能放入收纳袋
-	w.items["item.pouch"] = Item{
-		Name: "小袋",
+	w.store.Add(&Entity{
+		ID: "item.pouch", Name: "小袋",
 		Tags: []TagInstance{
 			{DefinitionID: "tag.carryable", Params: map[string]any{}},
 			{DefinitionID: "tag.container", Params: map[string]any{"capacity": 3}},
 		},
-	}
-	w.itemLocations["item.pouch"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
+		Item: &ItemData{},
+	})
+	w.containerContents[PlayerContainerID(playerID)] = append(w.containerContents[PlayerContainerID(playerID)], "item.pouch")
 	// 打开收纳袋
 	w.OpenContainer("item.bag")
 	// 尝试把小袋放进收纳袋
@@ -843,15 +793,17 @@ func TestContainer_NestingRule(t *testing.T) {
 func TestContainer_ClosedRejectsPut(t *testing.T) {
 	w := New()
 	playerID := PlayerID("test")
-	w.players[playerID] = PlayerEntity{RoomID: w.startRoom}
-	w.items["item.box"] = Item{
-		Name: "箱子",
+	w.store.Add(&Entity{ID: playerID, Name: string(playerID), Player: &PlayerData{}})
+	w.store.PlaceInRoom(playerID, w.startRoom)
+	w.store.Add(&Entity{
+		ID: "item.box", Name: "箱子",
 		Tags: []TagInstance{{DefinitionID: "tag.container", Params: map[string]any{"capacity": 5}}},
-	}
-	w.itemLocations["item.box"] = RoomItemLocation{RoomID: w.startRoom}
+		Item: &ItemData{},
+	})
+	w.store.PlaceInRoom("item.box", w.startRoom)
 	// 不打开
-	w.items["item.apple"] = Item{Name: "苹果"}
-	w.itemLocations["item.apple"] = ContainerItemLocation{ContainerID: PlayerContainerID(playerID)}
+	w.store.Add(&Entity{ID: "item.apple", Name: "苹果", Item: &ItemData{}})
+	w.containerContents[PlayerContainerID(playerID)] = append(w.containerContents[PlayerContainerID(playerID)], "item.apple")
 	err := w.PutItemInContainer("item.apple", "item.box", playerID)
 	if err == nil {
 		t.Fatal("expected rejection: container is closed")
@@ -869,23 +821,23 @@ func TestCarryableContainer_WeightAndVolume(t *testing.T) {
 	w.EnterWorld(playerID)
 
 	// 准备便携容器
-	w.items["item.bag"] = Item{
-		Name: "收纳袋",
+	w.store.Add(&Entity{
+		ID: "item.bag", Name: "收纳袋",
 		Tags: []TagInstance{
 			{DefinitionID: "tag.carryable", Params: map[string]any{}},
 			{DefinitionID: "tag.container", Params: map[string]any{"capacity": 5}},
 		},
-		Weight: 2, Volume: 1,
-	}
-	w.itemLocations["item.bag"] = RoomItemLocation{RoomID: w.PlayerCurrentRoom(playerID)}
+		Item: &ItemData{Weight: 2, Volume: 1},
+	})
+	w.store.PlaceInRoom("item.bag", w.PlayerCurrentRoom(playerID))
 
 	// 准备内容物
-	w.items["item.coin"] = Item{
-		Name:   "金币",
-		Tags:   []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
-		Weight: 1, Volume: 1,
-	}
-	w.itemLocations["item.coin"] = RoomItemLocation{RoomID: w.PlayerCurrentRoom(playerID)}
+	w.store.Add(&Entity{
+		ID: "item.coin", Name: "金币",
+		Tags: []TagInstance{{DefinitionID: "tag.carryable", Params: map[string]any{}}},
+		Item: &ItemData{Weight: 1, Volume: 1},
+	})
+	w.store.PlaceInRoom("item.coin", w.PlayerCurrentRoom(playerID))
 
 	// 1. 拿起收纳袋 — 体积+1，重量+2
 	_, ok, _ := w.GetItem(w.PlayerCurrentRoom(playerID), "item.bag", playerID)
