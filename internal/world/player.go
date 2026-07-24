@@ -18,7 +18,7 @@ func (w *World) EnterWorld(playerID PlayerID) (EntityID, bool) {
 func (w *World) LeaveWorld(playerID PlayerID) {
 	w.store.Remove(playerID)
 	delete(w.containerContents, PlayerContainerID(playerID))
-	w.trackedQuests = make(map[PlayerID]string)
+	delete(w.trackedQuests, playerID)
 }
 
 func (w *World) PlayerCurrentRoom(playerID PlayerID) EntityID {

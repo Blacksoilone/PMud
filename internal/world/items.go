@@ -289,10 +289,11 @@ func (w *World) ordinaryItemsInRoom(roomID EntityID) []EntityID {
 }
 
 func (w *World) carryableItemsInRoom(roomID EntityID) []EntityID {
-	var result []EntityID
-	for _, eid := range w.store.EntitiesInRoom(roomID) {
-		if w.store.Item(eid) != nil && w.store.Tag(eid, "tag.carryable") {
-			result = append(result, eid)
+	entities := w.store.FindByTagInRoom("tag.carryable", roomID)
+	result := make([]EntityID, 0, len(entities))
+	for _, ent := range entities {
+		if ent.Item != nil {
+			result = append(result, ent.ID)
 		}
 	}
 	return result

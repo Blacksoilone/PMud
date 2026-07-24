@@ -15,7 +15,6 @@ func New() *World {
 			Room: &RoomData{Dark: dark},
 		})
 	}
-	}
 	addRoom("room.tutorial.hall", "room.tutorial.hall.name", "room.tutorial.hall.description",
 		"教学大厅", "大厅宽敞明亮，四周墙壁上挂着几幅地图。这里连通着多个区域。", false)
 	addRoom("room.tutorial.item_yard", "room.tutorial.item_yard.name", "room.tutorial.item_yard.description",
@@ -259,27 +258,11 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 	return w
 }
 
-// extractExitFromTags 检查 tags 中是否含 tag.exit，如果有则提取参数并从 tags 中删除。
-// 返回目标房间和方向（方向可能为空）。
-func extractExitFromTags(tags []TagInstance) (target, direction string) {
-	for i, t := range tags {
-		if t.DefinitionID == "tag.exit" {
-			target, _ = t.Params["target"].(string)
-			direction, _ = t.Params["direction"].(string)
-			// 从切片中移除该 tag
-			tags[i] = tags[len(tags)-1]
-			_ = tags[:len(tags)-1]
-			return
-		}
-	}
-	return "", ""
-}
-
 func worldTags(tags []content.ServerTag) []TagInstance {
 	result := make([]TagInstance, 0, len(tags))
 	for _, tag := range tags {
 		if tag.Exit != nil {
-			// tag.exit 由 extractExitFromTags 在 NewFromSnapshot 中处理，这里跳过
+			// tag.exit 由 NewFromSnapshot 的内联逻辑处理，这里跳过
 			continue
 		}
 		if tag.Carryable {
@@ -297,13 +280,6 @@ func worldTags(tags []content.ServerTag) []TagInstance {
 		if tag.Lockable != nil {
 			result = append(result, TagInstance{DefinitionID: "tag.lockable", Params: map[string]any{"key_item_id": string(tag.Lockable.KeyItemID)}})
 			continue
-		}
-		if tag.GenericID != "" {
-			params := make(map[string]any, len(tag.GenericParams))
-			for k, v := range tag.GenericParams {
-				params[k] = v
-			}
-			result = append(result, TagInstance{DefinitionID: TagID(tag.GenericID), Params: params})
 		}
 	}
 	return result

@@ -30,6 +30,9 @@ func NewEntityStore() *EntityStore {
 // Add 将实体加入存储，并构建 tag 索引。
 // 如果已存在同名实体则覆盖。
 func (s *EntityStore) Add(entity *Entity) {
+	if existing := s.entities[entity.ID]; existing != nil {
+		s.deindexTags(existing.ID, existing.Tags)
+	}
 	s.entities[entity.ID] = entity
 	s.indexTags(entity)
 }
@@ -39,7 +42,13 @@ func (s *EntityStore) Remove(id EntityID) {
 	if entity == nil {
 		return
 	}
-	for _, t := range entity.Tags {
+	s.deindexTags(id, entity.Tags)
+	s.RemoveFromRoom(id)
+	delete(s.entities, id)
+}
+
+func (s *EntityStore) deindexTags(id EntityID, tags []TagInstance) {
+	for _, t := range tags {
 		if set, ok := s.tagIndex[t.DefinitionID]; ok {
 			delete(set, id)
 			if len(set) == 0 {
@@ -47,8 +56,6 @@ func (s *EntityStore) Remove(id EntityID) {
 			}
 		}
 	}
-	s.RemoveFromRoom(id)
-	delete(s.entities, id)
 }
 
 // Get 返回指定 ID 的实体指针；不存在时返回 nil。
