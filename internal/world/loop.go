@@ -142,11 +142,16 @@ func resolveMoveEntity(l *Loop, ctx *AttemptContext) []*Entity {
 	roomID := l.world.PlayerCurrentRoom(ctx.PlayerID)
 	for _, eid := range l.world.exitItemIDs(roomID) {
 		ed := l.world.store.Exit(eid)
-		if ed != nil && ed.Direction == ctx.Input {
+		if ed == nil {
+			continue
+		}
+		if ed.Direction == ctx.Input {
 			if ent := l.world.store.Get(eid); ent != nil {
 				return []*Entity{ent}
 			}
 		}
+		if ent := l.world.store.Get(eid); ent != nil && ent.matchesPhrase(eid, ctx.Input) {
+			return []*Entity{ent}
 		}
 	}
 	return nil

@@ -226,6 +226,7 @@ func NewFromSnapshot(snapshot content.ServerSnapshot, catalog content.ClientCata
 			w.store.Add(&Entity{
 				ID: entityID, InnerName: innerName, NameKey: string(nameKey), DescriptionKey: string(descriptionKey),
 				Name: catalog.Text[nameKey], Description: catalog.Text[descriptionKey],
+				Tags: tags,
 				Exit: &ExitData{Direction: exitDir, TargetRoomID: EntityID(exitTarget)},
 			})
 		} else {

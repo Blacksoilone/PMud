@@ -900,20 +900,25 @@ func TestContainer_GetRejectsVolumeOverflow(t *testing.T) {
 	w := New()
 	playerID := PlayerID("test")
 	w.EnterWorld(playerID)
-	w.players[playerID] = PlayerEntity{RoomID: w.PlayerCurrentRoom(playerID), MaxVolume: 1, MaxWeight: 1}
-	w.items["item.box"] = Item{
-		Name: "箱子",
-		Tags: []TagInstance{{DefinitionID: "tag.container", Params: map[string]any{"capacity": 2}}},
+	playerData := w.store.Player(playerID)
+	if playerData != nil {
+		playerData.MaxVolume = 1
+		playerData.MaxWeight = 1
 	}
-	w.itemLocations["item.box"] = RoomItemLocation{RoomID: w.PlayerCurrentRoom(playerID)}
+	w.store.Add(&Entity{
+		ID: "item.box", Name: "箱子",
+		Tags: []TagInstance{{DefinitionID: "tag.container", Params: map[string]any{"capacity": 2}}},
+		Item: &ItemData{},
+	})
+	w.store.PlaceInRoom("item.box", w.PlayerCurrentRoom(playerID))
 	w.OpenContainer("item.box")
-	w.items["item.stone"] = Item{Name: "石头", Volume: 2, Weight: 10}
-	w.itemLocations["item.stone"] = ContainerItemLocation{ContainerID: ItemContainerID("item.box")}
+	w.store.Add(&Entity{ID: "item.stone", Name: "石头", Item: &ItemData{Volume: 2, Weight: 10}})
+	w.containerContents[ItemContainerID("item.box")] = append(w.containerContents[ItemContainerID("item.box")], "item.stone")
 
 	if err := w.GetItemFromContainer("item.box", "item.stone", playerID); err == nil {
 		t.Fatal("expected volume overflow to reject container pickup")
 	}
-	if got := w.itemsInContainer(ItemContainerID("item.box")); len(got) != 1 || got[0] != "item.stone" {
+	if got := w.containerContents[ItemContainerID("item.box")]; len(got) != 1 || got[0] != "item.stone" {
 		t.Fatalf("container contents = %v, want stone retained", got)
 	}
 }

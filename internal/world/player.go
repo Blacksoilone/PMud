@@ -60,11 +60,17 @@ func (w *World) MovePlayer(playerID EntityID, direction string) (EntityID, bool)
 	}
 	for _, eid := range w.store.EntitiesInRoom(roomID) {
 		ed := w.store.Exit(eid)
-		if ed == nil || ed.Direction != direction {
+		if ed == nil {
 			continue
 		}
-		w.store.PlaceInRoom(playerID, ed.TargetRoomID)
-		return ed.TargetRoomID, true
+		if ed.Direction == direction {
+			w.store.PlaceInRoom(playerID, ed.TargetRoomID)
+			return ed.TargetRoomID, true
+		}
+		if ent := w.store.Get(eid); ent != nil && ent.matchesPhrase(eid, direction) {
+			w.store.PlaceInRoom(playerID, ed.TargetRoomID)
+			return ed.TargetRoomID, true
+		}
 	}
 	return roomID, false
 }
